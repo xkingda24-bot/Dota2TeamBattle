@@ -96,12 +96,34 @@
       <view class="tag {{status === 'done' ? 'tag-green' : 'tag-blue'}}">{{status === 'done' ? '已结束' : '待打'}}</view>
     </view>
     <view class="vs-row">
-      <view class="team {{status === 'done' && winner === teamAInfo.openid ? 'team-win' : ''}}">{{displayA}}</view>
+      <view class="team-col">
+        <view class="team {{status === 'done' && winner === teamAInfo.openid ? 'team-win' : ''}}">{{displayA}}</view>
+        <view class="team-info-btn" wx:if="{{membersA}}" bindtap="toggleTeam" data-id="{{id}}" data-side="A">队员信息 {{expandedA ? '收起' : '展开'}}</view>
+        <view class="team-members" wx:if="{{expandedA && membersA}}">
+          <view class="member" wx:for="{{membersA}}" wx:key="openid">
+            <view class="member-name">{{item.nickname}}<text wx:if="{{item.isCaptain}}" class="member-captain">队长</text></view>
+            <view class="member-line">天梯：{{item.mmr ? item.mmr : '未填'}}</view>
+            <view class="member-line" wx:if="{{item.rolesText}}">位置：{{item.rolesText}}</view>
+            <view class="member-line" wx:if="{{item.signature}}">签名：{{item.signature}}</view>
+          </view>
+        </view>
+      </view>
       <view class="vs-center">
         <view class="score" wx:if="{{status === 'done'}}">{{scoreA}} : {{scoreB}}</view>
         <view class="vs-text" wx:else>VS</view>
       </view>
-      <view class="team {{status === 'done' && winner === teamBInfo.openid ? 'team-win' : ''}}">{{displayB}}</view>
+      <view class="team-col">
+        <view class="team {{status === 'done' && winner === teamBInfo.openid ? 'team-win' : ''}}">{{displayB}}</view>
+        <view class="team-info-btn" wx:if="{{membersB}}" bindtap="toggleTeam" data-id="{{id}}" data-side="B">队员信息 {{expandedB ? '收起' : '展开'}}</view>
+        <view class="team-members" wx:if="{{expandedB && membersB}}">
+          <view class="member" wx:for="{{membersB}}" wx:key="openid">
+            <view class="member-name">{{item.nickname}}<text wx:if="{{item.isCaptain}}" class="member-captain">队长</text></view>
+            <view class="member-line">天梯：{{item.mmr ? item.mmr : '未填'}}</view>
+            <view class="member-line" wx:if="{{item.rolesText}}">位置：{{item.rolesText}}</view>
+            <view class="member-line" wx:if="{{item.signature}}">签名：{{item.signature}}</view>
+          </view>
+        </view>
+      </view>
     </view>
     <view class="row admin-row" wx:if="{{showAdmin && status !== 'done'}}">
       <picker mode="selector" range="{{boRange}}" value="{{boIndex}}" bindchange="onBoChange" data-id="{{id}}">

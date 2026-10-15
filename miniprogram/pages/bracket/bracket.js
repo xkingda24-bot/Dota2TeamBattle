@@ -58,13 +58,68 @@ Page({
     return api
       .call('tournament', data)
       .then((t) => {
-        const matches = (t.matches || []).map((m) =>
-          Object.assign({}, m, {
+        // 队伍 openid 形如 'T0'、'T1'…（按 seeding 排序后的落位），反查回 teams 拿队员信息
+        const teamMap = {};
+        const seeding = Array.isArray(t.seeding) && t.seeding.length === t.N ? t.seeding : (t.teams || []).map((_, i) => i);
+        (t.teams || []).forEach((tm, i) => {
+          const slot = seeding.indexOf(i);
+          if (slot >= 0) teamMap['T' + slot] = tm;
+        });
+        const regMap = {};
+        (t.registrations || []).forEach((r) => (regMap[r.openid] = r));
+        const fmtRoles = (roles) =>
+          Array.isArray(roles) && roles.length ? roles.map((x) => x + '号位').join('、') : '';
+        const buildMembers = (tm) => {
+          if (!tm) return null;
+          const list = [];
+          const capObj = tm.captain && typeof tm.captain === 'object' ? tm.captain : regMap[tm.captain] || null;
+          if (capObj) {
+            list.push({
+              openid: capObj.openid || '',
+              nickname: capObj.nickname || '队长',
+              mmr: capObj.mmr,
+              rolesText: fmtRoles(capObj.roles),
+              signature: capObj.signature || '',
+              isCaptain: true,
+            });
+          }
+          (tm.players || []).forEach((p) => {
+            const r = p && typeof p === 'object' ? p : regMap[p] || { openid: p, nickname: '队员' };
+            list.push({
+              openid: r.openid || '',
+              nickname: r.nickname || '队员',
+              mmr: r.mmr,
+              rolesText: fmtRoles(r.roles),
+              signature: r.signature || '',
+              isCaptain: false,
+            });
+          });
+          return list;
+        };
+        // 轮询刷新时保留已展开的抽屉状态
+        const prevMatches = (this.data.ubMatches || [])
+          .concat(this.data.lbMatches || [])
+          .concat(this.data.gf ? [this.data.gf] : []);
+        const prevExp = {};
+        prevMatches.forEach((m) => {
+          if (m) {
+            prevExp[m.id + ':A'] = m.expandedA;
+            prevExp[m.id + ':B'] = m.expandedB;
+          }
+        });
+        const matches = (t.matches || []).map((m) => {
+          const a = teamMap[m.teamAInfo ? m.teamAInfo.openid : ''];
+          const b = teamMap[m.teamBInfo ? m.teamBInfo.openid : ''];
+          return Object.assign({}, m, {
             boRange: BO_LIST,
             boIndex: Math.max(0, BO_LIST.indexOf(m.bo)),
             showAdmin: t.isAdmin,
-          })
-        );
+            membersA: buildMembers(a),
+            membersB: buildMembers(b),
+            expandedA: !!prevExp[m.id + ':A'],
+            expandedB: !!prevExp[m.id + ':B'],
+          });
+        });
         const ubMatches = matches.filter((m) => m.stage === 'upper');
         const lbMatches = matches.filter((m) => m.stage === 'lower');
         const gf = matches.find((m) => m.isChampionMatch) || null;
@@ -141,6 +196,27 @@ Page({
         }
       },
     });
+  },
+
+  /* ---------- 队伍抽屉 ---------- */
+  toggleTeam(e) {
+    const id = Number(e.currentTarget.dataset.id);
+    const side = e.currentTarget.dataset.side; // 'A' | 'B'
+    const key = side === 'A' ? 'expandedA' : 'expandedB';
+    const flip = (arr, arrName) => {
+      const i = arr.findIndex((m) => m.id === id);
+      if (i < 0) return false;
+      const next = arr.slice();
+      next[i] = Object.assign({}, next[i], { [key]: !next[i][key] });
+      this.setData({ [arrName]: next });
+      return true;
+    };
+    if (flip(this.data.ubMatches, 'ubMatches')) return;
+    if (flip(this.data.lbMatches, 'lbMatches')) return;
+    const gf = this.data.gf;
+    if (gf && gf.id === id) {
+      this.setData({ gf: Object.assign({}, gf, { [key]: !gf[key] }) });
+    }
   },
 
   /* ---------- 赛制与结果（管理员） ---------- */
