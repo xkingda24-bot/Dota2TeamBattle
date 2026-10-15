@@ -942,9 +942,9 @@ const actions = {
     return ok(true);
   },
 
-  /* 生成虚拟测试用户并报名（仅最高管理员；用于自测完整流程） */
+  /* 生成虚拟测试用户并报名（管理员；用于自测完整流程） */
   async seedTest(event) {
-    if (!(await isSuper(getOpenId()))) return fail('仅最高管理员可生成测试数据');
+    if (!(await isAdminUser())) return fail('仅管理员可生成测试数据');
     let t = null;
     if (event.id) {
       t = await getTournamentById(event.id);
