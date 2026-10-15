@@ -106,7 +106,7 @@
     </view>
     <view class="row admin-row" wx:if="{{showAdmin && status !== 'done'}}">
       <picker mode="selector" range="{{boRange}}" value="{{boIndex}}" bindchange="onBoChange" data-id="{{id}}">
-        <view class="picker-sm">赛制 {{bo}}</view>
+        <view class="picker-sm">赛制设置：{{bo}}</view>
       </picker>
       <view class="spacer"></view>
       <view class="btn-small" data-id="{{id}}" bindtap="recordResult">记录胜负</view>
