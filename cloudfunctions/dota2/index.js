@@ -56,8 +56,12 @@ function shuffle(arr) {
 }
 
 async function getUser(openid) {
+  if (!openid) return null;
+  // 云函数端创建的记录不会自动带 _openid（管理端行为），先按 _openid 查，再按显式 openid 字段查
   const res = await db.collection('users').where({ _openid: openid }).limit(1).get();
-  return res.data && res.data.length ? res.data[0] : null;
+  if (res.data && res.data.length) return res.data[0];
+  const res2 = await db.collection('users').where({ openid }).limit(1).get();
+  return res2.data && res2.data.length ? res2.data[0] : null;
 }
 
 async function getTournamentById(id) {
@@ -180,6 +184,8 @@ async function composeTournament(t, myOpenid) {
     K: t.K,
     status: t.status,
     champion: t.champion || null,
+    creatorName: t.creatorName || '',
+    secret: admin ? t.secret : '', // 暗号仅管理员可见
     myOpenid,
     isAdmin: admin,
     isSuper: superFlag,
@@ -199,7 +205,7 @@ async function composeTournament(t, myOpenid) {
 }
 
 /* 比赛列表摘要 */
-function summarize(t) {
+function summarize(t, myOpenid) {
   const caps = (t.registrations || []).filter((r) => r.role === 'captain').length;
   const players = (t.registrations || []).filter((r) => r.role === 'player').length;
   return {
@@ -214,8 +220,10 @@ function summarize(t) {
     playerFilled: players,
     playerTotal: t.N * t.K,
     champion: t.champion || null,
+    creatorName: t.creatorName || '',
     createdAt: t.createdAt,
     archivedAt: t.archivedAt || null,
+    meRegistered: myOpenid ? (t.registrations || []).some((r) => r.openid === myOpenid) : false,
   };
 }
 
@@ -247,8 +255,8 @@ const actions = {
       isAdmin: isAdminFlag,
       isSuper: isSuperFlag,
       hasSuper: !!cfg.superAdmin,
-      today: (todayRes.data || []).map(summarize),
-      older: (olderRes.data || []).map(summarize),
+      today: (todayRes.data || []).map((t) => summarize(t, openid)),
+      older: (olderRes.data || []).map((t) => summarize(t, openid)),
     });
   },
 
@@ -258,16 +266,22 @@ const actions = {
     const nickname = String(event.nickname || '').trim();
     if (!nickname) return fail('昵称不能为空');
     if (nickname.length > 20) return fail('昵称最多 20 个字');
+    // 按昵称查重（兼容旧记录：无 _openid 时以显式 openid 字段判断归属）
     const dup = await db.collection('users').where({ nickname }).limit(1).get();
-    if (dup.data && dup.data.length && dup.data[0]._openid !== openid) {
-      return fail('该昵称已被使用，请换一个');
+    let target = null;
+    if (dup.data && dup.data.length) {
+      const dupOwner = dup.data[0].openid || dup.data[0]._openid || '';
+      if (dupOwner && dupOwner !== openid) return fail('该昵称已被使用，请换一个');
+      target = dup.data[0];
     }
-    const me = await getUser(openid);
-    if (me) {
-      await db.collection('users').doc(me._id).update({ data: { nickname, updatedAt: Date.now() } });
+    if (target) {
+      // 补全 openid 字段（兼容旧记录），并更新昵称
+      await db.collection('users').doc(target._id).update({
+        data: { openid, nickname, updatedAt: Date.now() },
+      });
     } else {
       await db.collection('users').add({
-        data: { nickname, createdAt: Date.now(), updatedAt: Date.now() },
+        data: { openid, nickname, createdAt: Date.now(), updatedAt: Date.now() },
       });
     }
     return ok({ nickname });
@@ -298,6 +312,7 @@ const actions = {
       members.push({ openid: id, nickname: u ? u.nickname : '未设置昵称' });
     }
     return ok({
+      user: await getUser(openid),
       superAdminOpenid: cfg.superAdmin,
       superAdmin: members.find((m) => m.openid === cfg.superAdmin) || null,
       admins: members.filter((m) => m.openid !== cfg.superAdmin),
@@ -315,10 +330,12 @@ const actions = {
     const res = await db.collection('users').where({ nickname }).limit(1).get();
     if (!res.data || !res.data.length) return fail('没有找到昵称为「' + nickname + '」的用户（对方需先设置昵称）');
     const target = res.data[0];
-    if (target._openid === openid) return fail('你已经是最高管理员');
+    const targetOpenid = target.openid || target._openid || '';
+    if (!targetOpenid) return fail('无法识别该用户的身份，请让对方重新设置一次昵称');
+    if (targetOpenid === openid) return fail('你已经是最高管理员');
     const cfg = await getAdminsConfig();
-    if ((cfg.admins || []).indexOf(target._openid) >= 0) return fail('该用户已是管理员');
-    const admins = (cfg.admins || []).concat([target._openid]);
+    if ((cfg.admins || []).indexOf(targetOpenid) >= 0) return fail('该用户已是管理员');
+    const admins = (cfg.admins || []).concat([targetOpenid]);
     await db.collection('config').doc(cfg._id).update({ data: { admins } });
     return ok(true);
   },
@@ -372,6 +389,33 @@ const actions = {
       },
     });
     return ok({ id: res._id });
+  },
+
+  /* 管理员：修改报名阶段的比赛配置（名称/时间/暗号/队长数/队友数） */
+  async updateConfig(event) {
+    if (!(await isAdminUser())) return fail('只有管理员可以修改配置');
+    const t = await getTournamentById(event.id);
+    if (!t) return fail('比赛不存在');
+    if (t.status !== 'registration') return fail('只有报名阶段可以修改配置');
+    const name = String(event.name || '').trim();
+    const time = String(event.time || '').trim();
+    const secret = String(event.secret || '').trim();
+    const N = Number(event.N);
+    const K = Number(event.K);
+    if (!name) return fail('请填写比赛名称');
+    if (!secret) return fail('请设置报名暗号');
+    if (secret.length > 20) return fail('暗号最多 20 个字');
+    if (N < 2 || N > MAX_N) return fail('队长数量需在 2-' + MAX_N + ' 之间');
+    if (K < 1 || K > MAX_K) return fail('每个队长选队友数量需在 1-' + MAX_K + ' 之间');
+    // 名额不能小于已报名人数
+    const captains = (t.registrations || []).filter((r) => r.role === 'captain').length;
+    const players = (t.registrations || []).filter((r) => r.role === 'player').length;
+    if (N < captains) return fail('已有 ' + captains + ' 位队长报名，队长数不能小于 ' + captains);
+    if (N * K < players) return fail('队员名额不能小于已报名人数（当前已报 ' + players + ' 人）');
+    await db.collection('tournaments').doc(t._id).update({
+      data: { name, time, secret, N, K, updatedAt: Date.now() },
+    });
+    return ok({});
   },
 
   /* 报名暗号校验 */

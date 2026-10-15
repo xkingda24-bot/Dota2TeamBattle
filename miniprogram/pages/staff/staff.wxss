@@ -6,7 +6,7 @@
 }
 .staff-nick {
   font-size: 30rpx;
-  color: #e8eaed;
+  color: #e8e4da;
 }
 .staff-add-row {
   margin-top: 16rpx;
@@ -16,5 +16,5 @@
   margin-right: 16rpx;
 }
 .ph {
-  color: #6b7583;
+  color: #9aa4b2;
 }

@@ -57,6 +57,7 @@
       <view class="card-title">管理员操作</view>
       <view class="sub">可代当前轮次队长选人（直接点上方「选他」）；也可重置整个选人流程</view>
       <view class="btn btn-plain" bindtap="onResetDraft">重置选人（重新随机队长顺序）</view>
+      <view class="btn btn-danger" bindtap="onDelete">删除比赛</view>
     </view>
   </block>
 

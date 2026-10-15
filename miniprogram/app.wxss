@@ -1,7 +1,7 @@
-/**app.wxss - 全局暗色主题**/
+/**app.wxss - Dota2 战队赛 全局暗色主题（The International 金/红配色）**/
 page {
-  background: #131821;
-  color: #e8eaed;
+  background: #0d1017;
+  color: #e8e4da;
   font-family: -apple-system, "PingFang SC", "Helvetica Neue", sans-serif;
   font-size: 28rpx;
 }
@@ -12,8 +12,9 @@ page {
 }
 
 .card {
-  background: #1c2430;
-  border-radius: 16rpx;
+  background: linear-gradient(180deg, #171d29 0%, #12161f 100%);
+  border: 1rpx solid rgba(224, 181, 111, 0.14);
+  border-radius: 12rpx;
   padding: 24rpx;
   margin-bottom: 20rpx;
 }
@@ -21,19 +22,21 @@ page {
 .card-title {
   font-size: 32rpx;
   font-weight: 600;
-  color: #f0f2f5;
+  color: #e8c27c;
   margin-bottom: 12rpx;
+  letter-spacing: 1rpx;
 }
 
 .section {
   margin: 30rpx 8rpx 16rpx;
-  font-size: 30rpx;
+  font-size: 28rpx;
   font-weight: 600;
-  color: #cfd6df;
+  color: #d9c089;
+  letter-spacing: 2rpx;
 }
 
 .sub {
-  color: #9aa4b2;
+  color: #98a0ab;
   font-size: 24rpx;
 }
 
@@ -48,23 +51,24 @@ page {
 
 .divider {
   height: 1rpx;
-  background: #2a3542;
+  background: rgba(224, 181, 111, 0.1);
   margin: 16rpx 0;
 }
 
 .empty {
   text-align: center;
-  color: #6b7583;
+  color: #6d7480;
   padding: 60rpx 0;
   font-size: 26rpx;
 }
 
 /* 按钮 */
 .btn {
-  background: #ff6b35;
-  color: #fff;
-  border-radius: 12rpx;
+  background: linear-gradient(135deg, #e5b96f, #b98a3e);
+  color: #241a08;
+  border-radius: 10rpx;
   font-size: 30rpx;
+  font-weight: 600;
   padding: 18rpx 0;
   text-align: center;
   line-height: 1.4;
@@ -74,15 +78,16 @@ page {
   border: none;
 }
 .btn-plain {
-  background: #2a3542;
-  color: #e8eaed;
+  background: #1a2130;
+  color: #dcd6c8;
+  border: 1rpx solid rgba(224, 181, 111, 0.28);
 }
 .btn-disabled {
-  background: #2a3542;
-  color: #6b7583;
+  background: #232a38;
+  color: #6d7480;
 }
 .btn-danger {
-  background: #b3372e;
+  background: linear-gradient(135deg, #d1543f, #a52f22);
   color: #fff;
 }
 .btn-small {
@@ -92,16 +97,17 @@ page {
   border-radius: 8rpx;
   margin: 0;
   line-height: 1.6;
-  background: #ff6b35;
-  color: #fff;
+  background: linear-gradient(135deg, #e5b96f, #b98a3e);
+  color: #241a08;
 }
 .btn-small.btn-plain {
-  background: #2a3542;
-  color: #e8eaed;
+  background: #1a2130;
+  color: #dcd6c8;
+  border: 1rpx solid rgba(224, 181, 111, 0.28);
 }
 .btn-small.btn-danger {
-  background: #8e2f27;
-  color: #ffd9d5;
+  background: linear-gradient(135deg, #d1543f, #a52f22);
+  color: #ffdcd5;
 }
 
 /* 标签 */
@@ -113,28 +119,29 @@ page {
   margin-left: 12rpx;
 }
 .tag-red {
-  background: rgba(255, 107, 53, 0.16);
-  color: #ff8a5c;
-}
-.tag-green {
-  background: rgba(46, 204, 113, 0.15);
-  color: #57d68d;
+  background: rgba(224, 181, 111, 0.16);
+  color: #e8c27c;
 }
 .tag-blue {
-  background: rgba(52, 152, 219, 0.15);
-  color: #5dade2;
+  background: rgba(132, 162, 210, 0.16);
+  color: #a5b9dd;
+}
+.tag-green {
+  background: rgba(46, 180, 120, 0.14);
+  color: #5fd08e;
 }
 .tag-gray {
   background: rgba(255, 255, 255, 0.08);
-  color: #9aa4b2;
+  color: #98a0ab;
 }
 
-/* 输入框 */
+/* 输入框 / 选择器 */
 .input {
-  background: #242f3d;
+  background: #1a2130;
+  border: 1rpx solid rgba(224, 181, 111, 0.12);
   border-radius: 10rpx;
   padding: 16rpx 20rpx;
-  color: #e8eaed;
+  color: #e8e4da;
   font-size: 28rpx;
   width: 100%;
   box-sizing: border-box;
@@ -142,4 +149,9 @@ page {
 
 .mono {
   font-family: Menlo, Consolas, monospace;
+}
+
+/* 输入框占位文字（统一调亮，深色背景上清晰可见） */
+.ph {
+  color: #9aa4b2;
 }

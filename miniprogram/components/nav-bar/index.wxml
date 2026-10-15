@@ -1,11 +1,10 @@
 <!--components/nav-bar/index.wxml-->
 <view class="nav-wrap" style="padding-top: {{statusBarHeight}}px; height: {{navHeight}}px;">
   <view class="nav-left" wx:if="{{showHome}}" bindtap="goHome" hover-class="nav-hover">
-    <image class="nav-home-icon" src="/images/icons/home.png" mode="aspectFit"></image>
     <text class="nav-home-text">主页</text>
   </view>
   <view class="nav-title">{{title}}</view>
-  <view class="nav-right" bindtap="goStaff" hover-class="nav-hover">
-    <text class="nav-staff-text">管理员</text>
+  <view class="nav-right" style="margin-right: {{capsuleRight}}px;" bindtap="goStaff" hover-class="nav-hover">
+    <text class="nav-staff-text">我的</text>
   </view>
 </view>

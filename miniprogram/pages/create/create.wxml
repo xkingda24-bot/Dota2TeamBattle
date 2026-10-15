@@ -1,5 +1,5 @@
-<!--pages/create/create.wxml - 创建比赛-->
-<nav-bar title="创建比赛" />
+<!--pages/create/create.wxml - 创建比赛 / 修改配置-->
+<nav-bar title="{{editMode ? '修改配置' : '创建比赛'}}" />
 <view class="container">
   <view class="card">
     <view class="card-title">比赛信息</view>
@@ -40,8 +40,9 @@
       </picker>
     </view>
     <view class="divider"></view>
+    <view class="sub" wx:if="{{editMode}}">修改后名额按新配置计算（不能小于已报名人数）；已报名的用户不受影响。</view>
     <view class="sub">报名名额：{{N}} 个队长 + {{N * K}} 个队员，共 {{N * (K + 1)}} 人。选人蛇形共 {{K}} 轮；赛程按 {{N}} 队双败淘汰自动生成（TI 国际邀请赛赛制）。</view>
   </view>
 
-  <view class="btn {{submitting ? 'btn-disabled' : ''}}" bindtap="submit">{{submitting ? '创建中...' : '创建比赛并进入报名'}}</view>
+  <view class="btn {{submitting ? 'btn-disabled' : ''}}" bindtap="submit">{{submitting ? '保存中...' : editMode ? '保存修改' : '创建比赛并进入报名'}}</view>
 </view>

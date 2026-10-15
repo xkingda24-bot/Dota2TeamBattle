@@ -1,19 +1,17 @@
 <!--pages/index/index.wxml - 主页-->
 <nav-bar title="Dota2 战队赛" />
 <view class="container">
-  <!-- 我的资料 -->
-  <view class="card row">
-    <view>
-      <view class="card-title">{{user ? user.nickname : '未设置昵称'}}</view>
-      <view class="sub">微信自动登录 · 右上角可查看管理员名单</view>
-    </view>
-    <view class="spacer"></view>
-    <view class="btn-small btn-plain" bindtap="onEditNickname">{{user ? '改昵称' : '设置昵称'}}</view>
+  <!-- 顶部横幅 -->
+  <view class="hero">
+    <image class="hero-bg" src="/images/ti-banner.png" mode="aspectFill"></image>
+    <view class="hero-scrim"></view>
+    <view class="hero-title">DOTA2 战队赛</view>
+    <view class="hero-sub">THE INTERNATIONAL · 群内赛 · 报名 / 选人 / 赛程全自动</view>
   </view>
 
   <!-- 超管未初始化提示 -->
   <view wx:if="{{!hasSuper}}" class="card tip-card">
-    <view class="tip-text">系统尚未初始化最高管理员：请点右上角「管理员」，第一位初始化者将成为最高管理员（可添加/移除管理员）。</view>
+    <view class="tip-text">系统尚未初始化最高管理员：请点右上角「我的」，第一位初始化者将成为最高管理员（可添加/移除管理员）。</view>
   </view>
 
   <!-- 创建比赛（仅管理员） -->
@@ -30,14 +28,14 @@
   </view>
 
   <!-- 今天的比赛 -->
-  <view class="section">今天的比赛（{{today.length}}）</view>
+  <view class="section">今天的比赛（{{today.length}}）<text wx:if="{{isAdmin}}" class="section-hint"> · 长按卡片可删除</text></view>
   <view wx:if="{{today.length === 0}}" class="empty">今天还没有创建比赛</view>
-  <view class="card" wx:for="{{today}}" wx:key="id" data-index="{{index}}" bindtap="goTournament">
+  <view class="card" wx:for="{{today}}" wx:key="id" data-index="{{index}}" bindtap="goTournament" bindlongpress="onLongPressTournament">
     <view class="row">
       <view class="card-title">{{item.name}}</view>
       <view class="tag {{item.status === 'registration' ? 'tag-blue' : item.status === 'draft' ? 'tag-red' : item.status === 'battle' ? 'tag-green' : 'tag-gray'}}">{{item.phaseText}}</view>
     </view>
-    <view class="sub">时间：{{item.time}} · {{item.N}} 队</view>
+    <view class="sub">时间：{{item.time}} · {{item.N}} 队<text wx:if="{{item.creatorName}}"> · 创建人：{{item.creatorName}}</text></view>
     <view class="divider"></view>
     <view class="row">
       <view class="progress-item">
@@ -64,3 +62,30 @@
     <view class="btn-small btn-plain">进入</view>
   </view>
 </view>
+
+<!-- 暗号验证弹窗 -->
+<view class="mask" wx:if="{{secretModal}}" bindtap="onCloseSecret">
+  <view class="panel" catchtap="noop">
+    <view class="panel-title">输入报名暗号</view>
+    <view class="panel-sub">{{secretTargetName}}</view>
+    <input class="input secret-input" placeholder="请输入暗号" placeholder-class="ph" value="{{secretInput}}" bindinput="onSecretInput" />
+    <view class="panel-btns">
+      <view class="panel-btn btn-plain" bindtap="onCloseSecret">取消</view>
+      <view class="panel-btn btn" bindtap="onConfirmSecret">{{secretChecking ? '验证中…' : '确认'}}</view>
+    </view>
+  </view>
+</view>
+
+<!-- 昵称设置弹窗 -->
+<view class="mask" wx:if="{{nickModal}}" bindtap="onCloseNick">
+  <view class="panel" catchtap="noop">
+    <view class="panel-title">设置你的昵称</view>
+    <view class="panel-sub">报名、选人时其他群友看到的名称</view>
+    <input class="input nick-input" placeholder="请输入昵称" placeholder-class="ph" value="{{nickInput}}" bindinput="onNickInput" />
+    <view class="panel-btns">
+      <view class="panel-btn btn-plain" bindtap="onCloseNick">稍后再说</view>
+      <view class="panel-btn btn" bindtap="onConfirmNick">{{nickSaving ? '保存中…' : '保存'}}</view>
+    </view>
+  </view>
+</view>
+

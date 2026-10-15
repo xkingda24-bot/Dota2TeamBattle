@@ -1,9 +1,10 @@
-// pages/staff/staff.js - 管理员名单（所有用户可看；超管可管理）
+// pages/staff/staff.js - 我的（资料 + 管理员名单；所有用户可看，超管可管理）
 const api = require('../../utils/api');
 
 Page({
   data: {
     loading: true,
+    user: null,
     superAdmin: null,
     admins: [],
     isAdmin: false,
@@ -21,6 +22,7 @@ Page({
       .call('getStaff')
       .then((d) => {
         this.setData({
+          user: d.user,
           superAdmin: d.superAdmin,
           admins: d.admins || [],
           isAdmin: !!d.isAdmin,
@@ -32,6 +34,25 @@ Page({
         this.setData({ loading: false });
         wx.showToast({ title: e.message, icon: 'none' });
       });
+  },
+
+  onEditNickname() {
+    wx.showModal({
+      title: this.data.user ? '修改昵称' : '设置昵称',
+      editable: true,
+      placeholderText: this.data.user ? this.data.user.nickname : '输入你的昵称',
+      success: (res) => {
+        if (res.confirm && res.content) {
+          api
+            .call('saveProfile', { nickname: res.content.trim() })
+            .then(() => {
+              wx.showToast({ title: '已保存', icon: 'success' });
+              this.load();
+            })
+            .catch((e) => wx.showToast({ title: e.message, icon: 'none' }));
+        }
+      },
+    });
   },
 
   onAddInput(e) {

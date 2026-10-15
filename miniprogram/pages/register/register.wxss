@@ -5,25 +5,25 @@
 .progress-item .num {
   font-size: 36rpx;
   font-weight: 600;
-  color: #ff8a5c;
+  color: #e8c27c;
 }
 .tab {
   padding: 8rpx 20rpx;
   font-size: 28rpx;
-  color: #9aa4b2;
+  color: #98a0ab;
   border-radius: 8rpx;
   margin-right: 12rpx;
 }
 .tab-active {
-  background: rgba(255, 107, 53, 0.16);
-  color: #ff8a5c;
+  background: rgba(224, 181, 111, 0.16);
+  color: #e8c27c;
 }
 .reg-row {
   padding: 14rpx 4rpx;
 }
 .nick {
   font-size: 28rpx;
-  color: #e8eaed;
+  color: #e8e4da;
 }
 .secret-row {
   margin-top: 16rpx;
@@ -33,5 +33,5 @@
   margin-right: 16rpx;
 }
 .ph {
-  color: #6b7583;
+  color: #9aa4b2;
 }

@@ -137,6 +137,28 @@ Page({
     });
   },
 
+  onDelete() {
+    const t = this.data.t;
+    if (!t) return;
+    wx.showModal({
+      title: '删除比赛',
+      content: '将永久删除「' + t.name + '」的全部数据（报名/选人/赛程），不可恢复！确定删除？',
+      confirmText: '删除',
+      confirmColor: '#e5484d',
+      success: (res) => {
+        if (res.confirm) {
+          api
+            .call('deleteTournament', { id: t.id })
+            .then(() => {
+              wx.showToast({ title: '已删除', icon: 'success' });
+              setTimeout(() => wx.reLaunch({ url: '/pages/index/index' }), 600);
+            })
+            .catch((err) => wx.showToast({ title: err.message, icon: 'none' }));
+        }
+      },
+    });
+  },
+
   goBack() {
     wx.navigateBack();
   },
