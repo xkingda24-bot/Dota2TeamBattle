@@ -287,22 +287,36 @@ const actions = {
     // 个人签名（选填，不超过 15 个字）
     const signature = String(event.signature || '').trim();
     if (signature.length > 15) return fail('个人签名最多 15 个字');
-    // 按昵称查重（兼容旧记录：无 _openid 时以显式 openid 字段判断归属）
+
+    // 先定位自己的记录（兼容：老记录只有 _openid，新记录有显式 openid 字段）
+    const me = await getUser(openid);
+
+    // 新昵称查重：仅当该昵称属于"别人"时拒绝（自己当前昵称、自己的旧记录不算）
     const dup = await db.collection('users').where({ nickname }).limit(1).get();
-    let target = null;
     if (dup.data && dup.data.length) {
-      const dupOwner = dup.data[0].openid || dup.data[0]._openid || '';
-      if (dupOwner && dupOwner !== openid) return fail('该昵称已被使用，请换一个');
-      target = dup.data[0];
+      const dupRec = dup.data[0];
+      const dupOwner = dupRec.openid || dupRec._openid || '';
+      const isSelf = me ? dupRec._id === me._id : dupOwner === openid;
+      if (!isSelf && dupOwner && dupOwner !== openid) return fail('该昵称已被使用，请换一个');
     }
-    if (target) {
-      // 补全 openid 字段（兼容旧记录），并更新资料
-      await db.collection('users').doc(target._id).update({
-        data: { openid, nickname, mmr, roles, signature, updatedAt: Date.now() },
-      });
+
+    const data = { openid, nickname, mmr, roles, signature, updatedAt: Date.now() };
+    if (me) {
+      // 更新自己的记录（改昵称 = 更新，不再新增）
+      await db.collection('users').doc(me._id).update({ data });
+      // 清理同 openid 的历史重复记录（只保留 me._id 这条），修复旧 bug 产生的孤儿数据
+      const dupRes = await db.collection('users').where({ openid }).get();
+      const dels = (dupRes.data || []).filter((r) => r._id !== me._id);
+      for (const r of dels) {
+        try {
+          await db.collection('users').doc(r._id).remove();
+        } catch (e) {
+          /* 忽略并发删除 */
+        }
+      }
     } else {
       await db.collection('users').add({
-        data: { openid, nickname, mmr, roles, signature, createdAt: Date.now(), updatedAt: Date.now() },
+        data: Object.assign({}, data, { createdAt: Date.now() }),
       });
     }
     return ok({ nickname, mmr, roles, signature });
