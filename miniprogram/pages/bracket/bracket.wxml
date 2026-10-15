@@ -93,7 +93,6 @@
     <view class="row">
       <view class="match-label">{{label}}</view>
       <view class="spacer"></view>
-      <view class="tag tag-gray">{{bo}}</view>
       <view class="tag {{status === 'done' ? 'tag-green' : 'tag-blue'}}">{{status === 'done' ? '已结束' : '待打'}}</view>
     </view>
     <view class="vs-row">
