@@ -1006,18 +1006,20 @@ const actions = {
     const toAdd = all.filter((u) => !skip.has(u.openid));
     if (!toAdd.length) return fail('虚拟用户已全部报名过了（如需重新注入，请先删除本场比赛再重建）');
 
-    // 写入 users（仅超管可用，走显式 openid 字段）
-    for (const u of toAdd) {
-      const dup = await getUser(u.openid);
-      if (!dup) {
-        try {
-          await db
+    // 写入 users（仅超管可用，走显式 openid 字段）；并行去重查询 + 分批并行写入，避免超时
+    const dups = await Promise.all(toAdd.map((u) => getUser(u.openid)));
+    const toCreate = toAdd.filter((u, i) => !dups[i]);
+    const CHUNK = 8;
+    for (let i = 0; i < toCreate.length; i += CHUNK) {
+      const batch = toCreate.slice(i, i + CHUNK);
+      await Promise.all(
+        batch.map((u) =>
+          db
             .collection('users')
-            .add({ data: { openid: u.openid, nickname: u.nickname, mmr: u.mmr, roles: u.roles, signature: u.signature } });
-        } catch (e) {
-          /* 并发冲突忽略 */
-        }
-      }
+            .add({ data: { openid: u.openid, nickname: u.nickname, mmr: u.mmr, roles: u.roles, signature: u.signature } })
+            .catch(() => null)
+        )
+      );
     }
     const regs = toAdd.map((u) => {
       const r = {
