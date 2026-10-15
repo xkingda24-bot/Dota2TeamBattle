@@ -21,8 +21,10 @@ Page({
     admins: [],
     isAdmin: false,
     isSuper: false,
-    addNickname: '',
-    adding: false,
+    // 添加管理员：用户列表弹窗
+    userListModal: false,
+    userList: [],
+    listLoading: false,
     // 资料编辑弹窗
     profileModal: false,
     pf: { nickname: '', mmr: '', roles: [], rolesActive: [false, false, false, false, false], signature: '' },
@@ -57,6 +59,52 @@ Page({
         this.setData({ loading: false });
         wx.showToast({ title: e.message, icon: 'none' });
       });
+  },
+
+  /* ---------- 添加管理员（从用户列表选取） ---------- */
+
+  onOpenUserList() {
+    this.setData({ userListModal: true, listLoading: true, userList: [] });
+    api
+      .call('listUsers')
+      .then((d) => {
+        const users = (d.users || []).map((u) =>
+          Object.assign({}, u, {
+            mmrText: u.mmr ? '天梯 ' + u.mmr : '',
+            rolesText: fmtRoles(u.roles),
+          })
+        );
+        this.setData({ userList: users, listLoading: false });
+      })
+      .catch((e) => {
+        this.setData({ listLoading: false });
+        wx.showToast({ title: e.message, icon: 'none' });
+      });
+  },
+
+  onPickUser(e) {
+    const openid = e.currentTarget.dataset.openid;
+    const nickname = e.currentTarget.dataset.nickname;
+    wx.showModal({
+      title: '添加管理员',
+      content: '确定将 ' + nickname + ' 设为管理员吗？',
+      success: (res) => {
+        if (res.confirm) {
+          api
+            .call('addAdmin', { openid })
+            .then(() => {
+              wx.showToast({ title: '已添加管理员', icon: 'success' });
+              this.setData({ userListModal: false });
+              this.load();
+            })
+            .catch((err) => wx.showToast({ title: err.message, icon: 'none' }));
+        }
+      },
+    });
+  },
+
+  onCloseUserList() {
+    this.setData({ userListModal: false });
   },
 
   /* ---------- 资料编辑 ---------- */
@@ -153,31 +201,6 @@ Page({
   noop() {},
 
   /* ---------- 管理员 ---------- */
-
-  onAddInput(e) {
-    this.setData({ addNickname: e.detail.value });
-  },
-
-  add() {
-    if (this.data.adding) return;
-    const nickname = this.data.addNickname.trim();
-    if (!nickname) {
-      wx.showToast({ title: '请输入对方昵称', icon: 'none' });
-      return;
-    }
-    this.setData({ adding: true });
-    api
-      .call('addAdmin', { nickname })
-      .then(() => {
-        wx.showToast({ title: '已添加管理员', icon: 'success' });
-        this.setData({ addNickname: '', adding: false });
-        this.load();
-      })
-      .catch((e) => {
-        this.setData({ adding: false });
-        wx.showToast({ title: e.message, icon: 'none' });
-      });
-  },
 
   remove(e) {
     const openid = e.currentTarget.dataset.openid;

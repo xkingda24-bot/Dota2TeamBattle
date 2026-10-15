@@ -27,3 +27,25 @@
 .ph {
   color: #9aa4b2;
 }
+
+/* 用户列表弹窗 */
+.user-row {
+  display: flex;
+  align-items: center;
+  padding: 18rpx 8rpx;
+  border-bottom: 1rpx solid rgba(224, 181, 111, 0.08);
+}
+.user-row:last-child {
+  border-bottom: none;
+}
+.user-info {
+  flex: 1;
+  min-width: 0;
+}
+.user-nick {
+  font-size: 28rpx;
+  color: #e8e4da;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

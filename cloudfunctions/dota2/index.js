@@ -338,16 +338,23 @@ const actions = {
     });
   },
 
-  /* 超管：添加管理员（按昵称） */
+  /* 超管：添加管理员（按 openid 或昵称） */
   async addAdmin(event) {
     const openid = getOpenId();
     if (!(await isSuper(openid))) return fail('只有最高管理员可以添加管理员');
-    const nickname = String(event.nickname || '').trim();
-    if (!nickname) return fail('请输入要添加的用户昵称');
-    const res = await db.collection('users').where({ nickname }).limit(1).get();
-    if (!res.data || !res.data.length) return fail('没有找到昵称为「' + nickname + '」的用户（对方需先设置昵称）');
-    const target = res.data[0];
-    const targetOpenid = target.openid || target._openid || '';
+    let targetOpenid = String(event.openid || '').trim();
+    let target = null;
+    if (targetOpenid) {
+      target = await getUser(targetOpenid);
+      if (!target) return fail('未找到该用户');
+    } else {
+      const nickname = String(event.nickname || '').trim();
+      if (!nickname) return fail('请输入要添加的用户昵称');
+      const res = await db.collection('users').where({ nickname }).limit(1).get();
+      if (!res.data || !res.data.length) return fail('没有找到昵称为「' + nickname + '」的用户（对方需先设置昵称）');
+      target = res.data[0];
+      targetOpenid = target.openid || target._openid || '';
+    }
     if (!targetOpenid) return fail('无法识别该用户的身份，请让对方重新设置一次昵称');
     if (targetOpenid === openid) return fail('你已经是最高管理员');
     const cfg = await getAdminsConfig();
@@ -355,6 +362,27 @@ const actions = {
     const admins = (cfg.admins || []).concat([targetOpenid]);
     await db.collection('config').doc(cfg._id).update({ data: { admins } });
     return ok(true);
+  },
+
+  /* 超管：用户列表（用于从列表选择添加管理员，排除自己和已有管理员） */
+  async listUsers() {
+    const openid = getOpenId();
+    if (!(await isSuper(openid))) return fail('只有最高管理员可以查看用户列表');
+    const cfg = await getAdminsConfig();
+    const excluded = new Set([cfg.superAdmin].concat(cfg.admins || []).filter(Boolean));
+    const res = await db.collection('users').orderBy('nickname', 'asc').limit(100).get();
+    const users = (res.data || [])
+      .filter((u) => {
+        const id = u.openid || u._openid || '';
+        return !!id && !!u.nickname && !excluded.has(id);
+      })
+      .map((u) => ({
+        openid: u.openid || u._openid || '',
+        nickname: u.nickname || '',
+        mmr: u.mmr || null,
+        roles: u.roles || [],
+      }));
+    return ok({ users });
   },
 
   /* 超管：移除管理员 */

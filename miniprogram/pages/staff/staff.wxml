@@ -53,15 +53,48 @@
   <!-- 超管：添加管理员 -->
   <view class="card" wx:if="{{isSuper}}">
     <view class="card-title">添加管理员（仅最高管理员）</view>
-    <view class="sub">输入对方的昵称（对方需先设置过昵称）；普通管理员看不到此卡片</view>
-    <input class="input add-input" placeholder="对方昵称" placeholder-class="ph" value="{{addNickname}}" bindinput="onAddInput" />
-    <view class="btn {{adding ? 'btn-disabled' : ''}}" bindtap="add">{{adding ? '添加中...' : '添加'}}</view>
+    <view class="sub">从已设置昵称的用户列表中选择；普通管理员看不到此卡片</view>
+    <view class="btn" bindtap="onOpenUserList">从用户列表选择</view>
   </view>
 
   <!-- 说明 -->
   <view class="card">
     <view class="card-title">权限说明</view>
     <view class="sub">· 只有管理员可以在主页创建比赛，并管理报名/选人/赛程。<br />· 最高管理员可以添加或移除管理员。<br />· 普通用户可正常报名、选人、查看赛程。</view>
+  </view>
+</view>
+
+<!-- 用户列表弹窗（选择添加管理员） -->
+<view class="mask" wx:if="{{userListModal}}" bindtap="onCloseUserList">
+  <view class="panel" catchtap="noop">
+    <view class="panel-title">选择要添加的用户</view>
+    <view class="panel-sub">共 {{userList.length}} 位已设置昵称的群友</view>
+    <view wx:if="{{listLoading}}" class="empty">加载中...</view>
+    <view wx:elif="{{userList.length === 0}}" class="empty">暂无其他用户（群友需先设置昵称）</view>
+    <block wx:else>
+      <view
+        class="user-row"
+        wx:for="{{userList}}"
+        wx:key="openid"
+        data-openid="{{item.openid}}"
+        data-nickname="{{item.nickname}}"
+        bindtap="onPickUser"
+      >
+        <view class="user-info">
+          <view class="user-nick">{{item.nickname}}</view>
+          <view class="pinfo" wx:if="{{item.mmrText || item.rolesText}}">
+            <text class="kv">{{item.mmrText}}</text>
+            <text wx:if="{{item.mmrText && item.rolesText}}"> · </text>
+            <text>{{item.rolesText}}</text>
+          </view>
+        </view>
+        <view class="spacer"></view>
+        <view class="btn-small">添加</view>
+      </view>
+    </block>
+    <view class="panel-btns">
+      <view class="panel-btn btn-plain" bindtap="onCloseUserList">关闭</view>
+    </view>
   </view>
 </view>
 
