@@ -1,6 +1,18 @@
 // pages/staff/staff.js - 我的（资料 + 管理员名单；所有用户可看，超管可管理）
 const api = require('../../utils/api');
 
+const ROLE_LABELS = ['', '1号位', '2号位', '3号位', '4号位', '5号位'];
+
+function fmtRoles(roles) {
+  const arr = Array.isArray(roles) ? roles.filter((v) => v >= 1 && v <= 5) : [];
+  return arr.length ? arr.map((v) => ROLE_LABELS[v]).join(' / ') : '';
+}
+
+function fmtMmr(mmr) {
+  if (mmr === null || mmr === undefined || mmr === '') return '';
+  return '天梯 ' + mmr;
+}
+
 Page({
   data: {
     loading: true,
@@ -11,6 +23,10 @@ Page({
     isSuper: false,
     addNickname: '',
     adding: false,
+    // 资料编辑弹窗
+    profileModal: false,
+    pf: { nickname: '', mmr: '', roles: [], signature: '' },
+    saving: false,
   },
 
   onShow() {
@@ -21,8 +37,15 @@ Page({
     return api
       .call('getStaff')
       .then((d) => {
+        const raw = d.user || null;
+        const user = raw
+          ? Object.assign({}, raw, {
+              mmrText: fmtMmr(raw.mmr),
+              rolesText: fmtRoles(raw.roles),
+            })
+          : null;
         this.setData({
-          user: d.user,
+          user,
           superAdmin: d.superAdmin,
           admins: d.admins || [],
           isAdmin: !!d.isAdmin,
@@ -36,24 +59,90 @@ Page({
       });
   },
 
-  onEditNickname() {
-    wx.showModal({
-      title: this.data.user ? '修改昵称' : '设置昵称',
-      editable: true,
-      placeholderText: this.data.user ? this.data.user.nickname : '输入你的昵称',
-      success: (res) => {
-        if (res.confirm && res.content) {
-          api
-            .call('saveProfile', { nickname: res.content.trim() })
-            .then(() => {
-              wx.showToast({ title: '已保存', icon: 'success' });
-              this.load();
-            })
-            .catch((e) => wx.showToast({ title: e.message, icon: 'none' }));
-        }
+  /* ---------- 资料编辑 ---------- */
+
+  onEditProfile() {
+    const u = this.data.user || {};
+    this.setData({
+      profileModal: true,
+      pf: {
+        nickname: u.nickname || '',
+        mmr: u.mmr === null || u.mmr === undefined || u.mmr === '' ? '' : String(u.mmr),
+        roles: Array.isArray(u.roles) ? u.roles.filter((v) => v >= 1 && v <= 5) : [],
+        signature: u.signature || '',
       },
     });
   },
+
+  onPfNick(e) {
+    this.setData({ 'pf.nickname': e.detail.value });
+  },
+
+  onPfMmr(e) {
+    this.setData({ 'pf.mmr': e.detail.value });
+  },
+
+  onPfSig(e) {
+    this.setData({ 'pf.signature': e.detail.value });
+  },
+
+  onToggleRole(e) {
+    const v = Number(e.currentTarget.dataset.role);
+    const roles = this.data.pf.roles.slice();
+    const i = roles.indexOf(v);
+    if (i >= 0) roles.splice(i, 1);
+    else roles.push(v);
+    this.setData({ 'pf.roles': roles.sort((a, b) => a - b) });
+  },
+
+  onSaveProfile() {
+    if (this.data.saving) return;
+    const pf = this.data.pf;
+    const nickname = (pf.nickname || '').trim();
+    if (!nickname) {
+      wx.showToast({ title: '请输入昵称', icon: 'none' });
+      return;
+    }
+    if (nickname.length > 20) {
+      wx.showToast({ title: '昵称最多 20 个字', icon: 'none' });
+      return;
+    }
+    const sig = (pf.signature || '').trim();
+    if (sig.length > 15) {
+      wx.showToast({ title: '个人签名最多 15 个字', icon: 'none' });
+      return;
+    }
+    let mmr = '';
+    if ((pf.mmr || '').trim() !== '') {
+      mmr = Number(pf.mmr);
+      if (!isFinite(mmr) || mmr < 0 || mmr > 20000) {
+        wx.showToast({ title: '天梯分需在 0-20000 之间', icon: 'none' });
+        return;
+      }
+      mmr = Math.round(mmr);
+    }
+    this.setData({ saving: true });
+    api
+      .call('saveProfile', { nickname, mmr, roles: this.data.pf.roles, signature: sig })
+      .then(() => {
+        wx.showToast({ title: '已保存', icon: 'success' });
+        this.setData({ profileModal: false, saving: false });
+        this.load();
+      })
+      .catch((err) => {
+        this.setData({ saving: false });
+        wx.showToast({ title: err.message, icon: 'none' });
+      });
+  },
+
+  onCloseProfile() {
+    if (this.data.saving) return;
+    this.setData({ profileModal: false });
+  },
+
+  noop() {},
+
+  /* ---------- 管理员 ---------- */
 
   onAddInput(e) {
     this.setData({ addNickname: e.detail.value });

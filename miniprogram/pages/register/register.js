@@ -1,6 +1,13 @@
 // pages/register/register.js - 报名（按比赛 id，需暗号）
 const api = require('../../utils/api');
 
+const ROLE_LABELS = ['', '1号位', '2号位', '3号位', '4号位', '5号位'];
+
+function fmtRoles(roles) {
+  const arr = Array.isArray(roles) ? roles.filter((v) => v >= 1 && v <= 5) : [];
+  return arr.length ? arr.map((v) => ROLE_LABELS[v]).join('/') : '';
+}
+
 Page({
   data: {
     loading: true,
@@ -51,7 +58,12 @@ Page({
     return api
       .call('tournament', data)
       .then((t) => {
-        const regs = t.registrations || [];
+        const regs = (t.registrations || []).map((r) =>
+          Object.assign({}, r, {
+            mmrText: r.mmr ? '天梯 ' + r.mmr : '',
+            rolesText: fmtRoles(r.roles),
+          })
+        );
         const secretOk = !!this.getStoredSecret() || !!t.myReg;
         this.setData({
           t,

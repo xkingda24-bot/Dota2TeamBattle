@@ -19,6 +19,9 @@ Page({
     nickModal: false,
     nickInput: '',
     nickSaving: false,
+    pfMmr: '',
+    pfRoles: [],
+    pfSig: '',
   },
 
   onShow() {
@@ -71,6 +74,23 @@ Page({
     this.setData({ nickInput: e.detail.value });
   },
 
+  onPfMmr(e) {
+    this.setData({ pfMmr: e.detail.value });
+  },
+
+  onPfSig(e) {
+    this.setData({ pfSig: e.detail.value });
+  },
+
+  onToggleRole(e) {
+    const v = Number(e.currentTarget.dataset.role);
+    const roles = this.data.pfRoles.slice();
+    const i = roles.indexOf(v);
+    if (i >= 0) roles.splice(i, 1);
+    else roles.push(v);
+    this.setData({ pfRoles: roles.sort((a, b) => a - b) });
+  },
+
   onConfirmNick() {
     if (this.data.nickSaving) return;
     const nickname = this.data.nickInput.trim();
@@ -78,12 +98,30 @@ Page({
       wx.showToast({ title: '请输入昵称', icon: 'none' });
       return;
     }
+    if (nickname.length > 20) {
+      wx.showToast({ title: '昵称最多 20 个字', icon: 'none' });
+      return;
+    }
+    const sig = (this.data.pfSig || '').trim();
+    if (sig.length > 15) {
+      wx.showToast({ title: '个人签名最多 15 个字', icon: 'none' });
+      return;
+    }
+    let mmr = '';
+    if ((this.data.pfMmr || '').trim() !== '') {
+      mmr = Number(this.data.pfMmr);
+      if (!isFinite(mmr) || mmr < 0 || mmr > 20000) {
+        wx.showToast({ title: '天梯分需在 0-20000 之间', icon: 'none' });
+        return;
+      }
+      mmr = Math.round(mmr);
+    }
     this.setData({ nickSaving: true });
     api
-      .call('saveProfile', { nickname })
+      .call('saveProfile', { nickname, mmr, roles: this.data.pfRoles, signature: sig })
       .then(() => {
         wx.showToast({ title: '已保存', icon: 'success' });
-        this.setData({ nickModal: false, nickInput: '', nickSaving: false });
+        this.setData({ nickModal: false, nickInput: '', nickSaving: false, pfMmr: '', pfRoles: [], pfSig: '' });
         this.load();
       })
       .catch((err) => {
@@ -94,7 +132,7 @@ Page({
 
   onCloseNick() {
     if (this.data.nickSaving) return;
-    this.setData({ nickModal: false, nickInput: '' });
+    this.setData({ nickModal: false, nickInput: '', pfMmr: '', pfRoles: [], pfSig: '' });
   },
 
   goCreate() {

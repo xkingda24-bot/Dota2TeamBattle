@@ -66,6 +66,13 @@
             <view class="spacer"></view>
             <view wx:if="{{isAdmin && t.status === 'registration'}}" class="btn-small btn-danger" data-openid="{{item.openid}}" data-nickname="{{item.nickname}}" bindtap="onRemoveReg">移除</view>
           </view>
+          <view class="pinfo" wx:if="{{item.mmrText || item.rolesText || item.signature}}">
+            <text class="kv">{{item.mmrText}}</text>
+            <text wx:if="{{item.mmrText && item.rolesText}}"> · </text>
+            <text>{{item.rolesText}}</text>
+            <text wx:if="{{item.signature}}"> · {{item.signature}}</text>
+          </view>
+          <view class="pinfo" wx:else>未填写天梯分 / 位置 / 签名</view>
         </view>
       </view>
       <view wx:else>
@@ -76,6 +83,13 @@
             <view class="spacer"></view>
             <view wx:if="{{isAdmin && t.status === 'registration'}}" class="btn-small btn-danger" data-openid="{{item.openid}}" data-nickname="{{item.nickname}}" bindtap="onRemoveReg">移除</view>
           </view>
+          <view class="pinfo" wx:if="{{item.mmrText || item.rolesText || item.signature}}">
+            <text class="kv">{{item.mmrText}}</text>
+            <text wx:if="{{item.mmrText && item.rolesText}}"> · </text>
+            <text>{{item.rolesText}}</text>
+            <text wx:if="{{item.signature}}"> · {{item.signature}}</text>
+          </view>
+          <view class="pinfo" wx:else>未填写天梯分 / 位置 / 签名</view>
         </view>
       </view>
     </view>

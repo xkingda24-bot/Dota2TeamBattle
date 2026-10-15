@@ -1,4 +1,7 @@
 /* pages/staff/staff.wxss */
+.my-nick {
+  margin-bottom: 4rpx;
+}
 .staff-row {
   display: flex;
   align-items: center;
@@ -15,6 +18,12 @@
   flex: 1;
   margin-right: 16rpx;
 }
+/* 添加管理员输入框：显式占满整行，加高防裁切 */
+.add-input {
+  width: 100%;
+  min-height: 92rpx;
+}
+
 .ph {
   color: #9aa4b2;
 }

@@ -2,13 +2,22 @@
 <nav-bar title="我的" />
 <view class="container">
   <!-- 我的资料 -->
-  <view class="card row">
-    <view>
-      <view class="card-title">{{user ? user.nickname : '未设置昵称'}}</view>
-      <view class="sub">微信自动登录 · 下方可查看管理员名单</view>
+  <view class="card">
+    <view class="row">
+      <view>
+        <view class="card-title my-nick">{{user ? user.nickname : '未设置昵称'}}</view>
+        <view class="sub">微信自动登录</view>
+      </view>
+      <view class="spacer"></view>
+      <view class="btn-small btn-plain" bindtap="onEditProfile">{{user ? '编辑资料' : '设置资料'}}</view>
     </view>
-    <view class="spacer"></view>
-    <view class="btn-small btn-plain" bindtap="onEditNickname">{{user ? '改昵称' : '设置昵称'}}</view>
+    <view class="divider" wx:if="{{user}}"></view>
+    <view class="pinfo" wx:if="{{user}}">
+      <text class="kv">{{user.mmrText || '天梯分未填写'}}</text>
+      <text wx:if="{{user.rolesText}}"> · 常玩：{{user.rolesText}}</text>
+    </view>
+    <view class="pinfo" wx:if="{{user && user.signature}}">{{user.signature}}</view>
+    <view class="sub" wx:else>报名/选人时，群友可见你的天梯分、常玩位置和签名，方便队长选人</view>
   </view>
 
   <!-- 未初始化 -->
@@ -45,15 +54,46 @@
   <view class="card" wx:if="{{isSuper}}">
     <view class="card-title">添加管理员（仅最高管理员）</view>
     <view class="sub">输入对方的昵称（对方需先设置过昵称）；普通管理员看不到此卡片</view>
-    <view class="row staff-add-row">
-      <input class="input staff-add-input" placeholder="对方昵称" placeholder-class="ph" value="{{addNickname}}" bindinput="onAddInput" />
-      <view class="btn-small {{adding ? 'btn-disabled' : ''}}" bindtap="add">{{adding ? '添加中...' : '添加'}}</view>
-    </view>
+    <input class="input add-input" placeholder="对方昵称" placeholder-class="ph" value="{{addNickname}}" bindinput="onAddInput" />
+    <view class="btn {{adding ? 'btn-disabled' : ''}}" bindtap="add">{{adding ? '添加中...' : '添加'}}</view>
   </view>
 
   <!-- 说明 -->
   <view class="card">
     <view class="card-title">权限说明</view>
     <view class="sub">· 只有管理员可以在主页创建比赛，并管理报名/选人/赛程。<br />· 最高管理员可以添加或移除管理员。<br />· 普通用户可正常报名、选人、查看赛程。</view>
+  </view>
+</view>
+
+<!-- 资料编辑弹窗 -->
+<view class="mask" wx:if="{{profileModal}}" bindtap="onCloseProfile">
+  <view class="panel" catchtap="noop">
+    <view class="panel-title">{{user ? '编辑资料' : '设置资料'}}</view>
+    <view class="panel-sub">报名/选人时其他群友看到的信息</view>
+
+    <view class="field-label">昵称 <text class="req">*</text></view>
+    <input class="input" placeholder="请输入昵称（最多20字）" placeholder-class="ph" maxlength="20" value="{{pf.nickname}}" bindinput="onPfNick" />
+
+    <view class="field-label">天梯分</view>
+    <input class="input" type="number" placeholder="选填，如 4500" placeholder-class="ph" value="{{pf.mmr}}" bindinput="onPfMmr" />
+
+    <view class="field-label">常玩位置（可多选）</view>
+    <view class="role-btns">
+      <view class="role-btn {{pf.roles.indexOf(1) >= 0 ? 'role-btn-active' : ''}}" data-role="1" bindtap="onToggleRole">1号位</view>
+      <view class="role-btn {{pf.roles.indexOf(2) >= 0 ? 'role-btn-active' : ''}}" data-role="2" bindtap="onToggleRole">2号位</view>
+      <view class="role-btn {{pf.roles.indexOf(3) >= 0 ? 'role-btn-active' : ''}}" data-role="3" bindtap="onToggleRole">3号位</view>
+      <view class="role-btn {{pf.roles.indexOf(4) >= 0 ? 'role-btn-active' : ''}}" data-role="4" bindtap="onToggleRole">4号位</view>
+      <view class="role-btn {{pf.roles.indexOf(5) >= 0 ? 'role-btn-active' : ''}}" data-role="5" bindtap="onToggleRole">5号位</view>
+    </view>
+    <view class="sub" style="margin-top:8rpx;">1号位核心 · 2号位中单 · 3号位劣单 · 4/5号位辅助</view>
+
+    <view class="field-label">个人签名</view>
+    <input class="input" placeholder="选填，最多15个字" placeholder-class="ph" maxlength="15" value="{{pf.signature}}" bindinput="onPfSig" />
+    <view class="char-count {{pf.signature.length > 15 ? 'over' : ''}}">{{pf.signature.length}}/15</view>
+
+    <view class="panel-btns">
+      <view class="panel-btn btn-plain" bindtap="onCloseProfile">取消</view>
+      <view class="panel-btn btn" bindtap="onSaveProfile">{{saving ? '保存中…' : '保存'}}</view>
+    </view>
   </view>
 </view>

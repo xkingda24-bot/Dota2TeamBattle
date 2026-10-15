@@ -140,10 +140,12 @@ page {
   background: #1a2130;
   border: 1rpx solid rgba(224, 181, 111, 0.12);
   border-radius: 10rpx;
-  padding: 16rpx 20rpx;
+  padding: 18rpx 24rpx;
   color: #e8e4da;
   font-size: 28rpx;
   width: 100%;
+  min-height: 92rpx;
+  line-height: 1.5;
   box-sizing: border-box;
 }
 
@@ -154,4 +156,112 @@ page {
 /* 输入框占位文字（统一调亮，深色背景上清晰可见） */
 .ph {
   color: #9aa4b2;
+}
+
+/* 资料信息行（天梯分/位置/签名，报名页与选人页通用） */
+.pinfo {
+  font-size: 22rpx;
+  color: #8b94a1;
+  margin-top: 6rpx;
+  line-height: 1.5;
+  word-break: break-all;
+}
+.pinfo .kv {
+  color: #c9b98f;
+}
+
+/* 位置选择按钮（1-5 号位多选，表单通用） */
+.role-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  margin-top: 12rpx;
+}
+.role-btn {
+  padding: 12rpx 0;
+  width: 18.5%;
+  text-align: center;
+  border-radius: 10rpx;
+  background: #1a2130;
+  border: 1rpx solid rgba(224, 181, 111, 0.18);
+  color: #98a0ab;
+  font-size: 26rpx;
+  box-sizing: border-box;
+}
+.role-btn-active {
+  background: rgba(224, 181, 111, 0.18);
+  border-color: #e8c27c;
+  color: #e8c27c;
+  font-weight: 600;
+}
+
+/* 弹窗表单字段 */
+.field-label {
+  font-size: 26rpx;
+  color: #c9c3b6;
+  margin-top: 20rpx;
+  margin-bottom: 8rpx;
+}
+.field-label .req {
+  color: #e5484d;
+}
+.char-count {
+  font-size: 22rpx;
+  color: #6d7480;
+  text-align: right;
+  margin-top: 8rpx;
+}
+.char-count .over {
+  color: #e5484d;
+}
+
+/* 弹窗（遮罩 + 面板） */
+.mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 99;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.panel {
+  width: 86%;
+  background: linear-gradient(180deg, #171d29 0%, #12161f 100%);
+  border: 1rpx solid rgba(224, 181, 111, 0.2);
+  border-radius: 16rpx;
+  padding: 32rpx;
+  box-sizing: border-box;
+  max-height: 86vh;
+  overflow-y: auto;
+}
+.panel-title {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: #e8c27c;
+  text-align: center;
+  letter-spacing: 2rpx;
+}
+.panel-sub {
+  font-size: 24rpx;
+  color: #98a0ab;
+  text-align: center;
+  margin-top: 8rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.panel-btns {
+  display: flex;
+  margin-top: 28rpx;
+}
+.panel-btn {
+  flex: 1;
+  margin-top: 0;
+}
+.panel-btn + .panel-btn {
+  margin-left: 20rpx;
 }

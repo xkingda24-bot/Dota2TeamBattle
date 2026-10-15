@@ -140,8 +140,8 @@ async function composeTournament(t, myOpenid) {
   let draftInfo = null;
   if (t.status === 'draft' || (t.status === 'battle' && t.draft)) {
     const picks = t.draft.picks || [];
-    const playerMap = {};
-    players.forEach((r) => (playerMap[r.openid] = r.nickname));
+    const playerRegMap = {};
+    players.forEach((r) => (playerRegMap[r.openid] = r));
     const turn = t.draft.turn || 0;
     const totalPicks = t.N * t.K;
     const round = Math.floor(turn / t.N) + 1;
@@ -161,7 +161,7 @@ async function composeTournament(t, myOpenid) {
       picks: picks.map((arr, i) => ({
         teamIndex: i,
         captain: (t.captainOrder || [])[i] || null,
-        players: arr.map((p) => ({ openid: p, nickname: playerMap[p] || '队员' })),
+        players: arr.map((p) => playerRegMap[p] || { openid: p, nickname: '队员' }),
       })),
       remainingPlayers: players.filter((p) => !pickedPlayerIds[p.openid]),
     };
@@ -260,12 +260,29 @@ const actions = {
     });
   },
 
-  /* 完善/更新我的资料 */
+  /* 完善/更新我的资料（昵称 + 天梯分 + 常玩位置 + 个人签名） */
   async saveProfile(event) {
     const openid = getOpenId();
     const nickname = String(event.nickname || '').trim();
     if (!nickname) return fail('昵称不能为空');
     if (nickname.length > 20) return fail('昵称最多 20 个字');
+    // 天梯分（选填，0-20000）
+    let mmr = null;
+    if (event.mmr !== '' && event.mmr != null && String(event.mmr).trim() !== '') {
+      mmr = Number(event.mmr);
+      if (!isFinite(mmr) || mmr < 0 || mmr > 20000) return fail('天梯分需在 0-20000 之间');
+      mmr = Math.round(mmr);
+    }
+    // 常玩位置（选填，1-5 多选）
+    let roles = [];
+    if (Array.isArray(event.roles)) {
+      roles = Array.from(new Set(event.roles.map((v) => Number(v)).filter((v) => v >= 1 && v <= 5))).sort(
+        (a, b) => a - b
+      );
+    }
+    // 个人签名（选填，不超过 15 个字）
+    const signature = String(event.signature || '').trim();
+    if (signature.length > 15) return fail('个人签名最多 15 个字');
     // 按昵称查重（兼容旧记录：无 _openid 时以显式 openid 字段判断归属）
     const dup = await db.collection('users').where({ nickname }).limit(1).get();
     let target = null;
@@ -275,16 +292,16 @@ const actions = {
       target = dup.data[0];
     }
     if (target) {
-      // 补全 openid 字段（兼容旧记录），并更新昵称
+      // 补全 openid 字段（兼容旧记录），并更新资料
       await db.collection('users').doc(target._id).update({
-        data: { openid, nickname, updatedAt: Date.now() },
+        data: { openid, nickname, mmr, roles, signature, updatedAt: Date.now() },
       });
     } else {
       await db.collection('users').add({
-        data: { openid, nickname, createdAt: Date.now(), updatedAt: Date.now() },
+        data: { openid, nickname, mmr, roles, signature, createdAt: Date.now(), updatedAt: Date.now() },
       });
     }
-    return ok({ nickname });
+    return ok({ nickname, mmr, roles, signature });
   },
 
   /* 初始化超管：系统内还没有超管时，首个调用者成为最高权限管理员 */
@@ -440,7 +457,15 @@ const actions = {
     const filled = (t.registrations || []).filter((r) => r.role === role).length;
     if (filled >= limit) return fail(role === 'captain' ? '队长名额已满' : '队员名额已满');
     const registrations = (t.registrations || []).concat([
-      { openid, nickname: me.nickname, role, ts: Date.now() },
+      {
+        openid,
+        nickname: me.nickname,
+        role,
+        ts: Date.now(),
+        mmr: me.mmr || null,
+        roles: me.roles || [],
+        signature: me.signature || '',
+      },
     ]);
     await db.collection('tournaments').doc(t._id).update({ data: { registrations } });
     return ok({ role });
@@ -481,7 +506,13 @@ const actions = {
     if (players.length < t.N * t.K) {
       return fail('队员尚未报满（' + players.length + '/' + t.N * t.K + '）');
     }
-    const captainOrder = shuffle(captains).map((c) => ({ openid: c.openid, nickname: c.nickname }));
+    const captainOrder = shuffle(captains).map((c) => ({
+      openid: c.openid,
+      nickname: c.nickname,
+      mmr: c.mmr || null,
+      roles: c.roles || [],
+      signature: c.signature || '',
+    }));
     await db.collection('tournaments').doc(t._id).update({
       data: {
         status: 'draft',
@@ -545,7 +576,13 @@ const actions = {
     if (!t) return fail('比赛不存在');
     if (t.status !== 'draft') return fail('当前不在选人阶段');
     const captains = (t.registrations || []).filter((r) => r.role === 'captain');
-    const captainOrder = shuffle(captains).map((c) => ({ openid: c.openid, nickname: c.nickname }));
+    const captainOrder = shuffle(captains).map((c) => ({
+      openid: c.openid,
+      nickname: c.nickname,
+      mmr: c.mmr || null,
+      roles: c.roles || [],
+      signature: c.signature || '',
+    }));
     await db.collection('tournaments').doc(t._id).update({
       data: {
         captainOrder,
@@ -596,13 +633,13 @@ const actions = {
     if ((t.draft.turn || 0) < totalPicks) return fail('选人还未完成');
     const captainOrder = t.captainOrder || [];
     const picks = t.draft.picks || [];
-    const playerMap = {};
+    const playerRegMap = {};
     (t.registrations || [])
       .filter((r) => r.role === 'player')
-      .forEach((r) => (playerMap[r.openid] = r.nickname));
+      .forEach((r) => (playerRegMap[r.openid] = r));
     const teams = captainOrder.map((cap, i) => ({
       captain: cap,
-      players: (picks[i] || []).map((p) => ({ openid: p, nickname: playerMap[p] || '队员' })),
+      players: (picks[i] || []).map((p) => playerRegMap[p] || { openid: p, nickname: '队员' }),
     }));
     const seeding = Array.isArray(t.seeding) && t.seeding.length === t.N ? t.seeding : captainOrder.map((_, i) => i);
     const ordered = seeding.map((idx) => teams[idx]);

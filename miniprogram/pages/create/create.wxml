@@ -5,11 +5,11 @@
     <view class="card-title">比赛信息</view>
     <view class="field">
       <view class="label">比赛名称</view>
-      <input class="input" placeholder="如：10.15 群内战" placeholder-class="ph" value="{{name}}" bindinput="onName" />
+      <input class="input" placeholder="输入比赛名称" placeholder-class="ph" value="{{name}}" bindinput="onName" />
     </view>
     <view class="field">
       <view class="label">报名暗号（想报名的用户需输入正确暗号才能报名）</view>
-      <input class="input" placeholder="如：dota666" placeholder-class="ph" value="{{secret}}" bindinput="onSecret" />
+      <input class="input" placeholder="输入报名暗号" placeholder-class="ph" value="{{secret}}" bindinput="onSecret" />
     </view>
     <view class="field">
       <view class="label">比赛日期</view>

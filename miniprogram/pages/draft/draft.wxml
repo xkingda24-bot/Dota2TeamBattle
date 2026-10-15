@@ -34,7 +34,10 @@
           <view class="tag tag-gray">{{item.players.length}}/{{t.K}}</view>
         </view>
         <view class="team-players" wx:if="{{item.players.length}}">
-          <view class="player-chip" wx:for="{{item.players}}" wx:for-item="p" wx:key="openid">{{p.nickname}}</view>
+          <view class="player-chip" wx:for="{{item.players}}" wx:for-item="p" wx:key="openid">
+            <view class="pc-name">{{p.nickname}}</view>
+            <view class="pc-roles" wx:if="{{p.rolesText}}">{{p.rolesText}}</view>
+          </view>
         </view>
         <view class="sub" wx:else>未选队员</view>
       </view>
@@ -50,6 +53,13 @@
         <view wx:if="{{canPick || isAdmin}}" class="btn-small" data-openid="{{item.openid}}" data-name="{{item.nickname}}" bindtap="onPick">选他</view>
         <view wx:else class="sub">等待轮到你</view>
       </view>
+      <view class="pinfo" wx:if="{{item.mmrText || item.rolesText || item.signature}}">
+        <text class="kv">{{item.mmrText}}</text>
+        <text wx:if="{{item.mmrText && item.rolesText}}"> · </text>
+        <text>{{item.rolesText}}</text>
+        <text wx:if="{{item.signature}}"> · {{item.signature}}</text>
+      </view>
+      <view class="pinfo" wx:else>未填写天梯分 / 位置 / 签名</view>
     </view>
 
     <!-- 管理员 -->

@@ -66,9 +66,22 @@
 .player-chip {
   background: #1a2130;
   border-radius: 8rpx;
-  padding: 6rpx 14rpx;
+  padding: 8rpx 14rpx;
   font-size: 22rpx;
   color: #cfd6df;
+  min-width: 96rpx;
+}
+.pc-name {
+  font-size: 22rpx;
+  color: #cfd6df;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pc-roles {
+  font-size: 20rpx;
+  color: #c9b98f;
+  margin-top: 2rpx;
 }
 .nick {
   font-size: 28rpx;

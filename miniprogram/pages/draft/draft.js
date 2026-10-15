@@ -1,6 +1,20 @@
 // pages/draft/draft.js - 队长选人（蛇形，按比赛 id）
 const api = require('../../utils/api');
 
+const ROLE_LABELS = ['', '1号位', '2号位', '3号位', '4号位', '5号位'];
+
+function fmtRoles(roles) {
+  const arr = Array.isArray(roles) ? roles.filter((v) => v >= 1 && v <= 5) : [];
+  return arr.length ? arr.map((v) => ROLE_LABELS[v]).join('/') : '';
+}
+
+function fmtPlayer(r) {
+  return Object.assign({}, r, {
+    mmrText: r.mmr ? '天梯 ' + r.mmr : '',
+    rolesText: fmtRoles(r.roles),
+  });
+}
+
 Page({
   data: {
     loading: true,
@@ -48,6 +62,17 @@ Page({
     return api
       .call('tournament', data)
       .then((t) => {
+        const di = t.draftInfo;
+        if (di) {
+          if (Array.isArray(di.remainingPlayers)) {
+            di.remainingPlayers = di.remainingPlayers.map(fmtPlayer);
+          }
+          if (Array.isArray(di.picks)) {
+            di.picks = di.picks.map((pick) =>
+              Object.assign({}, pick, { players: (pick.players || []).map(fmtPlayer) })
+            );
+          }
+        }
         this.setData({ t, isAdmin: !!t.isAdmin, loading: false });
         this.computeDraft();
       })
