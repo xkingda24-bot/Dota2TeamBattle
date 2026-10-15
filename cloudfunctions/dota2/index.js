@@ -942,6 +942,101 @@ const actions = {
     return ok(true);
   },
 
+  /* 生成虚拟测试用户并报名（仅最高管理员；用于自测完整流程） */
+  async seedTest(event) {
+    if (!(await isSuper(getOpenId()))) return fail('仅最高管理员可生成测试数据');
+    let t = null;
+    if (event.id) {
+      t = await getTournamentById(event.id);
+    } else {
+      const name = String(event.name || '').trim();
+      if (!name) return fail('请传入比赛 id 或比赛名称');
+      const res = await db.collection('tournaments').where({ name }).limit(1).get();
+      t = res.data && res.data.length ? res.data[0] : null;
+    }
+    if (!t) return fail('比赛不存在');
+    if (t.status !== 'registration') return fail('当前不在报名阶段（测试数据只能在报名阶段注入）');
+
+    const VCAPS = [
+      { nickname: '天府一号', mmr: 8800, roles: [1], signature: '梦想是打TI' },
+      { nickname: '剑气纵横', mmr: 8300, roles: [2], signature: '中单霸主' },
+      { nickname: '顽皮虎', mmr: 7900, roles: [3], signature: '一号位大腿' },
+      { nickname: '竹林听风', mmr: 7500, roles: [4], signature: '四号位游走' },
+      { nickname: '清欢渡', mmr: 7100, roles: [5], signature: '五号位守护神' },
+      { nickname: '星夜骑士', mmr: 6800, roles: [1, 3], signature: '手残党慎选' },
+      { nickname: '雾都游侠', mmr: 6500, roles: [2, 5], signature: '主打一个陪伴' },
+    ];
+    const VNAMES = [
+      '幽鬼之刃', '虚空假面', '蓝猫淘气', '白牛冲锋', '神谕者', '潮汐猎人', '影魔登场', '屠夫钩子',
+      '赏金猎人', '冰女宝宝', '火女莉娜', '风行天下', '白虎月神', '猴子猴孙', '剑圣无敌', '矮人火枪',
+      '双头食人', '沙王地刺', '巫妖亡语', '术士乱斗', '先知树语', '撼地神牛', '主宰无敌', '昆卡船长',
+      '巨魔战将', '刚背兽王', '谜团黑洞', '宙斯雷霆', '美杜莎之眼', '幻影长矛', '敌法师之怒', '痛苦女王',
+    ];
+    const SIGS = ['稳住别浪', '认真打每一把', '求个大腿带', '菜鸡互啄', '一波推平', '五号位保人', '手残但努力', '主打一个快乐'];
+    const ROLE_POOL = [1, 2, 3, 4, 5];
+    const pickRoles = () => {
+      const n = 1 + Math.floor(Math.random() * 3);
+      const arr = ROLE_POOL.slice();
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr.slice(0, n).sort();
+    };
+    const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+    const vcaps = VCAPS.map((c, i) => ({
+      openid: 'vcap' + (i + 1),
+      nickname: c.nickname,
+      mmr: c.mmr,
+      roles: c.roles,
+      signature: c.signature,
+    }));
+    const vplys = VNAMES.map((n, i) => ({
+      openid: 'vply' + (i + 1),
+      nickname: n,
+      mmr: 4000 + Math.floor(Math.random() * 5000),
+      roles: pickRoles(),
+      signature: pick(SIGS),
+    }));
+    const all = vcaps.concat(vplys);
+
+    const existing = (t.registrations || []).map((r) => r.openid);
+    const skip = new Set(existing);
+    const toAdd = all.filter((u) => !skip.has(u.openid));
+    if (!toAdd.length) return fail('虚拟用户已全部报名过了（如需重新注入，请先删除本场比赛再重建）');
+
+    // 写入 users（仅超管可用，走显式 openid 字段）
+    for (const u of toAdd) {
+      const dup = await getUser(u.openid);
+      if (!dup) {
+        try {
+          await db
+            .collection('users')
+            .add({ data: { openid: u.openid, nickname: u.nickname, mmr: u.mmr, roles: u.roles, signature: u.signature } });
+        } catch (e) {
+          /* 并发冲突忽略 */
+        }
+      }
+    }
+    const regs = toAdd.map((u) => {
+      const r = {
+        openid: u.openid,
+        nickname: u.nickname,
+        role: u.openid.indexOf('vcap') === 0 ? 'captain' : 'player',
+        ts: Date.now(),
+        mmr: u.mmr,
+        roles: u.roles,
+        signature: u.signature,
+      };
+      if (r.role === 'captain') r.teamName = '';
+      return r;
+    });
+    const registrations = (t.registrations || []).concat(regs);
+    await db.collection('tournaments').doc(t._id).update({ data: { registrations } });
+    return ok({ added: regs.length, captainFilled: registrations.filter((r) => r.role === 'captain').length, playerFilled: registrations.filter((r) => r.role === 'player').length });
+  },
+
   /* 比赛详情（按 id；不传 id 时取今天最新创建的一场） */
   async tournament(event) {
     const openid = getOpenId();
