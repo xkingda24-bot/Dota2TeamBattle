@@ -8,7 +8,7 @@
       <view class="tree-toggle" bindtap="{{showTree ? 'onHideTree' : 'onShowTree'}}">{{showTree ? '收起晋级图' : '查看晋级图'}}</view>
     </view>
     <scroll-view class="tree-scroll" scroll-x wx:if="{{showTree}}">
-      <canvas canvas-id="treeCanvas" style="width:{{treeW}}px;height:{{treeH}}px;"></canvas>
+      <canvas type="2d" id="treeCanvas" style="width:{{treeW}}px;height:{{treeH}}px;"></canvas>
     </scroll-view>
 
     <!-- 冠军 -->
