@@ -91,7 +91,7 @@ Page({
           teamNames,
           loading: false,
         });
-        this.closePanel();
+        // 注意：这里不再调用 closePanel()——否则 8 秒轮询会把正在填写的"记录结果"弹层关掉
       })
       .catch((e) => {
         this.setData({ loading: false, t: null });
@@ -213,6 +213,7 @@ Page({
           title: d.finished ? '冠军产生：' + d.champion : '已记录，自动晋级',
           icon: 'none',
         });
+        this.closePanel();
         this.load();
       })
       .catch((err) => wx.showToast({ title: err.message, icon: 'none' }));
