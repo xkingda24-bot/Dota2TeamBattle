@@ -79,11 +79,11 @@
 
     <view class="field-label">常玩位置（可多选）</view>
     <view class="role-btns">
-      <view class="role-btn {{pf.roles.indexOf(1) >= 0 ? 'role-btn-active' : ''}}" data-role="1" bindtap="onToggleRole">1号位</view>
-      <view class="role-btn {{pf.roles.indexOf(2) >= 0 ? 'role-btn-active' : ''}}" data-role="2" bindtap="onToggleRole">2号位</view>
-      <view class="role-btn {{pf.roles.indexOf(3) >= 0 ? 'role-btn-active' : ''}}" data-role="3" bindtap="onToggleRole">3号位</view>
-      <view class="role-btn {{pf.roles.indexOf(4) >= 0 ? 'role-btn-active' : ''}}" data-role="4" bindtap="onToggleRole">4号位</view>
-      <view class="role-btn {{pf.roles.indexOf(5) >= 0 ? 'role-btn-active' : ''}}" data-role="5" bindtap="onToggleRole">5号位</view>
+      <view class="role-btn {{pf.rolesActive[0] ? 'role-btn-active' : ''}}" data-role="1" bindtap="onToggleRole">1号位</view>
+      <view class="role-btn {{pf.rolesActive[1] ? 'role-btn-active' : ''}}" data-role="2" bindtap="onToggleRole">2号位</view>
+      <view class="role-btn {{pf.rolesActive[2] ? 'role-btn-active' : ''}}" data-role="3" bindtap="onToggleRole">3号位</view>
+      <view class="role-btn {{pf.rolesActive[3] ? 'role-btn-active' : ''}}" data-role="4" bindtap="onToggleRole">4号位</view>
+      <view class="role-btn {{pf.rolesActive[4] ? 'role-btn-active' : ''}}" data-role="5" bindtap="onToggleRole">5号位</view>
     </view>
     <view class="sub" style="margin-top:8rpx;">1号位核心 · 2号位中单 · 3号位劣单 · 4/5号位辅助</view>
 

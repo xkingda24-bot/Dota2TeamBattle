@@ -21,6 +21,7 @@ Page({
     nickSaving: false,
     pfMmr: '',
     pfRoles: [],
+    rolesActive: [false, false, false, false, false],
     pfSig: '',
   },
 
@@ -61,7 +62,18 @@ Page({
         // 登录后未设置昵称 → 自动弹窗
         if (!d.user && !this._nickPrompted) {
           this._nickPrompted = true;
-          setTimeout(() => this.setData({ nickModal: true, nickInput: '' }), 300);
+          setTimeout(
+            () =>
+              this.setData({
+                nickModal: true,
+                nickInput: '',
+                pfMmr: '',
+                pfRoles: [],
+                rolesActive: [false, false, false, false, false],
+                pfSig: '',
+              }),
+            300
+          );
         }
       })
       .catch((e) => {
@@ -85,10 +97,16 @@ Page({
   onToggleRole(e) {
     const v = Number(e.currentTarget.dataset.role);
     const roles = this.data.pfRoles.slice();
+    const rolesActive = this.data.rolesActive.slice();
     const i = roles.indexOf(v);
-    if (i >= 0) roles.splice(i, 1);
-    else roles.push(v);
-    this.setData({ pfRoles: roles.sort((a, b) => a - b) });
+    if (i >= 0) {
+      roles.splice(i, 1);
+      rolesActive[v - 1] = false;
+    } else {
+      roles.push(v);
+      rolesActive[v - 1] = true;
+    }
+    this.setData({ pfRoles: roles.sort((a, b) => a - b), rolesActive });
   },
 
   onConfirmNick() {
@@ -121,7 +139,15 @@ Page({
       .call('saveProfile', { nickname, mmr, roles: this.data.pfRoles, signature: sig })
       .then(() => {
         wx.showToast({ title: '已保存', icon: 'success' });
-        this.setData({ nickModal: false, nickInput: '', nickSaving: false, pfMmr: '', pfRoles: [], pfSig: '' });
+        this.setData({
+          nickModal: false,
+          nickInput: '',
+          nickSaving: false,
+          pfMmr: '',
+          pfRoles: [],
+          rolesActive: [false, false, false, false, false],
+          pfSig: '',
+        });
         this.load();
       })
       .catch((err) => {
@@ -132,7 +158,14 @@ Page({
 
   onCloseNick() {
     if (this.data.nickSaving) return;
-    this.setData({ nickModal: false, nickInput: '', pfMmr: '', pfRoles: [], pfSig: '' });
+    this.setData({
+      nickModal: false,
+      nickInput: '',
+      pfMmr: '',
+      pfRoles: [],
+      rolesActive: [false, false, false, false, false],
+      pfSig: '',
+    });
   },
 
   goCreate() {

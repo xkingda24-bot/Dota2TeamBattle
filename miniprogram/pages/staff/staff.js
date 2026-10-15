@@ -25,7 +25,7 @@ Page({
     adding: false,
     // 资料编辑弹窗
     profileModal: false,
-    pf: { nickname: '', mmr: '', roles: [], signature: '' },
+    pf: { nickname: '', mmr: '', roles: [], rolesActive: [false, false, false, false, false], signature: '' },
     saving: false,
   },
 
@@ -63,12 +63,16 @@ Page({
 
   onEditProfile() {
     const u = this.data.user || {};
+    const roles = Array.isArray(u.roles) ? u.roles.filter((v) => v >= 1 && v <= 5) : [];
+    const rolesActive = [false, false, false, false, false];
+    roles.forEach((v) => (rolesActive[v - 1] = true));
     this.setData({
       profileModal: true,
       pf: {
         nickname: u.nickname || '',
         mmr: u.mmr === null || u.mmr === undefined || u.mmr === '' ? '' : String(u.mmr),
-        roles: Array.isArray(u.roles) ? u.roles.filter((v) => v >= 1 && v <= 5) : [],
+        roles,
+        rolesActive,
         signature: u.signature || '',
       },
     });
@@ -89,10 +93,16 @@ Page({
   onToggleRole(e) {
     const v = Number(e.currentTarget.dataset.role);
     const roles = this.data.pf.roles.slice();
+    const rolesActive = this.data.pf.rolesActive.slice();
     const i = roles.indexOf(v);
-    if (i >= 0) roles.splice(i, 1);
-    else roles.push(v);
-    this.setData({ 'pf.roles': roles.sort((a, b) => a - b) });
+    if (i >= 0) {
+      roles.splice(i, 1);
+      rolesActive[v - 1] = false;
+    } else {
+      roles.push(v);
+      rolesActive[v - 1] = true;
+    }
+    this.setData({ 'pf.roles': roles.sort((a, b) => a - b), 'pf.rolesActive': rolesActive });
   },
 
   onSaveProfile() {
