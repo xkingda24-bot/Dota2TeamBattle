@@ -65,7 +65,8 @@
     <!-- 管理员 -->
     <view class="card" wx:if="{{isAdmin}}">
       <view class="card-title">管理员操作</view>
-      <view class="sub">可代当前轮次队长选人（直接点上方「选他」）；也可重置整个选人流程</view>
+      <view class="sub">可代当前轮次队长选人（直接点上方「选他」）；选人完成后生成对阵进入对战阶段</view>
+      <view class="btn" wx:if="{{t.draftInfo.done}}" bindtap="onStartBracket">生成对阵并进入对战</view>
       <view class="btn btn-plain" bindtap="onResetDraft">重置选人（重新随机队长顺序）</view>
       <view class="btn btn-danger" bindtap="onDelete">删除比赛</view>
     </view>

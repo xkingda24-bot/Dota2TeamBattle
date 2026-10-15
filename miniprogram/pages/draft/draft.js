@@ -162,6 +162,30 @@ Page({
     });
   },
 
+  onStartBracket() {
+    const t = this.data.t;
+    if (!t || !t.draftInfo) return;
+    if (!t.draftInfo.done) {
+      wx.showToast({ title: '选人还未完成', icon: 'none' });
+      return;
+    }
+    wx.showModal({
+      title: '生成对阵',
+      content: '将按 TI 双败赛制自动生成全部对阵，并进入对战阶段。确定生成？',
+      success: (res) => {
+        if (res.confirm) {
+          api
+            .call('startBracket', { id: t.id })
+            .then(() => {
+              wx.showToast({ title: '对阵已生成', icon: 'success' });
+              setTimeout(() => wx.redirectTo({ url: '/pages/bracket/bracket?id=' + t.id }), 600);
+            })
+            .catch((err) => wx.showToast({ title: err.message, icon: 'none' }));
+        }
+      },
+    });
+  },
+
   onDelete() {
     const t = this.data.t;
     if (!t) return;
