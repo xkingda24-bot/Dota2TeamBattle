@@ -2,6 +2,15 @@
 <nav-bar title="对战赛程" />
 <view class="container">
   <block wx:if="{{t}}">
+    <!-- 晋级树形图 -->
+    <view class="tree-head">
+      <view class="tree-title">晋级树形图</view>
+      <view class="tree-toggle" bindtap="{{showTree ? 'onHideTree' : 'onShowTree'}}">{{showTree ? '收起晋级图' : '查看晋级图'}}</view>
+    </view>
+    <scroll-view class="tree-scroll" scroll-x wx:if="{{showTree}}">
+      <canvas canvas-id="treeCanvas" style="width:{{treeW}}px;height:{{treeH}}px;"></canvas>
+    </scroll-view>
+
     <!-- 冠军 -->
     <view wx:if="{{t.champion}}" class="champion-banner">冠军：{{t.champion.name}}</view>
 

@@ -760,7 +760,7 @@ const actions = {
       captain: cap,
       players: (picks[i] || []).map((p) => playerRegMap[p] || { openid: p, nickname: '队员' }),
     }));
-    const seeding = Array.isArray(t.seeding) && t.seeding.length === t.N ? t.seeding : captainOrder.map((_, i) => i);
+    const seeding = Array.isArray(t.seeding) && t.seeding.length === t.N ? t.seeding : shuffle(captainOrder.map((_, i) => i));
     const ordered = seeding.map((idx) => teams[idx]);
     const bracketTeams = ordered.map((team, i) => ({
       openid: 'T' + i,
