@@ -855,8 +855,16 @@ const actions = {
       status = 'finished';
     }
 
+    // 用 _.set 整体替换 champion 字段：TCB 的 update 会把嵌套对象展开成点路径（champion.name）
+    // 而库里 champion 字段可能是 null（此前非冠军赛写入过 null），点路径更新会报
+    // "Cannot create field 'name' in element {champion: null}"
     await db.collection('tournaments').doc(t._id).update({
-      data: { matches, champion, status, archivedAt: status === 'finished' ? Date.now() : t.archivedAt || null },
+      data: {
+        matches,
+        champion: _.set(champion),
+        status,
+        archivedAt: status === 'finished' ? Date.now() : t.archivedAt || null,
+      },
     });
     return ok({ champion: champion ? champion.name : null, finished: status === 'finished' });
   },
@@ -904,7 +912,7 @@ const actions = {
     await db.collection('tournaments').doc(t._id).update({
       data: {
         matches,
-        champion: status === 'battle' ? null : champion,
+        champion: _.set(status === 'battle' ? null : champion),
         status,
         archivedAt: status === 'battle' ? null : t.archivedAt || null,
       },
