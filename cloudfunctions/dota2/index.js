@@ -130,8 +130,10 @@ function resolveBracket(tournament) {
 async function composeTournament(t, myOpenid) {
   const captainTotal = t.N;
   const playerTotal = t.N * t.K;
+  const waitLimit = t.waitLimit || 0;
   const captains = (t.registrations || []).filter((r) => r.role === 'captain');
   const players = (t.registrations || []).filter((r) => r.role === 'player');
+  const waitlist = (t.registrations || []).filter((r) => r.role === 'waitlist');
   const myReg = (t.registrations || []).find((r) => r.openid === myOpenid) || null;
   const admin = await isAdmin(myOpenid);
   const superFlag = await isSuper(myOpenid);
@@ -193,6 +195,8 @@ async function composeTournament(t, myOpenid) {
     captainTotal,
     playerFilled: players.length,
     playerTotal,
+    waitlistFilled: waitlist.length,
+    waitLimit,
     registrations: t.registrations || [],
     myReg,
     draftInfo,
@@ -406,11 +410,13 @@ const actions = {
     const secret = String(event.secret || '').trim();
     const N = Number(event.N);
     const K = Number(event.K);
+    const waitLimit = Number(event.waitLimit);
     if (!name) return fail('请填写比赛名称');
     if (!secret) return fail('请设置报名暗号');
     if (secret.length > 20) return fail('暗号最多 20 个字');
     if (N < 2 || N > MAX_N) return fail('队长数量需在 2-' + MAX_N + ' 之间');
     if (K < 1 || K > MAX_K) return fail('每个队长选队友数量需在 1-' + MAX_K + ' 之间');
+    if (!isFinite(waitLimit) || waitLimit < 0 || waitLimit > 20) return fail('替补数量需在 0-20 之间');
     const openid = getOpenId();
     const me = await getUser(openid);
     const res = await db.collection('tournaments').add({
@@ -420,6 +426,7 @@ const actions = {
         secret,
         N,
         K,
+        waitLimit: Math.round(waitLimit),
         status: 'registration',
         registrations: [],
         captainOrder: [],
@@ -436,7 +443,7 @@ const actions = {
     return ok({ id: res._id });
   },
 
-  /* 管理员：修改报名阶段的比赛配置（名称/时间/暗号/队长数/队友数） */
+  /* 管理员：修改报名阶段的比赛配置（名称/时间/暗号/队长数/队友数/替补数） */
   async updateConfig(event) {
     if (!(await isAdminUser())) return fail('只有管理员可以修改配置');
     const t = await getTournamentById(event.id);
@@ -447,18 +454,22 @@ const actions = {
     const secret = String(event.secret || '').trim();
     const N = Number(event.N);
     const K = Number(event.K);
+    const waitLimit = Number(event.waitLimit);
     if (!name) return fail('请填写比赛名称');
     if (!secret) return fail('请设置报名暗号');
     if (secret.length > 20) return fail('暗号最多 20 个字');
     if (N < 2 || N > MAX_N) return fail('队长数量需在 2-' + MAX_N + ' 之间');
     if (K < 1 || K > MAX_K) return fail('每个队长选队友数量需在 1-' + MAX_K + ' 之间');
+    if (!isFinite(waitLimit) || waitLimit < 0 || waitLimit > 20) return fail('替补数量需在 0-20 之间');
     // 名额不能小于已报名人数
     const captains = (t.registrations || []).filter((r) => r.role === 'captain').length;
     const players = (t.registrations || []).filter((r) => r.role === 'player').length;
+    const waitlist = (t.registrations || []).filter((r) => r.role === 'waitlist').length;
     if (N < captains) return fail('已有 ' + captains + ' 位队长报名，队长数不能小于 ' + captains);
     if (N * K < players) return fail('队员名额不能小于已报名人数（当前已报 ' + players + ' 人）');
+    if (waitLimit < waitlist) return fail('替补名额不能小于已报名替补人数（当前 ' + waitlist + ' 人）');
     await db.collection('tournaments').doc(t._id).update({
-      data: { name, time, secret, N, K, updatedAt: Date.now() },
+      data: { name, time, secret, N, K, waitLimit: Math.round(waitLimit), updatedAt: Date.now() },
     });
     return ok({});
   },
@@ -470,7 +481,7 @@ const actions = {
     return ok({ correct: String(event.secret || '') === String(t.secret || '') });
   },
 
-  /* 报名（需暗号） */
+  /* 报名（需暗号）：队长/队员/替补；队员满时自动进入替补 */
   async register(event) {
     const openid = getOpenId();
     const me = await getUser(openid);
@@ -480,23 +491,87 @@ const actions = {
     if (t.status !== 'registration') return fail('当前不在报名阶段');
     if (String(event.secret || '') !== String(t.secret || '')) return fail('报名暗号错误');
     if ((t.registrations || []).some((r) => r.openid === openid)) return fail('你已经报名过了');
-    const role = event.role === 'captain' ? 'captain' : 'player';
-    const limit = role === 'captain' ? t.N : t.N * t.K;
-    const filled = (t.registrations || []).filter((r) => r.role === role).length;
-    if (filled >= limit) return fail(role === 'captain' ? '队长名额已满' : '队员名额已满');
-    const registrations = (t.registrations || []).concat([
-      {
-        openid,
-        nickname: me.nickname,
-        role,
-        ts: Date.now(),
-        mmr: me.mmr || null,
-        roles: me.roles || [],
-        signature: me.signature || '',
-      },
-    ]);
+    const waitLimit = t.waitLimit || 0;
+    const captains = (t.registrations || []).filter((r) => r.role === 'captain');
+    const players = (t.registrations || []).filter((r) => r.role === 'player');
+    const waitlist = (t.registrations || []).filter((r) => r.role === 'waitlist');
+    let role = 'player';
+    let auto = false;
+    if (event.role === 'captain') {
+      role = 'captain';
+      if (captains.length >= t.N) return fail('队长名额已满');
+    } else if (event.role === 'waitlist') {
+      role = 'waitlist';
+      if (waitLimit <= 0) return fail('本场比赛未设置替补');
+      if (waitlist.length >= waitLimit) return fail('替补名额已满');
+    } else {
+      if (players.length >= t.N * t.K) {
+        // 队员名额已满 → 自动加入替补
+        if (waitLimit <= 0) return fail('队员名额已满');
+        if (waitlist.length >= waitLimit) return fail('队员名额已满，替补也已满');
+        role = 'waitlist';
+        auto = true;
+      }
+    }
+    const reg = {
+      openid,
+      nickname: me.nickname,
+      role,
+      ts: Date.now(),
+      mmr: me.mmr || null,
+      roles: me.roles || [],
+      signature: me.signature || '',
+    };
+    if (role === 'captain') reg.teamName = '';
+    const registrations = (t.registrations || []).concat([reg]);
     await db.collection('tournaments').doc(t._id).update({ data: { registrations } });
-    return ok({ role });
+    return ok({ role, auto });
+  },
+
+  /* 设置队伍名称（队长本人或管理员；仅报名阶段，最多 10 个字） */
+  async setTeamName(event) {
+    const openid = getOpenId();
+    const t = await getTournamentById(event.id);
+    if (!t) return fail('比赛不存在');
+    if (t.status !== 'registration') return fail('只有报名阶段可以设置队伍名称');
+    const teamName = String(event.teamName || '').trim();
+    if (teamName.length > 10) return fail('队伍名称最多 10 个字');
+    const targetOpenid = String(event.openid || '') || openid;
+    const registrations = (t.registrations || []).map((r) => Object.assign({}, r));
+    const idx = registrations.findIndex((r) => r.openid === targetOpenid && r.role === 'captain');
+    if (idx < 0) return fail('只能为已报名的队长设置队伍名称');
+    const isAdminFlag = await isAdmin(openid);
+    if (targetOpenid !== openid && !isAdminFlag) return fail('只有队长本人或管理员可以设置队伍名称');
+    registrations[idx] = Object.assign({}, registrations[idx], { teamName });
+    await db.collection('tournaments').doc(t._id).update({ data: { registrations } });
+    return ok(true);
+  },
+
+  /* 管理员：报名阶段把队员移入替补 / 替补移回队员 */
+  async moveRegistration(event) {
+    if (!(await isAdminUser())) return fail('需要管理员权限');
+    const t = await getTournamentById(event.id);
+    if (!t) return fail('比赛不存在');
+    if (t.status !== 'registration') return fail('只有报名阶段可以调整名单');
+    const toRole = event.toRole === 'player' ? 'player' : 'waitlist';
+    const registrations = (t.registrations || []).map((r) => Object.assign({}, r));
+    const idx = registrations.findIndex((r) => r.openid === event.openid);
+    if (idx < 0) return fail('未找到该报名');
+    const cur = registrations[idx];
+    if (cur.role !== 'player' && cur.role !== 'waitlist') return fail('只能调整队员/替补');
+    if (cur.role === toRole) return fail('该用户已在目标名单中');
+    if (toRole === 'player') {
+      const players = registrations.filter((r) => r.role === 'player').length;
+      if (players >= t.N * t.K) return fail('队员名额已满，无法移入');
+    } else {
+      const waitLimit = t.waitLimit || 0;
+      if (waitLimit <= 0) return fail('本场比赛未设置替补');
+      const waitlist = registrations.filter((r) => r.role === 'waitlist').length;
+      if (waitlist >= waitLimit) return fail('替补名额已满');
+    }
+    registrations[idx] = Object.assign({}, cur, { role: toRole });
+    await db.collection('tournaments').doc(t._id).update({ data: { registrations } });
+    return ok(true);
   },
 
   /* 退报（报名阶段自己取消） */
@@ -537,6 +612,7 @@ const actions = {
     const captainOrder = shuffle(captains).map((c) => ({
       openid: c.openid,
       nickname: c.nickname,
+      teamName: c.teamName || '',
       mmr: c.mmr || null,
       roles: c.roles || [],
       signature: c.signature || '',
@@ -607,6 +683,7 @@ const actions = {
     const captainOrder = shuffle(captains).map((c) => ({
       openid: c.openid,
       nickname: c.nickname,
+      teamName: c.teamName || '',
       mmr: c.mmr || null,
       roles: c.roles || [],
       signature: c.signature || '',
@@ -673,7 +750,7 @@ const actions = {
     const ordered = seeding.map((idx) => teams[idx]);
     const bracketTeams = ordered.map((team, i) => ({
       openid: 'T' + i,
-      name: team.captain.nickname + '战队',
+      name: (team.captain.teamName || '').trim() ? team.captain.teamName : team.captain.nickname + '战队',
       captainOpenid: team.captain.openid,
     }));
     let matches;

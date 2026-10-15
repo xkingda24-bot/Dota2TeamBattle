@@ -16,8 +16,12 @@
           <view class="num">{{t.playerFilled}}/{{t.playerTotal}}</view>
           <view class="sub">队员</view>
         </view>
+        <view class="progress-item" wx:if="{{t.waitLimit > 0}}">
+          <view class="num">{{t.waitlistFilled}}/{{t.waitLimit}}</view>
+          <view class="sub">替补</view>
+        </view>
         <view class="spacer"></view>
-        <view class="tag tag-gray">报名{{t.captainFilled === t.captainTotal && t.playerFilled === t.playerTotal ? '已满' : '进行中'}}</view>
+        <view class="tag tag-gray">{{t.captainFilled === t.captainTotal && t.playerFilled === t.playerTotal ? '名额已满（可报替补）' : '报名中'}}</view>
       </view>
     </view>
 
@@ -35,15 +39,27 @@
     <view class="card">
       <view class="card-title">我的报名</view>
       <view wx:if="{{myReg}}" class="row">
-        <view class="tag tag-green">已报名：{{myReg.role === 'captain' ? '队长' : '队员'}}</view>
+        <view class="tag tag-green">已报名：{{myReg.roleText}}</view>
         <view class="spacer"></view>
         <view class="btn-small btn-danger" bindtap="onCancelReg">取消报名</view>
       </view>
+
+      <!-- 队长：设置队伍名称（报名阶段） -->
+      <block wx:if="{{myReg && myReg.role === 'captain' && t.status === 'registration'}}">
+        <view class="divider"></view>
+        <view class="sub" style="margin-bottom:8rpx;">队伍名称（选填，最多 10 个字；选人前可随时修改）</view>
+        <view class="row">
+          <input class="input team-name-input" maxlength="10" placeholder="给队伍取个名字" placeholder-class="ph" value="{{teamNameInput}}" bindinput="onTeamNameInput" />
+          <view class="btn-small {{teamNameSaving ? 'btn-disabled' : ''}}" bindtap="onSaveTeamName">{{teamNameSaving ? '保存中...' : '保存队名'}}</view>
+        </view>
+      </block>
+
       <view wx:elif="{{secretOk}}">
         <view class="sub" wx:if="{{t.status !== 'registration'}}">当前不在报名阶段</view>
         <view wx:else>
           <view class="btn {{t.captainFilled >= t.captainTotal ? 'btn-disabled' : ''}}" bindtap="onReg" data-role="captain">{{t.captainFilled >= t.captainTotal ? '队长名额已满' : '报名队长'}}</view>
-          <view class="btn btn-plain {{t.playerFilled >= t.playerTotal ? 'btn-disabled' : ''}}" bindtap="onReg" data-role="player">{{t.playerFilled >= t.playerTotal ? '队员名额已满' : '报名队员'}}</view>
+          <view class="btn btn-plain {{t.playerFilled >= t.playerTotal ? 'btn-disabled' : ''}}" bindtap="onReg" data-role="player">{{t.playerFilled >= t.playerTotal ? '队员名额已满（可报替补）' : '报名队员'}}</view>
+          <view class="btn btn-plain {{t.waitlistFilled >= t.waitLimit ? 'btn-disabled' : ''}}" wx:if="{{t.waitLimit > 0}}" bindtap="onReg" data-role="waitlist">{{t.waitlistFilled >= t.waitLimit ? '替补名额已满' : '报名替补'}}</view>
         </view>
       </view>
       <view wx:else class="row">
@@ -54,15 +70,16 @@
     <!-- 名单 -->
     <view class="card">
       <view class="row">
-        <view class="tab {{activeTab === 'captain' ? 'tab-active' : ''}}" bindtap="switchTab" data-tab="captain">队长名单（{{t.captainFilled}}）</view>
-        <view class="tab {{activeTab === 'player' ? 'tab-active' : ''}}" bindtap="switchTab" data-tab="player">队员名单（{{t.playerFilled}}）</view>
+        <view class="tab {{activeTab === 'captain' ? 'tab-active' : ''}}" bindtap="switchTab" data-tab="captain">队长（{{t.captainFilled}}）</view>
+        <view class="tab {{activeTab === 'player' ? 'tab-active' : ''}}" bindtap="switchTab" data-tab="player">队员（{{t.playerFilled}}）</view>
+        <view class="tab {{activeTab === 'waitlist' ? 'tab-active' : ''}}" wx:if="{{t.waitLimit > 0}}" bindtap="switchTab" data-tab="waitlist">替补（{{t.waitlistFilled}}）</view>
       </view>
       <view class="divider"></view>
       <view wx:if="{{activeTab === 'captain'}}">
         <view wx:if="{{captainList.length === 0}}" class="empty">还没有队长报名</view>
         <view class="reg-row" wx:for="{{captainList}}" wx:key="openid">
           <view class="row">
-            <view class="nick">{{item.nickname}}</view>
+            <view class="nick">{{item.nickname}}<text wx:if="{{item.teamName}}" class="team-tag">{{item.teamName}}</text></view>
             <view class="spacer"></view>
             <view wx:if="{{isAdmin && t.status === 'registration'}}" class="btn-small btn-danger" data-openid="{{item.openid}}" data-nickname="{{item.nickname}}" bindtap="onRemoveReg">移除</view>
           </view>
@@ -75,12 +92,31 @@
           <view class="pinfo" wx:else>未填写天梯分 / 位置 / 签名</view>
         </view>
       </view>
-      <view wx:else>
+      <view wx:elif="{{activeTab === 'player'}}">
         <view wx:if="{{playerList.length === 0}}" class="empty">还没有队员报名</view>
         <view class="reg-row" wx:for="{{playerList}}" wx:key="openid">
           <view class="row">
             <view class="nick">{{item.nickname}}</view>
             <view class="spacer"></view>
+            <view wx:if="{{isAdmin && t.status === 'registration'}}" class="btn-small btn-plain" data-openid="{{item.openid}}" data-nickname="{{item.nickname}}" data-to="waitlist" bindtap="onMoveReg">移入替补</view>
+            <view wx:if="{{isAdmin && t.status === 'registration'}}" class="btn-small btn-danger" data-openid="{{item.openid}}" data-nickname="{{item.nickname}}" bindtap="onRemoveReg">移除</view>
+          </view>
+          <view class="pinfo" wx:if="{{item.mmrText || item.rolesText || item.signature}}">
+            <text class="kv">{{item.mmrText}}</text>
+            <text wx:if="{{item.mmrText && item.rolesText}}"> · </text>
+            <text>{{item.rolesText}}</text>
+            <text wx:if="{{item.signature}}"> · {{item.signature}}</text>
+          </view>
+          <view class="pinfo" wx:else>未填写天梯分 / 位置 / 签名</view>
+        </view>
+      </view>
+      <view wx:else>
+        <view wx:if="{{waitlistList.length === 0}}" class="empty">还没有替补报名</view>
+        <view class="reg-row" wx:for="{{waitlistList}}" wx:key="openid">
+          <view class="row">
+            <view class="nick">{{item.nickname}}</view>
+            <view class="spacer"></view>
+            <view wx:if="{{isAdmin && t.status === 'registration'}}" class="btn-small btn-plain" data-openid="{{item.openid}}" data-nickname="{{item.nickname}}" data-to="player" bindtap="onMoveReg">移入队员</view>
             <view wx:if="{{isAdmin && t.status === 'registration'}}" class="btn-small btn-danger" data-openid="{{item.openid}}" data-nickname="{{item.nickname}}" bindtap="onRemoveReg">移除</view>
           </view>
           <view class="pinfo" wx:if="{{item.mmrText || item.rolesText || item.signature}}">
@@ -97,7 +133,7 @@
     <!-- 管理员操作 -->
     <view class="card" wx:if="{{isAdmin}}">
       <view class="card-title">管理员操作</view>
-      <view class="sub">队长 {{t.captainFilled}}/{{t.captainTotal}} · 队员 {{t.playerFilled}}/{{t.playerTotal}}</view>
+      <view class="sub">队长 {{t.captainFilled}}/{{t.captainTotal}} · 队员 {{t.playerFilled}}/{{t.playerTotal}}<text wx:if="{{t.waitLimit > 0}}"> · 替补 {{t.waitlistFilled}}/{{t.waitLimit}}</text></view>
       <view class="btn btn-plain" wx:if="{{t.status === 'registration'}}" bindtap="onEditConfig">修改比赛配置</view>
       <view class="btn" wx:if="{{t.status === 'registration'}}" bindtap="onStartDraft">开始选人（随机排序队长）</view>
       <view class="btn btn-danger" wx:if="{{t.status === 'registration'}}" bindtap="onDelete">删除比赛</view>

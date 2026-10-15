@@ -32,6 +32,19 @@
   flex: 1;
   margin-right: 16rpx;
 }
+.team-name-input {
+  flex: 1;
+  margin-right: 16rpx;
+}
+.team-tag {
+  display: inline-block;
+  margin-left: 12rpx;
+  padding: 2rpx 12rpx;
+  border-radius: 8rpx;
+  font-size: 22rpx;
+  color: #e8c27c;
+  background: rgba(224, 181, 111, 0.14);
+}
 .ph {
   color: #9aa4b2;
 }

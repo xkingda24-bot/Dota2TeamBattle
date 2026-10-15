@@ -1,4 +1,4 @@
-// pages/register/register.js - 报名（按比赛 id，需暗号）
+// pages/register/register.js - 报名（按比赛 id，需暗号；支持替补与队长队名）
 const api = require('../../utils/api');
 
 const ROLE_LABELS = ['', '1号位', '2号位', '3号位', '4号位', '5号位'];
@@ -6,6 +6,14 @@ const ROLE_LABELS = ['', '1号位', '2号位', '3号位', '4号位', '5号位'];
 function fmtRoles(roles) {
   const arr = Array.isArray(roles) ? roles.filter((v) => v >= 1 && v <= 5) : [];
   return arr.length ? arr.map((v) => ROLE_LABELS[v]).join('/') : '';
+}
+
+function fmtReg(r) {
+  return Object.assign({}, r, {
+    mmrText: r.mmr ? '天梯 ' + r.mmr : '',
+    rolesText: fmtRoles(r.roles),
+    roleText: r.role === 'captain' ? '队长' : r.role === 'waitlist' ? '替补' : '队员',
+  });
 }
 
 Page({
@@ -17,8 +25,12 @@ Page({
     activeTab: 'captain',
     captainList: [],
     playerList: [],
+    waitlistList: [],
     secretInput: '',
     secretOk: false,
+    // 队长队名
+    teamNameInput: '',
+    teamNameSaving: false,
   },
 
   onLoad(options) {
@@ -58,21 +70,19 @@ Page({
     return api
       .call('tournament', data)
       .then((t) => {
-        const regs = (t.registrations || []).map((r) =>
-          Object.assign({}, r, {
-            mmrText: r.mmr ? '天梯 ' + r.mmr : '',
-            rolesText: fmtRoles(r.roles),
-          })
-        );
+        const regs = (t.registrations || []).map(fmtReg);
         const secretOk = !!this.getStoredSecret() || !!t.myReg;
+        const myReg = t.myReg ? fmtReg(t.myReg) : null;
         this.setData({
           t,
-          myReg: t.myReg,
+          myReg,
           isAdmin: !!t.isAdmin,
           loading: false,
           captainList: regs.filter((r) => r.role === 'captain'),
           playerList: regs.filter((r) => r.role === 'player'),
+          waitlistList: regs.filter((r) => r.role === 'waitlist'),
           secretOk,
+          teamNameInput: myReg && myReg.role === 'captain' ? myReg.teamName || '' : this.data.teamNameInput,
         });
       })
       .catch((e) => {
@@ -122,8 +132,11 @@ Page({
     const secret = this.getStoredSecret();
     api
       .call('register', { id: this.data.t.id, role, secret })
-      .then(() => {
-        wx.showToast({ title: '报名成功', icon: 'success' });
+      .then((d) => {
+        wx.showToast({
+          title: d.auto ? '队员已满，已加入替补' : d.role === 'captain' ? '队长报名成功' : d.role === 'waitlist' ? '替补报名成功' : '报名成功',
+          icon: 'success',
+        });
         this.load();
       })
       .catch((err) => wx.showToast({ title: err.message, icon: 'none' }));
@@ -168,6 +181,59 @@ Page({
         }
       },
     });
+  },
+
+  /* 管理员：队员 <-> 替补 双向移动 */
+  onMoveReg(e) {
+    const t = this.data.t;
+    const openid = e.currentTarget.dataset.openid;
+    const nickname = e.currentTarget.dataset.nickname;
+    const to = e.currentTarget.dataset.to;
+    if (!t) return;
+    const actionText = to === 'player' ? '移回队员名单' : '移入替补';
+    wx.showModal({
+      title: actionText,
+      content: '确定将 ' + nickname + ' ' + actionText + '吗？',
+      success: (res) => {
+        if (res.confirm) {
+          api
+            .call('moveRegistration', { id: t.id, openid, toRole: to })
+            .then(() => {
+              wx.showToast({ title: '已调整', icon: 'success' });
+              this.load();
+            })
+            .catch((err) => wx.showToast({ title: err.message, icon: 'none' }));
+        }
+      },
+    });
+  },
+
+  /* 队长：设置队伍名称 */
+  onTeamNameInput(e) {
+    this.setData({ teamNameInput: e.detail.value });
+  },
+
+  onSaveTeamName() {
+    const t = this.data.t;
+    if (!t) return;
+    if (this.data.teamNameSaving) return;
+    const teamName = (this.data.teamNameInput || '').trim();
+    if (teamName.length > 10) {
+      wx.showToast({ title: '队伍名称最多 10 个字', icon: 'none' });
+      return;
+    }
+    this.setData({ teamNameSaving: true });
+    api
+      .call('setTeamName', { id: t.id, teamName })
+      .then(() => {
+        wx.showToast({ title: teamName ? '队名已保存' : '已清除队名', icon: 'success' });
+        this.setData({ teamNameSaving: false });
+        this.load();
+      })
+      .catch((err) => {
+        this.setData({ teamNameSaving: false });
+        wx.showToast({ title: err.message, icon: 'none' });
+      });
   },
 
   onEditConfig() {

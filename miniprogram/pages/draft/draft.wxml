@@ -28,7 +28,7 @@
     <view class="team-grid">
       <view class="team-card" wx:for="{{t.draftInfo.picks}}" wx:key="teamIndex">
         <view class="team-head">
-          <view class="team-name">队长{{item.teamIndex + 1}}</view>
+          <view class="team-name">{{item.captain && item.captain.teamName ? item.captain.teamName : '队长' + (item.teamIndex + 1)}}</view>
           <view class="sub">{{item.captain ? item.captain.nickname : ''}}</view>
           <view class="spacer"></view>
           <view class="tag tag-gray">{{item.players.length}}/{{t.K}}</view>

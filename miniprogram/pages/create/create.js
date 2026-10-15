@@ -16,8 +16,11 @@ Page({
     nIndex: 6, // 默认 8 个队长
     kRange: [1, 2, 3, 4, 5],
     kIndex: 3, // 默认 每队 4 个队友
+    waitRange: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+    waitIndex: 5, // 默认 5 个替补
     N: 8,
     K: 4,
+    waitLimit: 5,
     submitting: false,
   },
 
@@ -48,6 +51,8 @@ Page({
           const time = (d.time || '').slice(11, 16);
           const nIdx = this.data.nRange.indexOf(d.N);
           const kIdx = this.data.kRange.indexOf(d.K);
+          const wLimit = d.waitLimit === undefined || d.waitLimit === null ? 5 : Number(d.waitLimit);
+          const wIdx = this.data.waitRange.indexOf(wLimit);
           this.setData({
             name: d.name || '',
             secret: d.secret || '',
@@ -55,6 +60,8 @@ Page({
             time: time || this.data.time,
             N: d.N,
             K: d.K,
+            waitLimit: wLimit,
+            waitIndex: wIdx >= 0 ? wIdx : this.data.waitIndex,
             nIndex: nIdx >= 0 ? nIdx : this.data.nIndex,
             kIndex: kIdx >= 0 ? kIdx : this.data.kIndex,
           });
@@ -103,6 +110,10 @@ Page({
     const i = Number(e.detail.value);
     this.setData({ kIndex: i, K: this.data.kRange[i] });
   },
+  onWait(e) {
+    const i = Number(e.detail.value);
+    this.setData({ waitIndex: i, waitLimit: this.data.waitRange[i] });
+  },
 
   submit() {
     if (this.data.submitting) return;
@@ -124,7 +135,15 @@ Page({
     };
     if (this.data.editMode) {
       api
-        .call('updateConfig', { id: this.id, name, time, secret, N: this.data.N, K: this.data.K })
+        .call('updateConfig', {
+          id: this.id,
+          name,
+          time,
+          secret,
+          N: this.data.N,
+          K: this.data.K,
+          waitLimit: this.data.waitLimit,
+        })
         .then(done)
         .catch((e) => {
           this.setData({ submitting: false });
@@ -133,7 +152,14 @@ Page({
       return;
     }
     api
-      .call('createTournament', { name, time, secret, N: this.data.N, K: this.data.K })
+      .call('createTournament', {
+        name,
+        time,
+        secret,
+        N: this.data.N,
+        K: this.data.K,
+        waitLimit: this.data.waitLimit,
+      })
       .then(done)
       .catch((e) => {
         this.setData({ submitting: false });
