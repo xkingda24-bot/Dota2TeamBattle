@@ -1,0 +1,66 @@
+<!--pages/index/index.wxml - 主页-->
+<nav-bar title="Dota2 战队赛" />
+<view class="container">
+  <!-- 我的资料 -->
+  <view class="card row">
+    <view>
+      <view class="card-title">{{user ? user.nickname : '未设置昵称'}}</view>
+      <view class="sub">微信自动登录 · 右上角可查看管理员名单</view>
+    </view>
+    <view class="spacer"></view>
+    <view class="btn-small btn-plain" bindtap="onEditNickname">{{user ? '改昵称' : '设置昵称'}}</view>
+  </view>
+
+  <!-- 超管未初始化提示 -->
+  <view wx:if="{{!hasSuper}}" class="card tip-card">
+    <view class="tip-text">系统尚未初始化最高管理员：请点右上角「管理员」，第一位初始化者将成为最高管理员（可添加/移除管理员）。</view>
+  </view>
+
+  <!-- 创建比赛（仅管理员） -->
+  <view class="card">
+    <view class="row">
+      <view>
+        <view class="card-title">创建比赛</view>
+        <view class="sub">设置名称、时间、队长数、每队队友数、报名暗号</view>
+      </view>
+      <view class="spacer"></view>
+      <view class="btn-small {{isAdmin ? '' : 'btn-disabled'}}" bindtap="goCreate">{{isAdmin ? '去创建' : '仅管理员'}}</view>
+    </view>
+    <view class="sub" wx:if="{{!isAdmin}}">只有管理员可以创建比赛；管理员由最高管理员添加</view>
+  </view>
+
+  <!-- 今天的比赛 -->
+  <view class="section">今天的比赛（{{today.length}}）</view>
+  <view wx:if="{{today.length === 0}}" class="empty">今天还没有创建比赛</view>
+  <view class="card" wx:for="{{today}}" wx:key="id" data-index="{{index}}" bindtap="goTournament">
+    <view class="row">
+      <view class="card-title">{{item.name}}</view>
+      <view class="tag {{item.status === 'registration' ? 'tag-blue' : item.status === 'draft' ? 'tag-red' : item.status === 'battle' ? 'tag-green' : 'tag-gray'}}">{{item.phaseText}}</view>
+    </view>
+    <view class="sub">时间：{{item.time}} · {{item.N}} 队</view>
+    <view class="divider"></view>
+    <view class="row">
+      <view class="progress-item">
+        <view class="num">{{item.captainFilled}}/{{item.captainTotal}}</view>
+        <view class="sub">队长</view>
+      </view>
+      <view class="progress-item">
+        <view class="num">{{item.playerFilled}}/{{item.playerTotal}}</view>
+        <view class="sub">队员</view>
+      </view>
+      <view class="spacer"></view>
+      <view wx:if="{{item.champion}}" class="tag tag-red">冠军 {{item.champion.name}}</view>
+      <view wx:else class="tag tag-blue">进入</view>
+    </view>
+  </view>
+
+  <!-- 历史比赛 -->
+  <view class="card row" bindtap="goHistory" hover-class="nav-hover">
+    <view>
+      <view class="card-title">历史比赛</view>
+      <view class="sub">查看之前创建的比赛、比赛过程与结果</view>
+    </view>
+    <view class="spacer"></view>
+    <view class="btn-small btn-plain">进入</view>
+  </view>
+</view>

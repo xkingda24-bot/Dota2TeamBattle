@@ -1,0 +1,159 @@
+/* pages/bracket/bracket.wxss */
+.champion-banner {
+  background: linear-gradient(90deg, rgba(255, 107, 53, 0.25), rgba(255, 107, 53, 0.1));
+  border: 2rpx solid rgba(255, 107, 53, 0.5);
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+  color: #ffb38a;
+  font-size: 34rpx;
+  font-weight: 700;
+  text-align: center;
+}
+.admin-btn {
+  flex: 1;
+  margin-top: 0;
+}
+
+.match-card {
+  border-left: 6rpx solid #ff6b35;
+}
+.match-label {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #f0f2f5;
+}
+.vs-row {
+  display: flex;
+  align-items: center;
+  margin-top: 16rpx;
+}
+.team {
+  flex: 1;
+  font-size: 28rpx;
+  color: #e8eaed;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.team-win {
+  color: #57d68d;
+  font-weight: 600;
+}
+.vs-center {
+  width: 140rpx;
+  text-align: center;
+}
+.score {
+  color: #ff8a5c;
+  font-weight: 700;
+  font-size: 32rpx;
+}
+.vs-text {
+  color: #6b7583;
+  font-size: 24rpx;
+}
+.admin-row {
+  margin-top: 16rpx;
+  padding-top: 16rpx;
+  border-top: 1rpx solid #2a3542;
+}
+.picker-sm {
+  background: #242f3d;
+  border-radius: 8rpx;
+  padding: 6rpx 20rpx;
+  font-size: 24rpx;
+  color: #cfd6df;
+}
+
+/* 落位调整 */
+.seed-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 14rpx;
+}
+.seed-label {
+  width: 110rpx;
+  font-size: 24rpx;
+  color: #9aa4b2;
+}
+.seed-row .picker {
+  flex: 1;
+  background: #242f3d;
+  border-radius: 10rpx;
+  padding: 14rpx 20rpx;
+  color: #e8eaed;
+  font-size: 26rpx;
+}
+.seed-btn {
+  flex: 1;
+  margin-top: 20rpx;
+}
+
+/* 记录结果弹层 */
+.mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.65);
+  z-index: 99;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.panel {
+  width: 86%;
+  background: #1c2430;
+  border-radius: 20rpx;
+  padding: 32rpx;
+  box-sizing: border-box;
+}
+.team-btn {
+  flex: 1;
+  background: #242f3d;
+  border-radius: 12rpx;
+  padding: 24rpx 12rpx;
+  text-align: center;
+  font-size: 28rpx;
+  color: #e8eaed;
+  border: 2rpx solid transparent;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.team-btn-active {
+  background: rgba(255, 107, 53, 0.16);
+  border-color: #ff6b35;
+  color: #ffb38a;
+  font-weight: 600;
+}
+.field {
+  margin-top: 20rpx;
+}
+.label {
+  font-size: 24rpx;
+  color: #9aa4b2;
+  margin-bottom: 10rpx;
+}
+.score-input {
+  flex: 1;
+  background: #242f3d;
+  border-radius: 10rpx;
+  padding: 14rpx 0;
+  text-align: center;
+  color: #e8eaed;
+  font-size: 30rpx;
+}
+.score-colon {
+  padding: 0 20rpx;
+  color: #9aa4b2;
+}
+.panel-btn {
+  flex: 1;
+  margin-top: 28rpx;
+}
+.panel-btn + .panel-btn {
+  margin-left: 20rpx;
+}

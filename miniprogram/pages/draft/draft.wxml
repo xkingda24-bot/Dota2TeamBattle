@@ -1,0 +1,73 @@
+<!--pages/draft/draft.wxml - 队长选人-->
+<nav-bar title="队长选人" />
+<view class="container">
+  <block wx:if="{{t && t.draftInfo}}">
+    <!-- 轮次状态 -->
+    <view class="card">
+      <view class="row">
+        <view class="card-title">{{pickStateText}}</view>
+        <view class="spacer"></view>
+        <view wx:if="{{t.draftInfo.done}}" class="tag tag-green">选人完成</view>
+        <view wx:elif="{{canPick}}" class="tag tag-red">轮到你了！</view>
+        <view wx:else class="tag tag-blue">等待 {{t.draftInfo.currentCaptain ? t.draftInfo.currentCaptain.nickname : ''}}</view>
+      </view>
+      <view class="sub" wx:if="{{!t.draftInfo.done}}">当前：队长{{t.draftInfo.capIdx + 1}}（{{t.draftInfo.currentCaptain ? t.draftInfo.currentCaptain.nickname : ''}}）选人</view>
+      <view class="divider"></view>
+      <!-- 本轮选人顺序 -->
+      <view class="chips">
+        <view class="chip {{item.active ? 'chip-active' : ''}}" wx:for="{{orderChips}}" wx:key="idx">
+          <view class="chip-title">队长{{item.idx + 1}}</view>
+          <view class="chip-name">{{item.nickname}}</view>
+        </view>
+      </view>
+      <view class="rule-tip">严格按顺序轮流：上一个队长未选，下一个队长不能选（系统强制）</view>
+    </view>
+
+    <!-- 队伍名单 -->
+    <view class="section">队伍名单</view>
+    <view class="team-grid">
+      <view class="team-card" wx:for="{{t.draftInfo.picks}}" wx:key="teamIndex">
+        <view class="team-head">
+          <view class="team-name">队长{{item.teamIndex + 1}}</view>
+          <view class="sub">{{item.captain ? item.captain.nickname : ''}}</view>
+          <view class="spacer"></view>
+          <view class="tag tag-gray">{{item.players.length}}/{{t.K}}</view>
+        </view>
+        <view class="team-players" wx:if="{{item.players.length}}">
+          <view class="player-chip" wx:for="{{item.players}}" wx:for-item="p" wx:key="openid">{{p.nickname}}</view>
+        </view>
+        <view class="sub" wx:else>未选队员</view>
+      </view>
+    </view>
+
+    <!-- 剩余队员 -->
+    <view class="section">可选队员（{{t.draftInfo.remainingPlayers.length}}）</view>
+    <view wx:if="{{t.draftInfo.remainingPlayers.length === 0}}" class="empty">没有剩余队员了</view>
+    <view class="card" wx:for="{{t.draftInfo.remainingPlayers}}" wx:key="openid">
+      <view class="row">
+        <view class="nick">{{item.nickname}}</view>
+        <view class="spacer"></view>
+        <view wx:if="{{canPick || isAdmin}}" class="btn-small" data-openid="{{item.openid}}" data-name="{{item.nickname}}" bindtap="onPick">选他</view>
+        <view wx:else class="sub">等待轮到你</view>
+      </view>
+    </view>
+
+    <!-- 管理员 -->
+    <view class="card" wx:if="{{isAdmin}}">
+      <view class="card-title">管理员操作</view>
+      <view class="sub">可代当前轮次队长选人（直接点上方「选他」）；也可重置整个选人流程</view>
+      <view class="btn btn-plain" bindtap="onResetDraft">重置选人（重新随机队长顺序）</view>
+    </view>
+  </block>
+
+  <view wx:elif="{{t}}" class="card">
+    <view class="card-title">当前不在选人阶段</view>
+    <view class="sub">当前阶段：{{t.status === 'registration' ? '报名中' : t.status === 'battle' ? '对战中' : '已结束'}}</view>
+    <view class="btn btn-plain" bindtap="goBack">返回</view>
+  </view>
+
+  <view wx:else class="card">
+    <view class="card-title">暂无比赛</view>
+    <view class="btn btn-plain" bindtap="goBack">返回主页</view>
+  </view>
+</view>

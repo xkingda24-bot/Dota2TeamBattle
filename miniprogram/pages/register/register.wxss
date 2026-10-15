@@ -1,0 +1,37 @@
+/* pages/register/register.wxss */
+.progress-item {
+  margin-right: 48rpx;
+}
+.progress-item .num {
+  font-size: 36rpx;
+  font-weight: 600;
+  color: #ff8a5c;
+}
+.tab {
+  padding: 8rpx 20rpx;
+  font-size: 28rpx;
+  color: #9aa4b2;
+  border-radius: 8rpx;
+  margin-right: 12rpx;
+}
+.tab-active {
+  background: rgba(255, 107, 53, 0.16);
+  color: #ff8a5c;
+}
+.reg-row {
+  padding: 14rpx 4rpx;
+}
+.nick {
+  font-size: 28rpx;
+  color: #e8eaed;
+}
+.secret-row {
+  margin-top: 16rpx;
+}
+.secret-input {
+  flex: 1;
+  margin-right: 16rpx;
+}
+.ph {
+  color: #6b7583;
+}

@@ -1,0 +1,81 @@
+<!--pages/history/history.wxml - 历史比赛（列表 + 详情）-->
+<nav-bar title="历史比赛" />
+<view class="container">
+  <!-- 列表 -->
+  <block wx:if="{{mode === 'list'}}">
+    <view wx:if="{{older.length === 0}}" class="card">
+      <view class="card-title">还没有历史比赛</view>
+      <view class="sub">之前创建的比赛会显示在这里，可查看比赛过程与结果</view>
+    </view>
+    <view class="card" wx:for="{{older}}" wx:key="id" data-index="{{index}}" bindtap="goDetail">
+      <view class="row">
+        <view class="card-title">{{item.name}}</view>
+        <view class="tag {{item.status === 'registration' ? 'tag-blue' : item.status === 'draft' ? 'tag-red' : item.status === 'battle' ? 'tag-green' : 'tag-gray'}}">{{item.phaseText}}</view>
+      </view>
+      <view class="sub">时间：{{item.time}} · {{item.N}} 队 · 队长 {{item.captainFilled}}/{{item.captainTotal}} 队员 {{item.playerFilled}}/{{item.playerTotal}}</view>
+      <view wx:if="{{item.champion}}" class="sub">冠军：{{item.champion.name}}</view>
+    </view>
+  </block>
+
+  <!-- 详情 -->
+  <block wx:elif="{{mode === 'detail'}}">
+    <view wx:if="{{!t}}" class="card">
+      <view class="card-title">加载中...</view>
+      <view class="btn btn-plain" bindtap="backList">返回列表</view>
+    </view>
+    <block wx:else>
+      <view class="card">
+        <view class="card-title">{{t.name}}</view>
+        <view class="sub">时间：{{t.time}} · 共 {{t.N}} 队（每队 1 队长 + {{t.K}} 队员）</view>
+        <view wx:if="{{t.champion}}" class="champion-banner">冠军：{{t.champion.name}}</view>
+      </view>
+
+      <!-- 队伍名单 -->
+      <view class="card">
+        <view class="card-title">队伍名单</view>
+        <view wx:if="{{!t.teams || t.teams.length === 0}}" class="empty">尚未生成队伍名单</view>
+        <view class="team-block" wx:for="{{t.teams}}" wx:key="teamIndex" wx:for-item="team">
+          <view class="team-title">队{{index + 1}} · {{team.captain.nickname}}战队</view>
+          <view class="sub" wx:if="{{team.players.length === 0}}">队员：（空）</view>
+          <view class="sub" wx:else>队员：<text wx:for="{{team.players}}" wx:key="openid" wx:for-item="p">{{p.nickname}}{{index < team.players.length - 1 ? '、' : ''}}</text></view>
+        </view>
+      </view>
+
+      <!-- 赛程 -->
+      <block wx:if="{{ubMatches.length}}">
+        <view class="section">胜者组</view>
+        <template is="hMatchCard" data="{{...item}}" wx:for="{{ubMatches}}" wx:key="id" />
+      </block>
+      <block wx:if="{{lbMatches.length}}">
+        <view class="section">败者组</view>
+        <template is="hMatchCard" data="{{...item}}" wx:for="{{lbMatches}}" wx:key="id" />
+      </block>
+      <block wx:if="{{gf}}">
+        <view class="section">总决赛</view>
+        <template is="hMatchCard" data="{{...gf}}" />
+      </block>
+      <view wx:if="{{t.status !== 'draft' && t.matches.length === 0}}" class="empty">本场比赛未生成赛程</view>
+      <view class="btn btn-plain" bindtap="backList">返回列表</view>
+    </block>
+  </block>
+</view>
+
+<!-- 只读比赛卡片 -->
+<template name="hMatchCard">
+  <view class="card match-card">
+    <view class="row">
+      <view class="match-label">{{label}}</view>
+      <view class="spacer"></view>
+      <view class="tag tag-gray">{{bo}}</view>
+      <view class="tag {{status === 'done' ? 'tag-green' : 'tag-blue'}}">{{status === 'done' ? '已结束' : '未进行'}}</view>
+    </view>
+    <view class="vs-row">
+      <view class="team {{status === 'done' && winner === teamAInfo.openid ? 'team-win' : ''}}">{{displayA}}</view>
+      <view class="vs-center">
+        <view class="score" wx:if="{{status === 'done'}}">{{scoreA}} : {{scoreB}}</view>
+        <view class="vs-text" wx:else>VS</view>
+      </view>
+      <view class="team {{status === 'done' && winner === teamBInfo.openid ? 'team-win' : ''}}">{{displayB}}</view>
+    </view>
+  </view>
+</template>

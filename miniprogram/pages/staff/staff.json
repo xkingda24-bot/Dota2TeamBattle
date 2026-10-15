@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "管理员名单",
+  "backgroundColor": "#131821",
+  "usingComponents": {
+    "nav-bar": "/components/nav-bar/index"
+  }
+}

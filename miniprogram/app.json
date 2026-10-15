@@ -1,0 +1,22 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/create/create",
+    "pages/register/register",
+    "pages/draft/draft",
+    "pages/bracket/bracket",
+    "pages/history/history",
+    "pages/staff/staff"
+  ],
+  "window": {
+    "backgroundColor": "#131821",
+    "backgroundTextStyle": "light",
+    "navigationBarBackgroundColor": "#131821",
+    "navigationBarTitleText": "Dota2 战队赛",
+    "navigationBarTextStyle": "white",
+    "navigationStyle": "custom"
+  },
+  "sitemapLocation": "sitemap.json",
+  "style": "v2",
+  "lazyCodeLoading": "requiredComponents"
+}

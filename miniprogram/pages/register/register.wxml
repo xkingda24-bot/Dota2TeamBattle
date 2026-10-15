@@ -1,0 +1,97 @@
+<!--pages/register/register.wxml - 报名-->
+<nav-bar title="报名" />
+<view class="container">
+  <block wx:if="{{t}}">
+    <!-- 比赛信息 -->
+    <view class="card">
+      <view class="card-title">{{t.name}}</view>
+      <view class="sub">时间：{{t.time}} · 共 {{t.N}} 队（每队 1 队长 + {{t.K}} 队员）</view>
+      <view class="divider"></view>
+      <view class="row">
+        <view class="progress-item">
+          <view class="num">{{t.captainFilled}}/{{t.captainTotal}}</view>
+          <view class="sub">队长</view>
+        </view>
+        <view class="progress-item">
+          <view class="num">{{t.playerFilled}}/{{t.playerTotal}}</view>
+          <view class="sub">队员</view>
+        </view>
+        <view class="spacer"></view>
+        <view class="tag tag-gray">报名{{t.captainFilled === t.captainTotal && t.playerFilled === t.playerTotal ? '已满' : '进行中'}}</view>
+      </view>
+    </view>
+
+    <!-- 报名暗号 -->
+    <view class="card" wx:if="{{t.status === 'registration' && !myReg && !secretOk}}">
+      <view class="card-title">报名暗号</view>
+      <view class="sub">输入管理员设置的暗号后即可报名</view>
+      <view class="row secret-row">
+        <input class="input secret-input" placeholder="请输入暗号" placeholder-class="ph" value="{{secretInput}}" bindinput="onSecretInput" />
+        <view class="btn-small" bindtap="onVerifySecret">验证</view>
+      </view>
+    </view>
+
+    <!-- 我的报名 -->
+    <view class="card">
+      <view class="card-title">我的报名</view>
+      <view wx:if="{{myReg}}" class="row">
+        <view class="tag tag-green">已报名：{{myReg.role === 'captain' ? '队长' : '队员'}}</view>
+        <view class="spacer"></view>
+        <view class="btn-small btn-danger" bindtap="onCancelReg">取消报名</view>
+      </view>
+      <view wx:elif="{{secretOk}}">
+        <view class="sub" wx:if="{{t.status !== 'registration'}}">当前不在报名阶段</view>
+        <view wx:else>
+          <view class="btn {{t.captainFilled >= t.captainTotal ? 'btn-disabled' : ''}}" bindtap="onReg" data-role="captain">{{t.captainFilled >= t.captainTotal ? '队长名额已满' : '报名队长'}}</view>
+          <view class="btn btn-plain {{t.playerFilled >= t.playerTotal ? 'btn-disabled' : ''}}" bindtap="onReg" data-role="player">{{t.playerFilled >= t.playerTotal ? '队员名额已满' : '报名队员'}}</view>
+        </view>
+      </view>
+      <view wx:else class="row">
+        <view class="sub">输入上方暗号验证后即可报名</view>
+      </view>
+    </view>
+
+    <!-- 名单 -->
+    <view class="card">
+      <view class="row">
+        <view class="tab {{activeTab === 'captain' ? 'tab-active' : ''}}" bindtap="switchTab" data-tab="captain">队长名单（{{t.captainFilled}}）</view>
+        <view class="tab {{activeTab === 'player' ? 'tab-active' : ''}}" bindtap="switchTab" data-tab="player">队员名单（{{t.playerFilled}}）</view>
+      </view>
+      <view class="divider"></view>
+      <view wx:if="{{activeTab === 'captain'}}">
+        <view wx:if="{{captainList.length === 0}}" class="empty">还没有队长报名</view>
+        <view class="reg-row" wx:for="{{captainList}}" wx:key="openid">
+          <view class="row">
+            <view class="nick">{{item.nickname}}</view>
+            <view class="spacer"></view>
+            <view wx:if="{{isAdmin && t.status === 'registration'}}" class="btn-small btn-danger" data-openid="{{item.openid}}" data-nickname="{{item.nickname}}" bindtap="onRemoveReg">移除</view>
+          </view>
+        </view>
+      </view>
+      <view wx:else>
+        <view wx:if="{{playerList.length === 0}}" class="empty">还没有队员报名</view>
+        <view class="reg-row" wx:for="{{playerList}}" wx:key="openid">
+          <view class="row">
+            <view class="nick">{{item.nickname}}</view>
+            <view class="spacer"></view>
+            <view wx:if="{{isAdmin && t.status === 'registration'}}" class="btn-small btn-danger" data-openid="{{item.openid}}" data-nickname="{{item.nickname}}" bindtap="onRemoveReg">移除</view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 管理员操作 -->
+    <view class="card" wx:if="{{isAdmin}}">
+      <view class="card-title">管理员操作</view>
+      <view class="sub">队长 {{t.captainFilled}}/{{t.captainTotal}} · 队员 {{t.playerFilled}}/{{t.playerTotal}}</view>
+      <view class="btn" wx:if="{{t.status === 'registration'}}" bindtap="onStartDraft">开始选人（随机排序队长）</view>
+      <view class="btn btn-plain" wx:if="{{t.status !== 'registration'}}">当前阶段：{{t.status === 'draft' ? '选人中' : t.status === 'battle' ? '对战中' : '已结束'}}</view>
+    </view>
+  </block>
+
+  <view wx:else class="card">
+    <view class="card-title">暂无比赛</view>
+    <view class="sub">请从主页选择一场比赛进入</view>
+    <view class="btn btn-plain" bindtap="goBack">返回主页</view>
+  </view>
+</view>

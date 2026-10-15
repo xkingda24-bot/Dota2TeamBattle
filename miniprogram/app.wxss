@@ -1,0 +1,145 @@
+/**app.wxss - 全局暗色主题**/
+page {
+  background: #131821;
+  color: #e8eaed;
+  font-family: -apple-system, "PingFang SC", "Helvetica Neue", sans-serif;
+  font-size: 28rpx;
+}
+
+.container {
+  padding: 24rpx;
+  box-sizing: border-box;
+}
+
+.card {
+  background: #1c2430;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+}
+
+.card-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #f0f2f5;
+  margin-bottom: 12rpx;
+}
+
+.section {
+  margin: 30rpx 8rpx 16rpx;
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #cfd6df;
+}
+
+.sub {
+  color: #9aa4b2;
+  font-size: 24rpx;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.divider {
+  height: 1rpx;
+  background: #2a3542;
+  margin: 16rpx 0;
+}
+
+.empty {
+  text-align: center;
+  color: #6b7583;
+  padding: 60rpx 0;
+  font-size: 26rpx;
+}
+
+/* 按钮 */
+.btn {
+  background: #ff6b35;
+  color: #fff;
+  border-radius: 12rpx;
+  font-size: 30rpx;
+  padding: 18rpx 0;
+  text-align: center;
+  line-height: 1.4;
+  margin-top: 16rpx;
+}
+.btn::after {
+  border: none;
+}
+.btn-plain {
+  background: #2a3542;
+  color: #e8eaed;
+}
+.btn-disabled {
+  background: #2a3542;
+  color: #6b7583;
+}
+.btn-danger {
+  background: #b3372e;
+  color: #fff;
+}
+.btn-small {
+  display: inline-block;
+  padding: 6rpx 22rpx;
+  font-size: 24rpx;
+  border-radius: 8rpx;
+  margin: 0;
+  line-height: 1.6;
+  background: #ff6b35;
+  color: #fff;
+}
+.btn-small.btn-plain {
+  background: #2a3542;
+  color: #e8eaed;
+}
+.btn-small.btn-danger {
+  background: #8e2f27;
+  color: #ffd9d5;
+}
+
+/* 标签 */
+.tag {
+  display: inline-block;
+  padding: 4rpx 16rpx;
+  border-radius: 8rpx;
+  font-size: 22rpx;
+  margin-left: 12rpx;
+}
+.tag-red {
+  background: rgba(255, 107, 53, 0.16);
+  color: #ff8a5c;
+}
+.tag-green {
+  background: rgba(46, 204, 113, 0.15);
+  color: #57d68d;
+}
+.tag-blue {
+  background: rgba(52, 152, 219, 0.15);
+  color: #5dade2;
+}
+.tag-gray {
+  background: rgba(255, 255, 255, 0.08);
+  color: #9aa4b2;
+}
+
+/* 输入框 */
+.input {
+  background: #242f3d;
+  border-radius: 10rpx;
+  padding: 16rpx 20rpx;
+  color: #e8eaed;
+  font-size: 28rpx;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.mono {
+  font-family: Menlo, Consolas, monospace;
+}

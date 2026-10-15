@@ -1,0 +1,12 @@
+# Node
+node_modules/
+
+# 微信开发者工具个人配置（含本机个性化设置，不随仓库分发）
+project.private.config.json
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 日志
+*.log

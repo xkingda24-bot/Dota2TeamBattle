@@ -1,0 +1,75 @@
+/* pages/draft/draft.wxss */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+}
+.chip {
+  background: #242f3d;
+  border-radius: 10rpx;
+  padding: 12rpx 18rpx;
+  border: 2rpx solid transparent;
+  min-width: 120rpx;
+}
+.chip-active {
+  background: rgba(255, 107, 53, 0.14);
+  border-color: #ff6b35;
+}
+.chip-title {
+  font-size: 24rpx;
+  color: #ff8a5c;
+  font-weight: 600;
+}
+.chip-name {
+  font-size: 26rpx;
+  color: #e8eaed;
+  margin-top: 4rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rule-tip {
+  font-size: 22rpx;
+  color: #6b7583;
+  margin-top: 16rpx;
+}
+.team-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+.team-card {
+  width: 48.5%;
+  background: #1c2430;
+  border-radius: 14rpx;
+  padding: 18rpx;
+  margin-bottom: 16rpx;
+  box-sizing: border-box;
+}
+.team-head {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10rpx;
+}
+.team-name {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #ff8a5c;
+  margin-right: 8rpx;
+}
+.team-players {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8rpx;
+}
+.player-chip {
+  background: #242f3d;
+  border-radius: 8rpx;
+  padding: 6rpx 14rpx;
+  font-size: 22rpx;
+  color: #cfd6df;
+}
+.nick {
+  font-size: 28rpx;
+  color: #e8eaed;
+}

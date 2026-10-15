@@ -1,0 +1,49 @@
+<!--pages/staff/staff.wxml - 管理员名单-->
+<nav-bar title="管理员名单" />
+<view class="container">
+  <!-- 未初始化 -->
+  <view class="card" wx:if="{{!superAdmin}}">
+    <view class="card-title">尚未初始化最高管理员</view>
+    <view class="sub">第一个初始化的人将成为最高管理员（最高权限：可添加/移除管理员）。请群主完成此步骤。</view>
+    <view class="btn" bindtap="initSuper">初始化最高管理员</view>
+  </view>
+
+  <!-- 最高管理员 -->
+  <view class="card" wx:if="{{superAdmin}}">
+    <view class="card-title">最高管理员</view>
+    <view class="staff-row">
+      <view class="staff-nick">{{superAdmin.nickname}}</view>
+      <view class="spacer"></view>
+      <view class="tag tag-red">最高权限</view>
+    </view>
+    <view class="sub" wx:if="{{isSuper}}">（你）你可以添加或移除管理员</view>
+  </view>
+
+  <!-- 管理员列表 -->
+  <view class="card" wx:if="{{superAdmin}}">
+    <view class="card-title">管理员（{{admins.length}}）</view>
+    <view wx:if="{{admins.length === 0}}" class="empty">还没有其他管理员</view>
+    <view class="staff-row" wx:for="{{admins}}" wx:key="openid">
+      <view class="staff-nick">{{item.nickname}}</view>
+      <view class="spacer"></view>
+      <view wx:if="{{isAdmin}}" class="tag tag-green">管理员</view>
+      <view wx:if="{{isSuper}}" class="btn-small btn-danger" data-openid="{{item.openid}}" data-nickname="{{item.nickname}}" bindtap="remove">移除</view>
+    </view>
+  </view>
+
+  <!-- 超管：添加管理员 -->
+  <view class="card" wx:if="{{isSuper}}">
+    <view class="card-title">添加管理员</view>
+    <view class="sub">输入对方的昵称（对方需先在主页设置过昵称）</view>
+    <view class="row staff-add-row">
+      <input class="input staff-add-input" placeholder="对方昵称" placeholder-class="ph" value="{{addNickname}}" bindinput="onAddInput" />
+      <view class="btn-small {{adding ? 'btn-disabled' : ''}}" bindtap="add">{{adding ? '添加中...' : '添加'}}</view>
+    </view>
+  </view>
+
+  <!-- 说明 -->
+  <view class="card">
+    <view class="card-title">权限说明</view>
+    <view class="sub">· 只有管理员可以在主页创建比赛，并管理报名/选人/赛程。<br />· 最高管理员可以添加或移除管理员。<br />· 普通用户可正常报名、选人、查看赛程。</view>
+  </view>
+</view>

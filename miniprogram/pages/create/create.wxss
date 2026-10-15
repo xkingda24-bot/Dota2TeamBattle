@@ -1,0 +1,22 @@
+/* pages/create/create.wxss */
+.field {
+  margin-bottom: 24rpx;
+}
+.field:last-child {
+  margin-bottom: 0;
+}
+.label {
+  font-size: 24rpx;
+  color: #9aa4b2;
+  margin-bottom: 10rpx;
+}
+.picker {
+  background: #242f3d;
+  border-radius: 10rpx;
+  padding: 16rpx 20rpx;
+  color: #e8eaed;
+  font-size: 28rpx;
+}
+.ph {
+  color: #6b7583;
+}

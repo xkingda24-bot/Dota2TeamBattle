@@ -1,0 +1,20 @@
+/* pages/index/index.wxss */
+.progress-item {
+  margin-right: 48rpx;
+}
+.progress-item .num {
+  font-size: 36rpx;
+  font-weight: 600;
+  color: #ff8a5c;
+}
+.tip-card {
+  border: 2rpx solid rgba(255, 107, 53, 0.4);
+}
+.tip-text {
+  font-size: 24rpx;
+  color: #ffb38a;
+  line-height: 1.6;
+}
+.nav-hover {
+  opacity: 0.6;
+}

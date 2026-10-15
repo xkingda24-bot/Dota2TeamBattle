@@ -1,0 +1,47 @@
+<!--pages/create/create.wxml - 创建比赛-->
+<nav-bar title="创建比赛" />
+<view class="container">
+  <view class="card">
+    <view class="card-title">比赛信息</view>
+    <view class="field">
+      <view class="label">比赛名称</view>
+      <input class="input" placeholder="如：10.15 群内战" placeholder-class="ph" value="{{name}}" bindinput="onName" />
+    </view>
+    <view class="field">
+      <view class="label">报名暗号（想报名的用户需输入正确暗号才能报名）</view>
+      <input class="input" placeholder="如：dota666" placeholder-class="ph" value="{{secret}}" bindinput="onSecret" />
+    </view>
+    <view class="field">
+      <view class="label">比赛日期</view>
+      <picker mode="date" value="{{date}}" bindchange="onDate">
+        <view class="picker">{{date}}</view>
+      </picker>
+    </view>
+    <view class="field">
+      <view class="label">比赛时间</view>
+      <picker mode="time" value="{{time}}" bindchange="onTime">
+        <view class="picker">{{time}}</view>
+      </picker>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="card-title">赛制配置</view>
+    <view class="field">
+      <view class="label">队长数量（N）</view>
+      <picker mode="selector" range="{{nRange}}" value="{{nIndex}}" bindchange="onN">
+        <view class="picker">{{N}} 个队长</view>
+      </picker>
+    </view>
+    <view class="field">
+      <view class="label">每个队长选队友数（K）</view>
+      <picker mode="selector" range="{{kRange}}" value="{{kIndex}}" bindchange="onK">
+        <view class="picker">每队 {{K}} 个队友</view>
+      </picker>
+    </view>
+    <view class="divider"></view>
+    <view class="sub">报名名额：{{N}} 个队长 + {{N * K}} 个队员，共 {{N * (K + 1)}} 人。选人蛇形共 {{K}} 轮；赛程按 {{N}} 队双败淘汰自动生成（TI 国际邀请赛赛制）。</view>
+  </view>
+
+  <view class="btn {{submitting ? 'btn-disabled' : ''}}" bindtap="submit">{{submitting ? '创建中...' : '创建比赛并进入报名'}}</view>
+</view>

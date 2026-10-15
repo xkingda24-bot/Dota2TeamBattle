@@ -1,0 +1,49 @@
+/* components/nav-bar/index.wxss */
+.nav-wrap {
+  background: #131821;
+  position: relative;
+  display: flex;
+  align-items: center;
+  box-sizing: content-box;
+}
+.nav-left {
+  position: absolute;
+  left: 24rpx;
+  display: flex;
+  align-items: center;
+  padding: 8rpx;
+}
+.nav-home-icon {
+  width: 40rpx;
+  height: 40rpx;
+  margin-right: 8rpx;
+}
+.nav-home-text {
+  font-size: 30rpx;
+  color: #9aa4b2;
+}
+.nav-title {
+  flex: 1;
+  text-align: center;
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #f0f2f5;
+  padding: 0 160rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nav-right {
+  position: absolute;
+  right: 104rpx; /* 避开右上角胶囊按钮 */
+  display: flex;
+  align-items: center;
+  padding: 8rpx;
+}
+.nav-staff-text {
+  font-size: 28rpx;
+  color: #9aa4b2;
+}
+.nav-hover {
+  opacity: 0.6;
+}

@@ -1,0 +1,120 @@
+<!--pages/bracket/bracket.wxml - 对战赛程-->
+<nav-bar title="对战赛程" />
+<view class="container">
+  <block wx:if="{{t}}">
+    <!-- 冠军 -->
+    <view wx:if="{{t.champion}}" class="champion-banner">冠军：{{t.champion.name}}</view>
+
+    <!-- 对阵调整（选人完成后、生成对阵前） -->
+    <view class="card" wx:if="{{showSeeding}}">
+      <view class="card-title">对阵调整（胜者组第一轮落位）</view>
+      <view class="sub">共 {{t.N}} 个落位，相邻两个落位互为第一轮对手；可手动调整或随机排位</view>
+      <view class="seed-row" wx:for="{{seedSlots}}" wx:key="slot">
+        <view class="seed-label">落位 {{item.slot + 1}}</view>
+        <picker mode="selector" range="{{teamNames}}" value="{{item.idx}}" bindchange="onSeedChange" data-slot="{{item.slot}}">
+          <view class="picker">{{item.name}}</view>
+        </picker>
+      </view>
+      <view class="row">
+        <view class="btn btn-plain seed-btn" bindtap="onShuffleSeeding">随机排位</view>
+        <view class="spacer"></view>
+        <view class="btn seed-btn" bindtap="onStartBracket">生成对阵并开始</view>
+      </view>
+    </view>
+
+    <!-- 胜者组 -->
+    <block wx:if="{{ubMatches.length}}">
+      <view class="section">胜者组</view>
+      <template is="matchCard" data="{{...item}}" wx:for="{{ubMatches}}" wx:key="id" />
+    </block>
+
+    <!-- 败者组 -->
+    <block wx:if="{{lbMatches.length}}">
+      <view class="section">败者组</view>
+      <template is="matchCard" data="{{...item}}" wx:for="{{lbMatches}}" wx:key="id" />
+    </block>
+
+    <!-- 总决赛 -->
+    <block wx:if="{{gf}}">
+      <view class="section">总决赛</view>
+      <template is="matchCard" data="{{...gf}}" />
+    </block>
+
+    <view wx:if="{{t.status !== 'draft' && t.matches.length === 0}}" class="empty">赛程还未生成（需先完成选人）</view>
+
+    <!-- 管理员操作（结束/删除） -->
+    <view class="card" wx:if="{{isAdmin && (t.status === 'battle' || t.status === 'finished')}}">
+      <view class="card-title">管理员操作</view>
+      <view class="sub">{{t.status === 'finished' ? '本场比赛已结束归档' : '比赛结束后归档，可在主页创建新比赛'}}</view>
+      <view class="row">
+        <view class="btn btn-plain admin-btn" wx:if="{{t.status === 'battle'}}" bindtap="onFinish">结束并归档</view>
+        <view class="spacer"></view>
+        <view class="btn btn-danger admin-btn" bindtap="onDelete">删除比赛</view>
+      </view>
+    </view>
+  </block>
+
+  <view wx:else class="card">
+    <view class="card-title">暂无比赛</view>
+    <view class="btn btn-plain" bindtap="goBack">返回主页</view>
+  </view>
+
+  <!-- 记录结果弹层 -->
+  <view class="mask" wx:if="{{showPanel}}">
+    <view class="panel">
+      <view class="card-title">{{panelMatch.label}}</view>
+      <view class="sub">赛制 {{panelMatch.bo}} · 胜者晋级，败者跌入败者组或淘汰（自动）</view>
+      <view class="divider"></view>
+      <view class="vs-row">
+        <view class="team-btn {{panelWinner === panelMatch.teamAInfo.openid ? 'team-btn-active' : ''}}" data-winner="{{panelMatch.teamAInfo.openid}}" bindtap="pickWinner">{{panelMatch.displayA}}</view>
+        <view class="vs-text">VS</view>
+        <view class="team-btn {{panelWinner === panelMatch.teamBInfo.openid ? 'team-btn-active' : ''}}" data-winner="{{panelMatch.teamBInfo.openid}}" bindtap="pickWinner">{{panelMatch.displayB}}</view>
+      </view>
+      <view class="field" wx:if="{{panelMatch.bo !== 'BO1'}}">
+        <view class="label">比分（{{panelMatch.bo}}）</view>
+        <view class="row">
+          <input class="score-input" type="number" value="{{scoreA}}" bindinput="onScoreA" placeholder="0" />
+          <view class="score-colon">:</view>
+          <input class="score-input" type="number" value="{{scoreB}}" bindinput="onScoreB" placeholder="0" />
+        </view>
+      </view>
+      <view class="row">
+        <view class="btn btn-plain panel-btn" bindtap="closePanel">取消</view>
+        <view class="spacer"></view>
+        <view class="btn panel-btn" bindtap="confirmResult">确认记录</view>
+      </view>
+    </view>
+  </view>
+</view>
+
+<!-- 比赛卡片模板 -->
+<template name="matchCard">
+  <view class="card match-card">
+    <view class="row">
+      <view class="match-label">{{label}}</view>
+      <view class="spacer"></view>
+      <view class="tag tag-gray">{{bo}}</view>
+      <view class="tag {{status === 'done' ? 'tag-green' : 'tag-blue'}}">{{status === 'done' ? '已结束' : '待打'}}</view>
+    </view>
+    <view class="vs-row">
+      <view class="team {{status === 'done' && winner === teamAInfo.openid ? 'team-win' : ''}}">{{displayA}}</view>
+      <view class="vs-center">
+        <view class="score" wx:if="{{status === 'done'}}">{{scoreA}} : {{scoreB}}</view>
+        <view class="vs-text" wx:else>VS</view>
+      </view>
+      <view class="team {{status === 'done' && winner === teamBInfo.openid ? 'team-win' : ''}}">{{displayB}}</view>
+    </view>
+    <view class="row admin-row" wx:if="{{showAdmin && status !== 'done'}}">
+      <picker mode="selector" range="{{boRange}}" value="{{boIndex}}" bindchange="onBoChange" data-id="{{id}}">
+        <view class="picker-sm">赛制 {{bo}}</view>
+      </picker>
+      <view class="spacer"></view>
+      <view class="btn-small" data-id="{{id}}" bindtap="recordResult">记录胜负</view>
+    </view>
+    <view class="row admin-row" wx:if="{{showAdmin && status === 'done'}}">
+      <view class="sub">已结束</view>
+      <view class="spacer"></view>
+      <view class="btn-small btn-danger" data-id="{{id}}" bindtap="resetResult">修正结果</view>
+    </view>
+  </view>
+</template>
