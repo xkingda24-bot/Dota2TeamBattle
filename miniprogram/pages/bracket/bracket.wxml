@@ -8,7 +8,25 @@
       <view class="tree-toggle" bindtap="{{showTree ? 'onHideTree' : 'onShowTree'}}">{{showTree ? '收起晋级图' : '查看晋级图'}}</view>
     </view>
     <scroll-view class="tree-scroll" scroll-x wx:if="{{showTree}}">
-      <canvas type="2d" id="treeCanvas" style="width:{{treeW}}px;height:{{treeH}}px;"></canvas>
+      <view class="tree-flex">
+        <view class="tree-col" wx:for="{{treeCols}}" wx:key="stage" wx:for-item="col">
+          <view class="tree-col-title">{{col.title}}</view>
+          <view class="tree-node" wx:for="{{col.matches}}" wx:for-item="m" wx:key="id">
+            <view class="tree-node-head">
+              <text class="tree-node-status {{m.status === 'done' ? 'done' : 'pending'}}">{{m.status === 'done' ? '已结束' : '待打'}}</text>
+            </view>
+            <view class="tree-node-team {{m.status === 'done' && m.winner === m.teamAInfo.openid ? 'win' : ''}}">
+              <text class="tn-name">{{m.displayA}}</text>
+              <text class="tn-score" wx:if="{{m.status === 'done'}}">{{m.scoreA}}</text>
+            </view>
+            <view class="tree-node-team {{m.status === 'done' && m.winner === m.teamBInfo.openid ? 'win' : ''}}">
+              <text class="tn-name">{{m.displayB}}</text>
+              <text class="tn-score" wx:if="{{m.status === 'done'}}">{{m.scoreB}}</text>
+            </view>
+            <view class="tree-node-arrow" wx:if="{{m.status === 'done'}}">晋级 ↓</view>
+          </view>
+        </view>
+      </view>
     </scroll-view>
 
     <!-- 冠军 -->
