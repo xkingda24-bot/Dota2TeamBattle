@@ -32,6 +32,11 @@ Page({
     teamNameInput: '',
     teamNameSaving: false,
     teamNameDirty: false, // 输入框正在编辑中，轮询刷新不要覆盖
+    // 系统分组预览
+    groupModal: false,
+    groupResult: null,
+    grouping: false,
+    confirming: false,
   },
 
   onLoad(options) {
@@ -242,6 +247,72 @@ Page({
     const t = this.data.t;
     if (!t) return;
     wx.navigateTo({ url: '/pages/create/create?id=' + t.id });
+  },
+
+  /* ---------- 系统分组（管理员） ---------- */
+  onAutoGroup() {
+    const t = this.data.t;
+    if (!t) return;
+    this.setData({ grouping: true });
+    api
+      .call('autoGroup', { id: t.id })
+      .then((d) => {
+        this.setData({ grouping: false, groupModal: true, groupResult: d });
+      })
+      .catch((err) => {
+        this.setData({ grouping: false });
+        wx.showToast({ title: err.message, icon: 'none' });
+      });
+  },
+
+  onRegroup() {
+    if (this.data.grouping) return;
+    const t = this.data.t;
+    if (!t) return;
+    this.setData({ grouping: true });
+    api
+      .call('autoGroup', { id: t.id })
+      .then((d) => {
+        this.setData({ grouping: false, groupResult: d });
+      })
+      .catch((err) => {
+        this.setData({ grouping: false });
+        wx.showToast({ title: err.message, icon: 'none' });
+      });
+  },
+
+  onConfirmGroup() {
+    if (this.data.confirming) return;
+    const t = this.data.t;
+    if (!t) return;
+    const r = this.data.groupResult;
+    const warn = r && r.groups.some((g) => g.missingRoles.length);
+    wx.showModal({
+      title: '确认分组',
+      content: warn
+        ? '部分组缺少某些位置的队员（缺位已标注），仍确认分组？确认后进入对战页生成赛程。'
+        : '确认按当前分组结果分队？确认后进入对战页生成赛程。',
+      success: (res) => {
+        if (!res.confirm) return;
+        this.setData({ confirming: true });
+        api
+          .call('confirmGroup', { id: t.id })
+          .then(() => {
+            wx.showToast({ title: '分组完成', icon: 'success' });
+            this.stopPoll();
+            setTimeout(() => wx.redirectTo({ url: '/pages/bracket/bracket?id=' + t.id }), 600);
+          })
+          .catch((err) => {
+            this.setData({ confirming: false });
+            wx.showToast({ title: err.message, icon: 'none' });
+          });
+      },
+    });
+  },
+
+  onCloseGroup() {
+    if (this.data.confirming) return;
+    this.setData({ groupModal: false });
   },
 
   onStartDraft() {

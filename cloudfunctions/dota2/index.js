@@ -128,7 +128,9 @@ function resolveBracket(tournament) {
 
 /* 组装比赛页完整数据 */
 async function composeTournament(t, myOpenid) {
-  const captainTotal = t.N;
+  const mode = t.mode === 'auto' ? 'auto' : 'captain';
+  // 系统分组模式无队长名额；队员名额 = 队伍数 × 每组人数（K）
+  const captainTotal = mode === 'auto' ? 0 : t.N;
   const playerTotal = t.N * t.K;
   const waitLimit = t.waitLimit || 0;
   const captains = (t.registrations || []).filter((r) => r.role === 'captain');
@@ -138,9 +140,9 @@ async function composeTournament(t, myOpenid) {
   const admin = await isAdmin(myOpenid);
   const superFlag = await isSuper(myOpenid);
 
-  // 选人信息
+  // 选人信息（仅队长选人模式）
   let draftInfo = null;
-  if (t.status === 'draft' || (t.status === 'battle' && t.draft)) {
+  if (mode === 'captain' && t.draft && (t.status === 'draft' || t.status === 'battle')) {
     const picks = t.draft.picks || [];
     const playerRegMap = {};
     players.forEach((r) => (playerRegMap[r.openid] = r));
@@ -182,6 +184,7 @@ async function composeTournament(t, myOpenid) {
     id: t._id,
     name: t.name,
     time: t.time,
+    mode,
     N: t.N,
     K: t.K,
     status: t.status,
@@ -210,17 +213,19 @@ async function composeTournament(t, myOpenid) {
 
 /* 比赛列表摘要 */
 function summarize(t, myOpenid) {
+  const mode = t.mode === 'auto' ? 'auto' : 'captain';
   const caps = (t.registrations || []).filter((r) => r.role === 'captain').length;
   const players = (t.registrations || []).filter((r) => r.role === 'player').length;
   return {
     id: t._id,
     name: t.name,
     time: t.time,
+    mode,
     N: t.N,
     K: t.K,
     status: t.status,
     captainFilled: caps,
-    captainTotal: t.N,
+    captainTotal: mode === 'auto' ? 0 : t.N,
     playerFilled: players,
     playerTotal: t.N * t.K,
     champion: t.champion || null,
@@ -232,6 +237,117 @@ function summarize(t, myOpenid) {
 }
 
 /* ---------------- 动作 ---------------- */
+
+/* 系统分组算法：
+   1) 位置代表构建：每组依次从 1-5 号位各选一名会该位置的队员（优先均分均衡）
+   2) 补位：每组补到 K 人，优先补该组缺失的位置
+   3) 爬山优化：随机交换两人，组间均分差更小（且缺位不增加）则接受
+   返回预览结构（含每组名单/均分/缺位） */
+function runAutoGroup(players, N, K) {
+  const has = (p, r) => Array.isArray(p.roles) && p.roles.indexOf(r) >= 0;
+  const missingRoles = (g) => {
+    const s = new Set();
+    g.forEach((p) => (p.roles || []).forEach((r) => s.add(r)));
+    const m = [];
+    for (let r = 1; r <= 5; r++) if (!s.has(r)) m.push(r);
+    return m;
+  };
+  const avg = (g) => (g.length ? g.reduce((s, p) => s + (p.mmr || 0), 0) / g.length : 0);
+
+  let groups = [];
+  for (let i = 0; i < N; i++) groups.push([]);
+  const pool = players.map((p) => Object.assign({}, p));
+
+  // 1. 位置代表：每组依次拿 1-5 号位人选（同位置候选里选 mmr 与当前组均值最接近的）
+  for (let r = 1; r <= 5; r++) {
+    for (let gi = 0; gi < N; gi++) {
+      if (groups[gi].length >= K) continue;
+      const cand = pool.filter((p) => has(p, r));
+      if (!cand.length) continue; // 全局无人会该位置 → 该组缺位
+      const curAvg = groups[gi].length ? avg(groups[gi]) : null;
+      let pick = cand[0];
+      let bestD = Infinity;
+      cand.forEach((p) => {
+        const d = curAvg == null ? 0 : Math.abs((p.mmr || 0) - curAvg);
+        if (d < bestD) {
+          bestD = d;
+          pick = p;
+        }
+      });
+      groups[gi].push(pick);
+      pool.splice(pool.indexOf(pick), 1);
+    }
+  }
+
+  // 2. 补位：每组补到 K 人，优先补该组缺失位置的人
+  for (let gi = 0; gi < N; gi++) {
+    while (groups[gi].length < K && pool.length) {
+      const miss = missingRoles(groups[gi]);
+      let pick = null;
+      for (let r of miss) {
+        const c = pool.filter((p) => has(p, r));
+        if (c.length) {
+          pick = c[0];
+          break;
+        }
+      }
+      if (!pick) pick = pool[0];
+      groups[gi].push(pick);
+      pool.splice(pool.indexOf(pick), 1);
+    }
+  }
+
+  // 3. 爬山优化：随机交换，均分差变小（同分则缺位变少）才接受
+  const score = () => {
+    const av = groups.map(avg);
+    const maxD = Math.max.apply(null, av) - Math.min.apply(null, av);
+    const missN = groups.reduce((s, g) => s + missingRoles(g).length, 0);
+    return { maxD, missN };
+  };
+  let bestS = score();
+  let best = groups.map((g) => g.slice());
+  for (let iter = 0; iter < 4000; iter++) {
+    const gi = Math.floor(Math.random() * N);
+    let gj = Math.floor(Math.random() * N);
+    if (gj === gi) gj = (gj + 1) % N;
+    const ai = Math.floor(Math.random() * groups[gi].length);
+    const bj = Math.floor(Math.random() * groups[gj].length);
+    const tmp = groups[gi][ai];
+    groups[gi][ai] = groups[gj][bj];
+    groups[gj][bj] = tmp;
+    const s = score();
+    // 缺位优先（位置覆盖不牺牲），缺位相同再优化组间均分差
+    if (s.missN < bestS.missN || (s.missN === bestS.missN && s.maxD < bestS.maxD)) {
+      bestS = s;
+      best = groups.map((g) => g.slice());
+    } else {
+      const tmp2 = groups[gi][ai];
+      groups[gi][ai] = groups[gj][bj];
+      groups[gj][bj] = tmp2;
+    }
+  }
+  groups = best;
+
+  // 4. 组装输出
+  const out = [];
+  for (let gi = 0; gi < N; gi++) {
+    const g = groups[gi].slice().sort((a, b) => (b.mmr || 0) - (a.mmr || 0));
+    out.push({
+      idx: gi,
+      captain: g[0] || null,
+      avgMmr: Math.round(avg(g)),
+      missingRoles: missingRoles(g),
+      members: g.map((p) => ({
+        openid: p.openid,
+        nickname: p.nickname,
+        mmr: p.mmr,
+        roles: p.roles || [],
+        signature: p.signature || '',
+      })),
+    });
+  }
+  return { groups: out, maxDiff: Math.round(bestS.maxD), maxDiffOk: bestS.maxD <= 300 };
+}
 
 const actions = {
   /* 主页数据：今天的比赛 + 之前的比赛 + 我的身份 */
@@ -424,14 +540,15 @@ const actions = {
     const name = String(event.name || '').trim();
     const time = String(event.time || '').trim();
     const secret = String(event.secret || '').trim();
+    const mode = event.mode === 'auto' ? 'auto' : 'captain'; // captain=队长选人 auto=系统分组
     const N = Number(event.N);
     const K = Number(event.K);
     const waitLimit = Number(event.waitLimit);
     if (!name) return fail('请填写比赛名称');
     if (!secret) return fail('请设置报名暗号');
     if (secret.length > 20) return fail('暗号最多 20 个字');
-    if (N < 2 || N > MAX_N) return fail('队长数量需在 2-' + MAX_N + ' 之间');
-    if (K < 1 || K > MAX_K) return fail('每个队长选队友数量需在 1-' + MAX_K + ' 之间');
+    if (N < 2 || N > MAX_N) return fail('队伍数量需在 2-' + MAX_N + ' 之间');
+    if (K < 1 || K > MAX_K) return fail(mode === 'auto' ? '每组人数需在 1-' + MAX_K + ' 之间' : '每个队长选队友数量需在 1-' + MAX_K + ' 之间');
     if (!isFinite(waitLimit) || waitLimit < 0 || waitLimit > 20) return fail('替补数量需在 0-20 之间');
     const openid = getOpenId();
     const me = await getUser(openid);
@@ -440,13 +557,14 @@ const actions = {
         name,
         time,
         secret,
+        mode,
         N,
         K,
         waitLimit: Math.round(waitLimit),
         status: 'registration',
         registrations: [],
         captainOrder: [],
-        draft: { turn: 0, picks: [] },
+        draft: null,
         teams: [],
         seeding: null,
         matches: [],
@@ -459,7 +577,7 @@ const actions = {
     return ok({ id: res._id });
   },
 
-  /* 管理员：修改报名阶段的比赛配置（名称/时间/暗号/队长数/队友数/替补数） */
+  /* 管理员：修改报名阶段的比赛配置（名称/时间/暗号/模式/队伍数/每队人数或队友数/替补数） */
   async updateConfig(event) {
     if (!(await isAdminUser())) return fail('只有管理员可以修改配置');
     const t = await getTournamentById(event.id);
@@ -468,24 +586,31 @@ const actions = {
     const name = String(event.name || '').trim();
     const time = String(event.time || '').trim();
     const secret = String(event.secret || '').trim();
+    const mode = event.mode === 'auto' ? 'auto' : 'captain';
     const N = Number(event.N);
     const K = Number(event.K);
     const waitLimit = Number(event.waitLimit);
     if (!name) return fail('请填写比赛名称');
     if (!secret) return fail('请设置报名暗号');
     if (secret.length > 20) return fail('暗号最多 20 个字');
-    if (N < 2 || N > MAX_N) return fail('队长数量需在 2-' + MAX_N + ' 之间');
-    if (K < 1 || K > MAX_K) return fail('每个队长选队友数量需在 1-' + MAX_K + ' 之间');
+    if (N < 2 || N > MAX_N) return fail('队伍数量需在 2-' + MAX_N + ' 之间');
+    if (K < 1 || K > MAX_K) return fail(mode === 'auto' ? '每组人数需在 1-' + MAX_K + ' 之间' : '每个队长选队友数量需在 1-' + MAX_K + ' 之间');
     if (!isFinite(waitLimit) || waitLimit < 0 || waitLimit > 20) return fail('替补数量需在 0-20 之间');
     // 名额不能小于已报名人数
     const captains = (t.registrations || []).filter((r) => r.role === 'captain').length;
     const players = (t.registrations || []).filter((r) => r.role === 'player').length;
     const waitlist = (t.registrations || []).filter((r) => r.role === 'waitlist').length;
-    if (N < captains) return fail('已有 ' + captains + ' 位队长报名，队长数不能小于 ' + captains);
-    if (N * K < players) return fail('队员名额不能小于已报名人数（当前已报 ' + players + ' 人）');
+    // 系统分组模式无队长名额
+    if (mode === 'auto') {
+      if (captains > 0) return fail('已有队长报名，不能切换为系统分组模式（请先移除队长报名）');
+      if (N * K < players) return fail('队员名额不能小于已报名人数（当前已报 ' + players + ' 人）');
+    } else {
+      if (N < captains) return fail('已有 ' + captains + ' 位队长报名，队长数不能小于 ' + captains);
+      if (N * K < players) return fail('队员名额不能小于已报名人数（当前已报 ' + players + ' 人）');
+    }
     if (waitLimit < waitlist) return fail('替补名额不能小于已报名替补人数（当前 ' + waitlist + ' 人）');
     await db.collection('tournaments').doc(t._id).update({
-      data: { name, time, secret, N, K, waitLimit: Math.round(waitLimit), updatedAt: Date.now() },
+      data: { name, time, secret, mode, N, K, waitLimit: Math.round(waitLimit), updatedAt: Date.now() },
     });
     return ok({});
   },
@@ -516,6 +641,7 @@ const actions = {
     let role = 'player';
     let auto = false;
     if (event.role === 'captain') {
+      if (t.mode === 'auto') return fail('本场比赛为系统分组模式，请报名队员或替补');
       role = 'captain';
       if (captains.length >= t.N) return fail('队长名额已满');
     } else if (event.role === 'waitlist') {
@@ -945,6 +1071,55 @@ const actions = {
     if (!t) return fail('比赛不存在');
     await db.collection('tournaments').doc(t._id).remove();
     return ok(true);
+  },
+
+  /* 系统分组：预览分组结果（不落库）。约束：每组 K 人；尽量覆盖 1-5 号位；组间均分差尽量 ≤300 */
+  async autoGroup(event) {
+    if (!(await isAdminUser())) return fail('需要管理员权限');
+    const t = await getTournamentById(event.id);
+    if (!t) return fail('比赛不存在');
+    if (t.mode !== 'auto') return fail('本场比赛不是系统分组模式');
+    if (t.status !== 'registration') return fail('当前不在报名阶段');
+    const players = (t.registrations || []).filter((r) => r.role === 'player');
+    const need = t.N * t.K;
+    if (players.length < need) return fail('队员尚未报满（' + players.length + '/' + need + '），报满后才能分组');
+    return ok(runAutoGroup(players, t.N, t.K));
+  },
+
+  /* 系统分组：确认分组并写入队伍（服务端重算，不信任客户端数据） */
+  async confirmGroup(event) {
+    if (!(await isAdminUser())) return fail('需要管理员权限');
+    const t = await getTournamentById(event.id);
+    if (!t) return fail('比赛不存在');
+    if (t.mode !== 'auto') return fail('本场比赛不是系统分组模式');
+    if (t.status !== 'registration') return fail('当前不在报名阶段');
+    const players = (t.registrations || []).filter((r) => r.role === 'player');
+    const need = t.N * t.K;
+    if (players.length < need) return fail('队员尚未报满（' + players.length + '/' + need + '），报满后才能分组');
+    const result = runAutoGroup(players, t.N, t.K);
+    const teams = result.groups.map((g) => ({
+      captain: {
+        openid: g.captain.openid,
+        nickname: g.captain.nickname,
+        teamName: '',
+        mmr: g.captain.mmr,
+        roles: g.captain.roles || [],
+        signature: g.captain.signature || '',
+      },
+      players: g.members
+        .filter((m) => m.openid !== g.captain.openid)
+        .map((m) => ({
+          openid: m.openid,
+          nickname: m.nickname,
+          mmr: m.mmr,
+          roles: m.roles || [],
+          signature: m.signature || '',
+        })),
+    }));
+    await db.collection('tournaments').doc(t._id).update({
+      data: { status: 'draft', teams, captainOrder: [], draft: null, seeding: null, updatedAt: Date.now() },
+    });
+    return ok({});
   },
 
   /* 生成虚拟测试用户并报名（管理员；用于自测完整流程） */

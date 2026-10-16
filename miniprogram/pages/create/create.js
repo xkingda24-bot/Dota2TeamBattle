@@ -18,6 +18,9 @@ Page({
     kIndex: 3, // 默认 每队 4 个队友
     waitRange: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
     waitIndex: 5, // 默认 5 个替补
+    modeRange: ['队长选人', '系统分组'],
+    modeIndex: 0,
+    mode: 'captain', // captain=队长选人 auto=系统分组
     N: 8,
     K: 4,
     waitLimit: 5,
@@ -58,6 +61,8 @@ Page({
             secret: d.secret || '',
             date: date || this.data.date,
             time: time || this.data.time,
+            mode: d.mode === 'auto' ? 'auto' : 'captain',
+            modeIndex: d.mode === 'auto' ? 1 : 0,
             N: d.N,
             K: d.K,
             waitLimit: wLimit,
@@ -102,6 +107,16 @@ Page({
   onTime(e) {
     this.setData({ time: e.detail.value });
   },
+  onMode(e) {
+    const i = Number(e.detail.value);
+    const patch = { modeIndex: i, mode: i === 1 ? 'auto' : 'captain' };
+    // 切到系统分组时默认每组 5 人（K=5）
+    if (i === 1 && this.data.K < 5) {
+      patch.K = 5;
+      patch.kIndex = 4;
+    }
+    this.setData(patch);
+  },
   onN(e) {
     const i = Number(e.detail.value);
     this.setData({ nIndex: i, N: this.data.nRange[i] });
@@ -140,6 +155,7 @@ Page({
           name,
           time,
           secret,
+          mode: this.data.mode,
           N: this.data.N,
           K: this.data.K,
           waitLimit: this.data.waitLimit,
@@ -156,6 +172,7 @@ Page({
         name,
         time,
         secret,
+        mode: this.data.mode,
         N: this.data.N,
         K: this.data.K,
         waitLimit: this.data.waitLimit,

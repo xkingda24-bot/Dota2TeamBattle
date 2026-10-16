@@ -208,6 +208,11 @@ Page({
         secretChecking: false,
       });
     } else if (item.status === 'draft') {
+      // 系统分组模式无选人环节，分组完成直接进对战页
+      if (item.mode === 'auto') {
+        wx.navigateTo({ url: '/pages/bracket/bracket?id=' + item.id });
+        return;
+      }
       wx.navigateTo({ url: '/pages/draft/draft?id=' + item.id });
     } else {
       wx.navigateTo({ url: '/pages/bracket/bracket?id=' + item.id });

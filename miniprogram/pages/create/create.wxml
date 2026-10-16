@@ -28,15 +28,21 @@
   <view class="card">
     <view class="card-title">赛制配置</view>
     <view class="field">
-      <view class="label">队长数量（N）</view>
-      <picker mode="selector" range="{{nRange}}" value="{{nIndex}}" bindchange="onN">
-        <view class="picker">{{N}} 个队长</view>
+      <view class="label">分组模式</view>
+      <picker mode="selector" range="{{modeRange}}" value="{{modeIndex}}" bindchange="onMode">
+        <view class="picker">{{modeRange[modeIndex]}}</view>
       </picker>
     </view>
     <view class="field">
-      <view class="label">每个队长选队友数（K）</view>
+      <view class="label">{{mode === 'auto' ? '队伍数量（N）' : '队长数量（N）'}}</view>
+      <picker mode="selector" range="{{nRange}}" value="{{nIndex}}" bindchange="onN">
+        <view class="picker">{{N}} {{mode === 'auto' ? '支队伍' : '个队长'}}</view>
+      </picker>
+    </view>
+    <view class="field">
+      <view class="label">{{mode === 'auto' ? '每组人数（K）' : '每个队长选队友数（K）'}}</view>
       <picker mode="selector" range="{{kRange}}" value="{{kIndex}}" bindchange="onK">
-        <view class="picker">每队 {{K}} 个队友</view>
+        <view class="picker">{{mode === 'auto' ? '每组 ' + K + ' 人' : '每队 ' + K + ' 个队友'}}</view>
       </picker>
     </view>
     <view class="field">
@@ -47,7 +53,8 @@
     </view>
     <view class="divider"></view>
     <view class="sub" wx:if="{{editMode}}">修改后名额按新配置计算（不能小于已报名人数）；已报名的用户不受影响。</view>
-    <view class="sub">报名名额：{{N}} 个队长 + {{N * K}} 个队员 + {{waitLimit}} 个替补，共 {{N * (K + 1) + waitLimit}} 人。选人蛇形共 {{K}} 轮；赛程按 {{N}} 队双败淘汰自动生成（TI 国际邀请赛赛制）。队员报满后自动进入替补，也可直接报名替补。</view>
+    <view class="sub" wx:if="{{mode === 'auto'}}">系统分组模式：用户只能报名队员和替补。队员报满 {{N * K}} 人后，管理员点「进行系统分组」，系统自动分成 {{N}} 组（每组 {{K}} 人），保证各组天梯均分尽量接近（相差 ≤300）且尽量覆盖 1-5 号位。</view>
+    <view class="sub" wx:else>报名名额：{{N}} 个队长 + {{N * K}} 个队员 + {{waitLimit}} 个替补，共 {{N * (K + 1) + waitLimit}} 人。选人蛇形共 {{K}} 轮；赛程按 {{N}} 队双败淘汰自动生成（TI 国际邀请赛赛制）。队员报满后自动进入替补，也可直接报名替补。</view>
   </view>
 
   <view class="btn {{submitting ? 'btn-disabled' : ''}}" bindtap="submit">{{submitting ? '保存中...' : editMode ? '保存修改' : '创建比赛并进入报名'}}</view>

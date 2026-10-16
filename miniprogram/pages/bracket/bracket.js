@@ -135,7 +135,8 @@ Page({
         let showSeeding = false;
         let seedSlots = [];
         let teamNames = [];
-        if (t.status === 'draft' && t.draftInfo && t.draftInfo.done && !this.data.readonly) {
+        // 队长选人：选人完成（draftInfo.done）后可调整落位；系统分组：分组完成（draft 状态）直接进入落位调整
+        if (t.status === 'draft' && !this.data.readonly && (t.mode === 'auto' || (t.draftInfo && t.draftInfo.done))) {
           showSeeding = true;
           const teams = t.teams || [];
           teamNames = teams.map((tm, i) => (tm.captain ? tm.captain.nickname + '战队' : '队' + (i + 1)));
