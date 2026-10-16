@@ -249,31 +249,6 @@ Page({
     wx.navigateTo({ url: '/pages/create/create?id=' + t.id });
   },
 
-  /* 生成测试数据（管理员，系统分组模式）：补足虚拟队员到报满 + 最多 5 个替补 */
-  onSeedTest() {
-    const t = this.data.t;
-    if (!t) return;
-    wx.showModal({
-      title: '生成测试数据',
-      content: '自动补足虚拟队员到报满，并补足最多 5 个替补，用于测试系统分组。确定生成？',
-      success: (res) => {
-        if (!res.confirm) return;
-        wx.showLoading({ title: '生成中…', mask: true });
-        api
-          .call('seedTest', { id: t.id })
-          .then((d) => {
-            wx.hideLoading();
-            wx.showToast({ title: '已生成 ' + d.added + ' 人', icon: 'success' });
-            this.load();
-          })
-          .catch((err) => {
-            wx.hideLoading();
-            wx.showToast({ title: err.message, icon: 'none' });
-          });
-      },
-    });
-  },
-
   /* ---------- 系统分组（管理员） ---------- */
   onAutoGroup() {
     const t = this.data.t;
