@@ -156,23 +156,57 @@
 <view class="mask" wx:if="{{groupModal}}" bindtap="onCloseGroup">
   <view class="panel group-panel" catchtap="noop">
     <view class="panel-title">系统分组预览</view>
-    <view class="panel-sub" wx:if="{{groupResult}}">共 {{groupResult.groups.length}} 组 · 组间均分差 {{groupResult.maxDiff}}{{groupResult.maxDiffOk ? '（≤300 ✓）' : '（超出 300，已尽量均衡）'}}</view>
+    <view class="panel-sub" wx:if="{{groupResult}}">共 {{groupResult.groups.length}} 组 · 组间均分差 {{groupResult.maxDiff}}{{groupResult.maxDiffOk ? '（≤300 ✓）' : '（超出 300，已尽量均衡）'}}<text class="kv"> · 点队员可手动换人</text></view>
     <scroll-view scroll-y class="group-scroll">
       <view class="group-block" wx:for="{{groupResult.groups}}" wx:key="idx" wx:for-item="g">
         <view class="group-title">
           第 {{g.idx + 1}} 组 · 均分 {{g.avgMmr}}
           <text wx:if="{{g.missingRoles.length}}" class="group-warn">缺 {{g.missingRoles}} 号位</text>
         </view>
-        <view class="member-line" wx:for="{{g.members}}" wx:key="openid" wx:for-item="m">
+        <view class="member-line member-tap" wx:for="{{g.members}}" wx:key="openid" wx:for-item="m"
+          data-gidx="{{g.idx}}" data-openid="{{m.openid}}" data-nickname="{{m.nickname}}" bindtap="onMoveMember">
           <text class="member-name">{{m.nickname}}{{m.openid === g.captain.openid ? '（组长）' : ''}}</text>
           <text class="kv"> · {{m.mmr}}</text>
           <text class="kv"> · {{m.roles}}号位</text>
+          <text class="kv move-hint"> ⇄</text>
         </view>
       </view>
     </scroll-view>
     <view class="panel-btns">
       <view class="panel-btn btn-plain" bindtap="onRegroup">{{grouping ? '分组中…' : '重新分组'}}</view>
       <view class="panel-btn btn" bindtap="onConfirmGroup">{{confirming ? '确认中…' : '确认分组'}}</view>
+    </view>
+  </view>
+</view>
+
+<!-- 手动微调：选择目标组 -->
+<view class="mask mask-top" wx:if="{{movePanel.show}}" catchtap="onCloseMove">
+  <view class="panel move-panel" catchtap="noop">
+    <view class="panel-title">将「{{movePanel.nickname}}」换到哪组？</view>
+    <view class="panel-sub">目标组已满时需选择一名队员交换</view>
+    <view class="move-list">
+      <view class="move-item" wx:for="{{movePanel.targets}}" wx:key="idx" data-target="{{item.idx}}" bindtap="onPickTarget">
+        第 {{item.idx + 1}} 组
+      </view>
+    </view>
+    <view class="panel-btns">
+      <view class="panel-btn btn-plain" bindtap="onCloseMove">取消</view>
+    </view>
+  </view>
+</view>
+
+<!-- 手动微调：选择交换对象 -->
+<view class="mask mask-top" wx:if="{{exchangePanel.show}}" catchtap="onCloseExchange">
+  <view class="panel move-panel" catchtap="noop">
+    <view class="panel-title">「{{exchangePanel.toNickname}}」与谁交换？</view>
+    <view class="panel-sub">选择目标组的队员进行互换</view>
+    <view class="move-list">
+      <view class="move-item" wx:for="{{exchangePanel.members}}" wx:key="openid" data-openid="{{item.openid}}" bindtap="onPickExchange">
+        {{item.nickname}} · {{item.mmr}} · {{item.roles}}号位
+      </view>
+    </view>
+    <view class="panel-btns">
+      <view class="panel-btn btn-plain" bindtap="onCloseExchange">取消</view>
     </view>
   </view>
 </view>

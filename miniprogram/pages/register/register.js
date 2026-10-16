@@ -37,6 +37,9 @@ Page({
     groupResult: null,
     grouping: false,
     confirming: false,
+    // 手动微调：选择目标组 / 选择交换对象
+    movePanel: { show: false, gidx: 0, openid: '', nickname: '', targets: [] },
+    exchangePanel: { show: false, fromGidx: 0, toGidx: 0, fromOid: '', toNickname: '', members: [] },
   },
 
   onLoad(options) {
@@ -273,7 +276,7 @@ Page({
     api
       .call('autoGroup', { id: t.id })
       .then((d) => {
-        this.setData({ grouping: false, groupResult: d });
+        this.setData({ grouping: false, groupResult: d, movePanel: { show: false }, exchangePanel: { show: false } });
       })
       .catch((err) => {
         this.setData({ grouping: false });
@@ -295,8 +298,9 @@ Page({
       success: (res) => {
         if (!res.confirm) return;
         this.setData({ confirming: true });
+        const payload = (this.data.groupResult.groups || []).map((g) => g.members.map((m) => m.openid));
         api
-          .call('confirmGroup', { id: t.id })
+          .call('confirmGroup', { id: t.id, groups: payload })
           .then(() => {
             wx.showToast({ title: '分组完成', icon: 'success' });
             this.stopPoll();
@@ -312,7 +316,102 @@ Page({
 
   onCloseGroup() {
     if (this.data.confirming) return;
-    this.setData({ groupModal: false });
+    this.setData({ groupModal: false, movePanel: { show: false }, exchangePanel: { show: false } });
+  },
+
+  /* ---------- 手动微调（预览里换人） ---------- */
+  onMoveMember(e) {
+    if (this.data.confirming) return;
+    const gidx = Number(e.currentTarget.dataset.gidx);
+    const openid = e.currentTarget.dataset.openid;
+    const nickname = e.currentTarget.dataset.nickname;
+    const groups = (this.data.groupResult && this.data.groupResult.groups) || [];
+    const targets = [];
+    for (let i = 0; i < groups.length; i++) {
+      if (i === gidx) continue;
+      targets.push({ idx: i, label: '第 ' + (i + 1) + ' 组' });
+    }
+    this.setData({ movePanel: { show: true, gidx, openid, nickname, targets } });
+  },
+
+  onCloseMove() {
+    this.setData({ movePanel: { show: false }, exchangePanel: { show: false } });
+  },
+
+  // 选择目标组：组不满直接移入，组已满则选择交换对象
+  onPickTarget(e) {
+    const toGidx = Number(e.currentTarget.dataset.target);
+    const mp = this.data.movePanel;
+    const groups = (this.data.groupResult && this.data.groupResult.groups) || [];
+    const target = groups[toGidx];
+    if (!target) return;
+    const K = (this.data.t && this.data.t.K) || 5;
+    if (target.members.length < K) {
+      this.doMove(mp.gidx, mp.openid, toGidx, null);
+    } else {
+      this.setData({
+        exchangePanel: {
+          show: true,
+          fromGidx: mp.gidx,
+          toGidx,
+          fromOid: mp.openid,
+          toNickname: mp.nickname,
+          members: target.members,
+        },
+      });
+    }
+  },
+
+  onCloseExchange() {
+    this.setData({ exchangePanel: { show: false } });
+  },
+
+  // 执行移动（toOid 为空 = 直接移入；否则与该队员交换）
+  doMove(fromGidx, fromOid, toGidx, toOid) {
+    const groups = (this.data.groupResult && this.data.groupResult.groups) || [];
+    const from = groups[fromGidx];
+    const to = groups[toGidx];
+    if (!from || !to) return;
+    const fi = from.members.findIndex((m) => m.openid === fromOid);
+    if (fi < 0) return;
+    if (toOid) {
+      const ti = to.members.findIndex((m) => m.openid === toOid);
+      if (ti < 0) return;
+      const mover = from.members[fi];
+      const swapper = to.members[ti];
+      from.members.splice(fi, 1, swapper);
+      to.members.splice(ti, 1, mover);
+    } else {
+      const mover = from.members.splice(fi, 1)[0];
+      to.members.push(mover);
+    }
+    this.recalcGroups();
+    this.setData({ groupResult: this.data.groupResult, movePanel: { show: false }, exchangePanel: { show: false } });
+    wx.showToast({ title: toOid ? '已交换' : '已移动', icon: 'success' });
+  },
+
+  onPickExchange(e) {
+    const ep = this.data.exchangePanel;
+    this.doMove(ep.fromGidx, ep.fromOid, ep.toGidx, e.currentTarget.dataset.openid);
+  },
+
+  // 重算各组均分 / 组长 / 缺位 / 组间均分差
+  recalcGroups() {
+    const r = this.data.groupResult;
+    if (!r || !r.groups) return;
+    r.groups.forEach((g) => {
+      const members = g.members;
+      const captain = members.reduce((a, b) => ((b.mmr || 0) > (a.mmr || 0) ? b : a), members[0]);
+      const avg = Math.round(members.reduce((s, m) => s + (m.mmr || 0), 0) / members.length);
+      const roleSet = {};
+      members.forEach((m) => (m.roles || []).forEach((x) => (roleSet[x] = true)));
+      g.captain = captain;
+      g.avgMmr = avg;
+      g.missingRoles = [1, 2, 3, 4, 5].filter((x) => !roleSet[x]);
+    });
+    const avgs = r.groups.map((g) => g.avgMmr);
+    r.maxDiff = Math.max(...avgs) - Math.min(...avgs);
+    r.maxDiffOk = r.maxDiff <= 300;
   },
 
   onStartDraft() {

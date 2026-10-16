@@ -1120,26 +1120,51 @@ const actions = {
     const players = (t.registrations || []).filter((r) => r.role === 'player');
     const need = t.N * t.K;
     if (players.length < need) return fail('队员尚未报满（' + players.length + '/' + need + '），报满后才能分组');
-    const result = runAutoGroup(players, t.N, t.K);
-    const teams = result.groups.map((g) => ({
-      captain: {
-        openid: g.captain.openid,
-        nickname: g.captain.nickname,
-        teamName: '',
-        mmr: g.captain.mmr,
-        roles: g.captain.roles || [],
-        signature: g.captain.signature || '',
-      },
-      players: g.members
-        .filter((m) => m.openid !== g.captain.openid)
-        .map((m) => ({
-          openid: m.openid,
-          nickname: m.nickname,
-          mmr: m.mmr,
-          roles: m.roles || [],
-          signature: m.signature || '',
-        })),
-    }));
+    // 支持管理员在预览中手动微调：传入最终分组（每组 openid 列表），服务端校验合法性后写入
+    const playerById = {};
+    players.forEach((p) => (playerById[p.openid] = p));
+    let groups;
+    if (Array.isArray(event.groups)) {
+      if (event.groups.length !== t.N) return fail('分组数据不正确（组数不符）');
+      const seen = {};
+      let total = 0;
+      groups = event.groups.map((arr, gi) => {
+        if (!Array.isArray(arr) || arr.length !== t.K || arr.length < 1) return fail('第 ' + (gi + 1) + ' 组人数不正确（需恰好 ' + t.K + ' 人）');
+        return arr.map((oid) => {
+          if (typeof oid !== 'string' || seen[oid] || !playerById[oid]) return fail('分组数据不正确（重复或非报名队员）');
+          seen[oid] = true;
+          total++;
+          return playerById[oid];
+        });
+      });
+      if (total !== players.length) return fail('还有队员未分组');
+      // 组长 = 组内天梯分最高者（排序仅用于稳定展示）
+      groups = groups.map((members) => members.slice().sort((a, b) => (b.mmr || 0) - (a.mmr || 0)));
+    } else {
+      groups = runAutoGroup(players, t.N, t.K).groups.map((g) => g.members);
+    }
+    const teams = groups.map((members) => {
+      const captain = members[0];
+      return {
+        captain: {
+          openid: captain.openid,
+          nickname: captain.nickname,
+          teamName: '',
+          mmr: captain.mmr,
+          roles: captain.roles || [],
+          signature: captain.signature || '',
+        },
+        players: members
+          .slice(1)
+          .map((m) => ({
+            openid: m.openid,
+            nickname: m.nickname,
+            mmr: m.mmr,
+            roles: m.roles || [],
+            signature: m.signature || '',
+          })),
+      };
+    });
     await db.collection('tournaments').doc(t._id).update({
       data: { status: 'draft', teams, captainOrder: [], draft: null, seeding: null, updatedAt: Date.now() },
     });
