@@ -132,7 +132,14 @@ function buildBracket(teams) {
       // 偶数轮接入下一轮胜者组的败者：LB2 ← UB2 败者，LB4 ← UB3 败者，LB6 ← 胜者组决赛败者 ...
       const ubIdx = j / 2; // 0 基：j=2 → ubRounds[1]（第2轮），j=4 → ubRounds[2]，j=6 → ubRounds[3]
       const ubLosers = ubRounds[ubIdx].ms.map((m) => matchSource(m.id, 'loser'));
-      participants = lbSurvivors.concat(ubLosers);
+      // 交错配对：败者组幸存者与胜者组败者逐对交叉，避免同组自打（TI 规则）
+      const merged = [];
+      const len = Math.max(lbSurvivors.length, ubLosers.length);
+      for (let i = 0; i < len; i++) {
+        if (i < lbSurvivors.length) merged.push(lbSurvivors[i]);
+        if (i < ubLosers.length) merged.push(ubLosers[i]);
+      }
+      participants = merged;
     }
     const isLast = j === totalLbRounds;
     const stage = isLast ? 'LBF' : 'LB' + j;

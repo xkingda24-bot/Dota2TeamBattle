@@ -343,6 +343,34 @@ Page({
       };
     }
 
+    // 同列防重叠：同一分区（胜者组区/败者组区）内同列节点若垂直间距不足，则整列按均布重排
+    // 重排起点取「列首节点 y」与「分区底部 - 列所需高度」的较小者，保证不超出分区
+    const MIN_GAP = 40;
+    const ubBottom = ubH;
+    const lbBottom = ubH + ZONE_GAP + lbH;
+    const colsMap = {};
+    matches.forEach((m) => {
+      const p = pos[m.id];
+      if (!p) return;
+      const zone = p.y < ubBottom ? 'u' : 'l';
+      const key = p.x + '|' + zone;
+      (colsMap[key] = colsMap[key] || []).push({ id: m.id, y: p.y });
+    });
+    Object.keys(colsMap).forEach((k) => {
+      const list = colsMap[k].sort((a, b) => a.y - b.y);
+      const zone = k.split('|')[1];
+      const zoneBottom = zone === 'u' ? ubBottom : lbBottom;
+      for (let i = 1; i < list.length; i++) {
+        if (list[i].y - list[i - 1].y < NODE_H + MIN_GAP) {
+          const startY = Math.min(list[0].y, zoneBottom - list.length * (NODE_H + MIN_GAP));
+          list.forEach((it, idx) => {
+            pos[it.id].y = startY + idx * (NODE_H + MIN_GAP);
+          });
+          break;
+        }
+      }
+    });
+
     // 连线：A 位来自上游胜者（金色实线），B 位来自上游败者（灰色虚线）
     // 跨列 → 水平折线（源右边缘 → 目标左边缘）；同列（败者垂直掉落）→ 源底部竖直向下进目标顶部
     const lines = [];
