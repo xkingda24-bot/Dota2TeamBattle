@@ -615,6 +615,29 @@ Page({
   },
 
   /* ---------- 结束 / 归档 / 删除（管理员） ---------- */
+
+  /* 系统分组：返回报名阶段重新分组（管理员） */
+  onResetGroup() {
+    const t = this.data.t;
+    if (!t || this.data.readonly) return;
+    wx.showModal({
+      title: '返回重新分组',
+      content: '将撤销当前分组并返回报名阶段（报名名单保留），可重新「进行系统分组」。确定返回？',
+      success: (res) => {
+        if (res.confirm) {
+          api
+            .call('resetGroup', { id: t.id })
+            .then(() => {
+              wx.showToast({ title: '已返回报名阶段', icon: 'success' });
+              this.stopPoll();
+              setTimeout(() => wx.redirectTo({ url: '/pages/register/register?id=' + t.id }), 600);
+            })
+            .catch((err) => wx.showToast({ title: err.message, icon: 'none' }));
+        }
+      },
+    });
+  },
+
   onFinish() {
     const t = this.data.t;
     if (!t || this.data.readonly) return;

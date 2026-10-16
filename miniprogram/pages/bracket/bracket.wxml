@@ -91,6 +91,13 @@
       </view>
     </view>
 
+    <!-- 系统分组：返回重新分组（管理员，分组完成未生成对阵前） -->
+    <view class="card" wx:if="{{isAdmin && !readonly && t.mode === 'auto' && t.status === 'draft'}}">
+      <view class="card-title">管理员操作</view>
+      <view class="sub">分组已完成，若对分组不满意可返回报名阶段重新分组（报名名单保留）</view>
+      <view class="btn btn-plain" bindtap="onResetGroup">返回重新分组</view>
+    </view>
+
     <!-- 胜者组 -->
     <block wx:if="{{ubMatches.length}}">
       <view class="section">胜者组</view>

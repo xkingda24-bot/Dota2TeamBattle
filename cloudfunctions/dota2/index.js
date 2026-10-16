@@ -1146,6 +1146,19 @@ const actions = {
     return ok({});
   },
 
+  /* 系统分组：返回报名阶段重新分组（管理员，未生成对阵前；报名名单保留） */
+  async resetGroup(event) {
+    if (!(await isAdminUser())) return fail('需要管理员权限');
+    const t = await getTournamentById(event.id);
+    if (!t) return fail('比赛不存在');
+    if (t.mode !== 'auto') return fail('仅系统分组模式支持重新分组');
+    if (t.status !== 'draft') return fail('只有分组完成后（未生成对阵前）可以重新分组');
+    await db.collection('tournaments').doc(t._id).update({
+      data: { status: 'registration', teams: [], seeding: null, matches: [], champion: null, updatedAt: Date.now() },
+    });
+    return ok(true);
+  },
+
   /* 生成虚拟测试用户并报名（管理员；用于自测完整流程） */
   async seedTest(event) {
     if (!(await isAdminUser())) return fail('仅管理员可生成测试数据');
