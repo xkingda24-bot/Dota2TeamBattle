@@ -256,7 +256,9 @@ Page({
             .call('startDraft', { id: t.id })
             .then(() => {
               wx.showToast({ title: '选人已开始', icon: 'success' });
-              this.load();
+              this.stopPoll();
+              // 立即切换到选人页，无需退出重进
+              setTimeout(() => wx.redirectTo({ url: '/pages/draft/draft?id=' + t.id }), 600);
             })
             .catch((err) => wx.showToast({ title: err.message, icon: 'none' }));
         }
