@@ -55,6 +55,7 @@
         <template is="hMatchCard" data="{{...gf}}" />
       </block>
       <view wx:if="{{t.status !== 'draft' && t.matches.length === 0}}" class="empty">本场比赛未生成赛程</view>
+      <view class="btn" wx:if="{{t.matches && t.matches.length > 0}}" bindtap="goTree">查看晋级图</view>
       <view class="btn btn-plain" bindtap="backList">返回列表</view>
     </block>
   </block>

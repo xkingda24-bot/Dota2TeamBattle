@@ -25,10 +25,12 @@ Page({
     treeW: 1200,
     treeH: 800,
     memberPanel: { show: false, title: '', members: [] },
+    readonly: false, // 只读模式（历史比赛查看），隐藏所有管理操作
   },
 
   onLoad(options) {
     this.id = (options && options.id) || '';
+    this.setData({ readonly: !!(options && options.readonly === '1') });
   },
 
   onShow() {
@@ -119,7 +121,7 @@ Page({
           return Object.assign({}, m, {
             boRange: BO_LIST,
             boIndex: Math.max(0, BO_LIST.indexOf(m.bo)),
-            showAdmin: t.isAdmin,
+            showAdmin: t.isAdmin && !this.data.readonly,
             membersA: buildMembers(a),
             membersB: buildMembers(b),
             expandedA: !!prevExp[m.id + ':A'],
@@ -133,7 +135,7 @@ Page({
         let showSeeding = false;
         let seedSlots = [];
         let teamNames = [];
-        if (t.status === 'draft' && t.draftInfo && t.draftInfo.done) {
+        if (t.status === 'draft' && t.draftInfo && t.draftInfo.done && !this.data.readonly) {
           showSeeding = true;
           const teams = t.teams || [];
           teamNames = teams.map((tm, i) => (tm.captain ? tm.captain.nickname + '战队' : '队' + (i + 1)));
@@ -167,6 +169,7 @@ Page({
 
   /* ---------- 对阵调整 ---------- */
   onSeedChange(e) {
+    if (this.data.readonly) return;
     const slot = Number(e.currentTarget.dataset.slot);
     const val = Number(e.detail.value);
     const seedSlots = this.data.seedSlots.slice();
@@ -180,6 +183,7 @@ Page({
   },
 
   onShuffleSeeding() {
+    if (this.data.readonly) return;
     api
       .call('shuffleSeeding', { id: this.data.t.id })
       .then(() => {
@@ -191,7 +195,7 @@ Page({
 
   onStartBracket() {
     const t = this.data.t;
-    if (!t) return;
+    if (!t || this.data.readonly) return;
     wx.showModal({
       title: '生成对阵',
       content: '将按当前落位生成 TI 双败赛程并进入对战阶段，确定？',
@@ -443,6 +447,7 @@ Page({
 
   /* ---------- 赛制与结果（管理员） ---------- */
   onBoChange(e) {
+    if (this.data.readonly) return;
     const id = Number(e.currentTarget.dataset.id);
     const bo = BO_LIST[Number(e.detail.value)];
     if (!this.data.isAdmin) return;
@@ -456,7 +461,7 @@ Page({
   },
 
   recordResult(e) {
-    if (!this.data.isAdmin) return;
+    if (!this.data.isAdmin || this.data.readonly) return;
     const id = Number(e.currentTarget.dataset.id);
     const match = (this.data.ubMatches.concat(this.data.lbMatches)).find((m) => m.id === id) || this.data.gf;
     if (!match) return;
@@ -485,6 +490,7 @@ Page({
   },
 
   confirmResult() {
+    if (this.data.readonly) return;
     const t = this.data.t;
     const pm = this.data.panelMatch;
     if (!t || !pm || !this.data.panelWinner) {
@@ -522,6 +528,7 @@ Page({
   },
 
   resetResult(e) {
+    if (this.data.readonly) return;
     const t = this.data.t;
     const id = Number(e.currentTarget.dataset.id);
     wx.showModal({
@@ -544,7 +551,7 @@ Page({
   /* ---------- 结束 / 删除（管理员） ---------- */
   onFinish() {
     const t = this.data.t;
-    if (!t) return;
+    if (!t || this.data.readonly) return;
     wx.showModal({
       title: '结束并归档',
       content: '结束本场比赛（需已有冠军），归档后可创建新比赛，确定？',
@@ -564,7 +571,7 @@ Page({
 
   onDelete() {
     const t = this.data.t;
-    if (!t) return;
+    if (!t || this.data.readonly) return;
     wx.showModal({
       title: '删除比赛',
       content: '将永久删除本场比赛的全部数据，不可恢复！确定删除？',

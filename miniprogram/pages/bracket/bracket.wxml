@@ -90,7 +90,7 @@
     <view wx:if="{{t.status !== 'draft' && t.matches.length === 0}}" class="empty">赛程还未生成（需先完成选人）</view>
 
     <!-- 管理员操作（结束/删除） -->
-    <view class="card" wx:if="{{isAdmin && (t.status === 'battle' || t.status === 'finished')}}">
+    <view class="card" wx:if="{{isAdmin && !readonly && (t.status === 'battle' || t.status === 'finished')}}">
       <view class="card-title">管理员操作</view>
       <view class="sub">{{t.status === 'finished' ? '本场比赛已结束归档' : '比赛结束后归档，可在主页创建新比赛'}}</view>
       <view class="row">

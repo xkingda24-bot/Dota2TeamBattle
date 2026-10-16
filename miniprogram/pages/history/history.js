@@ -72,8 +72,8 @@ Page({
         );
         this.setData({
           t,
-          ubMatches: matches.filter((m) => m.stage === 'upper'),
-          lbMatches: matches.filter((m) => m.stage === 'lower'),
+          ubMatches: matches.filter((m) => m.stage === 'upper' || (m.stage || '').indexOf('UB') === 0),
+          lbMatches: matches.filter((m) => m.stage === 'lower' || (m.stage || '').indexOf('LB') === 0),
           gf: matches.find((m) => m.isChampionMatch) || null,
           loading: false,
         });
@@ -96,5 +96,11 @@ Page({
     this.id = '';
     this.setData({ mode: 'list', t: null });
     this.loadList();
+  },
+
+  // 查看晋级图（只读模式：不支持修改）
+  goTree() {
+    if (!this.id) return;
+    wx.navigateTo({ url: '/pages/bracket/bracket?id=' + this.id + '&readonly=1' });
   },
 });
