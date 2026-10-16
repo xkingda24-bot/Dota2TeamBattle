@@ -138,7 +138,13 @@ Page({
         },
       });
     } else {
-      doPick();
+      wx.showModal({
+        title: '确认选择',
+        content: '确定选择 ' + name + ' 加入本队？',
+        success: (res) => {
+          if (res.confirm) doPick();
+        },
+      });
     }
   },
 
