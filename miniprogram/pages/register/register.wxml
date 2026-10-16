@@ -139,6 +139,7 @@
       <view class="sub" wx:else>队长 {{t.captainFilled}}/{{t.captainTotal}} · 队员 {{t.playerFilled}}/{{t.playerTotal}}<text wx:if="{{t.waitLimit > 0}}"> · 替补 {{t.waitlistFilled}}/{{t.waitLimit}}</text></view>
       <view class="btn btn-plain" wx:if="{{t.status === 'registration'}}" bindtap="onEditConfig">修改比赛配置</view>
       <view class="btn" wx:if="{{t.status === 'registration' && t.mode === 'auto'}}" bindtap="onAutoGroup">进行系统分组</view>
+      <view class="btn btn-plain" wx:if="{{t.status === 'registration' && t.mode === 'auto'}}" bindtap="onSeedTest">生成测试数据</view>
       <view class="btn" wx:if="{{t.status === 'registration' && t.mode !== 'auto'}}" bindtap="onStartDraft">开始选人（随机排序队长）</view>
       <view class="btn btn-danger" wx:if="{{t.status === 'registration'}}" bindtap="onDelete">删除比赛</view>
       <view class="btn btn-plain" wx:if="{{t.status !== 'registration'}}">当前阶段：{{t.status === 'draft' ? (t.mode === 'auto' ? '分组完成，等待生成对阵' : '选人中') : t.status === 'battle' ? '对战中' : '已结束'}}</view>
