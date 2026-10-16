@@ -672,20 +672,35 @@ const actions = {
     return ok({ role, auto });
   },
 
-  /* 设置队伍名称（队长本人或管理员；仅报名阶段，最多 10 个字） */
+  /* 设置队伍名称（队长本人/组长本人或管理员；队长选人模式报名阶段，系统分组模式分组完成后；最多 10 个字） */
   async setTeamName(event) {
     const openid = getOpenId();
     const t = await getTournamentById(event.id);
     if (!t) return fail('比赛不存在');
-    if (t.status !== 'registration') return fail('只有报名阶段可以设置队伍名称');
     const teamName = String(event.teamName || '').trim();
     if (teamName.length > 10) return fail('队伍名称最多 10 个字');
     const targetOpenid = String(event.openid || '') || openid;
+    const isAdminFlag = await isAdmin(openid);
+    if (targetOpenid !== openid && !isAdminFlag) return fail('只有队长本人或管理员可以设置队伍名称');
+
+    // 系统分组模式：组长（本队天梯分最高者）在分组完成后命名
+    if (t.mode === 'auto') {
+      if (t.status !== 'draft' && t.status !== 'battle') return fail('只有分组完成后可以设置队伍名称');
+      const teams = (t.teams || []).map((tm) => Object.assign({}, tm));
+      const ti = teams.findIndex((tm) => tm.captain && tm.captain.openid === targetOpenid);
+      if (ti < 0) return fail('只能由组长（本队天梯分最高者）或管理员设置队伍名称');
+      teams[ti] = Object.assign({}, teams[ti], {
+        captain: Object.assign({}, teams[ti].captain, { teamName }),
+      });
+      await db.collection('tournaments').doc(t._id).update({ data: { teams } });
+      return ok(true);
+    }
+
+    // 队长选人模式（原逻辑）：报名阶段队长命名
+    if (t.status !== 'registration') return fail('只有报名阶段可以设置队伍名称');
     const registrations = (t.registrations || []).map((r) => Object.assign({}, r));
     const idx = registrations.findIndex((r) => r.openid === targetOpenid && r.role === 'captain');
     if (idx < 0) return fail('只能为已报名的队长设置队伍名称');
-    const isAdminFlag = await isAdmin(openid);
-    if (targetOpenid !== openid && !isAdminFlag) return fail('只有队长本人或管理员可以设置队伍名称');
     registrations[idx] = Object.assign({}, registrations[idx], { teamName });
     await db.collection('tournaments').doc(t._id).update({ data: { registrations } });
     return ok(true);

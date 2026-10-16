@@ -2,6 +2,16 @@
 <nav-bar title="对战赛程" />
 <view class="container">
   <block wx:if="{{t}}">
+    <!-- 系统分组：我的战队命名（组长，天梯分最高者） -->
+    <view class="card" wx:if="{{myTeam && !readonly && (t.status === 'draft' || t.status === 'battle')}}">
+      <view class="card-title">我的战队名称</view>
+      <view class="sub">你是本队天梯分最高的组长，可为战队命名（最多 10 字）；不填则用默认「{{myTeam.defaultName}}」</view>
+      <view class="row">
+        <input class="input team-name-input" maxlength="10" placeholder="输入战队名，留空用默认" placeholder-class="ph" value="{{teamNameInput}}" bindinput="onTeamNameInput" />
+        <view class="btn-small" bindtap="onSaveTeamName">保存队名</view>
+      </view>
+    </view>
+
     <!-- 晋级树形图（赛程生成后才有） -->
     <view class="tree-head" wx:if="{{t.matches.length > 0}}">
       <view class="tree-title">晋级树形图</view>

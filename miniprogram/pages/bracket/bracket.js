@@ -26,6 +26,8 @@ Page({
     treeH: 800,
     memberPanel: { show: false, title: '', members: [] },
     readonly: false, // 只读模式（历史比赛查看），隐藏所有管理操作
+    myTeam: null, // 系统分组模式下我的战队（我是组长）
+    teamNameInput: '',
   },
 
   onLoad(options) {
@@ -150,6 +152,17 @@ Page({
         }
 
         const tree = this.buildTreeData(matches);
+        // 系统分组模式：我是组长（本队天梯分最高者）→ 可设置战队名；编辑中不被轮询覆盖
+        let myTeam = null;
+        if (t.mode === 'auto' && t.teams && t.myOpenid) {
+          const mine = t.teams.find((tm) => tm.captain && tm.captain.openid === t.myOpenid) || null;
+          if (mine) {
+            myTeam = {
+              captain: mine.captain,
+              defaultName: mine.captain.nickname + '战队',
+            };
+          }
+        }
         this.setData({
           t,
           isAdmin: !!t.isAdmin,
@@ -159,6 +172,9 @@ Page({
           showSeeding,
           seedSlots,
           teamNames,
+          myTeam,
+          // 正在编辑队名时不覆盖输入框内容
+          teamNameInput: this._teamNameDirty ? this.data.teamNameInput : (myTeam ? myTeam.captain.teamName || '' : ''),
           // 赛程未生成时（落位调整阶段）不显示晋级图
           showTree: (t.matches || []).length > 0 ? this.data.showTree : false,
           treeNodes: tree.nodes,
@@ -173,6 +189,30 @@ Page({
         this.setData({ loading: false, t: null });
         if (!silent) wx.showToast({ title: e.message, icon: 'none' });
       });
+  },
+
+  /* ---------- 系统分组：我的战队命名（组长） ---------- */
+  onTeamNameInput(e) {
+    this._teamNameDirty = true;
+    this.setData({ teamNameInput: e.detail.value });
+  },
+
+  onSaveTeamName() {
+    const t = this.data.t;
+    if (!t || !this.data.myTeam) return;
+    const teamName = (this.data.teamNameInput || '').trim();
+    if (teamName.length > 10) {
+      wx.showToast({ title: '战队名最多 10 个字', icon: 'none' });
+      return;
+    }
+    api
+      .call('setTeamName', { id: t.id, teamName })
+      .then(() => {
+        wx.showToast({ title: teamName ? '队名已保存' : '已恢复默认队名', icon: 'success' });
+        this._teamNameDirty = false;
+        this.load();
+      })
+      .catch((err) => wx.showToast({ title: err.message, icon: 'none' }));
   },
 
   /* ---------- 对阵调整 ---------- */
