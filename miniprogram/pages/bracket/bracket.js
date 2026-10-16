@@ -20,8 +20,11 @@ Page({
     scoreA: '',
     scoreB: '',
     showTree: false,
-    ubTreeCols: [],
-    lbTreeCols: [],
+    treeNodes: [],
+    treeLines: [],
+    treeW: 1200,
+    treeH: 800,
+    memberPanel: { show: false, title: '', members: [] },
   },
 
   onLoad(options) {
@@ -138,7 +141,7 @@ Page({
           seedSlots = seeding.map((idx, slot) => ({ slot, idx, name: teamNames[idx] || '队' + (idx + 1) }));
         }
 
-        const allCols = this.buildTreeCols(matches);
+        const tree = this.buildTreeData(matches);
         this.setData({
           t,
           isAdmin: !!t.isAdmin,
@@ -148,11 +151,10 @@ Page({
           showSeeding,
           seedSlots,
           teamNames,
-          ubTreeCols: allCols.filter((c) => {
-            const s = c.matches[0].stage || '';
-            return s === 'GF' || s.indexOf('UB') === 0;
-          }),
-          lbTreeCols: allCols.filter((c) => (c.matches[0].stage || '').indexOf('LB') === 0),
+          treeNodes: tree.nodes,
+          treeLines: tree.lines,
+          treeW: tree.w,
+          treeH: tree.h,
           loading: false,
         });
         // 注意：这里不再调用 closePanel()——否则 8 秒轮询会把正在填写的"记录结果"弹层关掉
@@ -220,28 +222,12 @@ Page({
       this.setData({ [arrName]: next });
       return true;
     };
-    if (flip(this.data.ubMatches, 'ubMatches')) return this.syncTree();
-    if (flip(this.data.lbMatches, 'lbMatches')) return this.syncTree();
+    if (flip(this.data.ubMatches, 'ubMatches')) return;
+    if (flip(this.data.lbMatches, 'lbMatches')) return;
     const gf = this.data.gf;
     if (gf && gf.id === id) {
       this.setData({ gf: Object.assign({}, gf, { [key]: !gf[key] }) });
-      this.syncTree();
     }
-  },
-
-  // 展开/收起后同步树形图数据（树节点与列表共用同一批 match 对象）
-  syncTree() {
-    const all = (this.data.ubMatches || [])
-      .concat(this.data.lbMatches || [])
-      .concat(this.data.gf ? [this.data.gf] : []);
-    const allCols = this.buildTreeCols(all);
-    this.setData({
-      ubTreeCols: allCols.filter((c) => {
-        const s = c.matches[0].stage || '';
-        return s === 'GF' || s.indexOf('UB') === 0;
-      }),
-      lbTreeCols: allCols.filter((c) => (c.matches[0].stage || '').indexOf('LB') === 0),
-    });
   },
 
   /* ---------- 晋级树形图 ---------- */
@@ -252,42 +238,179 @@ Page({
     this.setData({ showTree: false });
   },
 
-  // 把全部比赛按 TI 双败轮次排成列（用于树形图展示）
-  buildTreeCols(matches) {
-    const TITLES = {
-      UB1: '胜者组第1轮',
-      UB2: '胜者组第2轮',
-      UB3: '胜者组第3轮',
-      UB4: '胜者组第4轮',
-      UBF: '胜者组决赛',
-      LB1: '败者组第1轮',
-      LB2: '败者组第2轮',
-      LB3: '败者组第3轮',
-      LB4: '败者组第4轮',
-      LBF: '败者组决赛',
-      GF: '总决赛',
-    };
-    const ORDER = ['UB1', 'LB1', 'UB2', 'LB2', 'UB3', 'LB3', 'UB4', 'LB4', 'UBF', 'LBF', 'GF'];
-    const colOf = (s) => {
+  // 树图节点点「队员」→ 弹层展示该队队员
+  showMembers(e) {
+    const id = Number(e.currentTarget.dataset.mid);
+    const side = e.currentTarget.dataset.side;
+    const all = (this.data.ubMatches || [])
+      .concat(this.data.lbMatches || [])
+      .concat(this.data.gf ? [this.data.gf] : []);
+    const m = all.find((x) => x.id === id);
+    if (!m) return;
+    const members = side === 'A' ? m.membersA : m.membersB;
+    const title = (side === 'A' ? m.displayA : m.displayB) + ' · 队员';
+    this.setData({ memberPanel: { show: true, title, members: members || [] } });
+  },
+  closeMembers() {
+    this.setData({ memberPanel: { show: false, title: '', members: [] } });
+  },
+
+  // 生成树形图布局：胜者组在上、败者组在下；节点绝对定位，连线按晋级关系画折线
+  buildTreeData(matches) {
+    if (!matches.length) return { nodes: [], lines: [], w: 1200, h: 800 };
+    const ORDER = ['UB1', 'UB2', 'UB3', 'UB4', 'UBF', 'GF', 'LB1', 'LB2', 'LB3', 'LB4', 'LBF'];
+    const isUB = (s) => s === 'GF' || s.indexOf('UB') === 0;
+    const isLB = (s) => s.indexOf('LB') === 0;
+    const ubMatches = matches.filter((m) => isUB(m.stage));
+    const lbMatches = matches.filter((m) => isLB(m.stage));
+    const stageRank = (s) => {
       const i = ORDER.indexOf(s);
-      return i >= 0 ? i : ORDER.length;
+      return i < 0 ? 999 : i;
     };
-    const byCol = {};
+    const ubStagesAll = [...new Set(ubMatches.map((m) => m.stage))].sort((a, b) => stageRank(a) - stageRank(b));
+    const ubStages = ubStagesAll.filter((s) => s !== 'GF'); // GF 单独放最右列
+    const lbStages = [...new Set(lbMatches.map((m) => m.stage))].sort((a, b) => stageRank(a) - stageRank(b));
+    const gfMatch = matches.find((m) => m.stage === 'GF') || null;
+    const COLS = Math.max(ubStages.length, lbStages.length);
+    const NODE_W = 340;
+    const NODE_H = 180;
+    const GAP = 70;
+    const ZONE_GAP = 150;
+    const PAD = 30;
+    const COL_W = NODE_W + 50;
+    const ubMaxRows = Math.max.apply(null, ubStages.map((s) => ubMatches.filter((m) => m.stage === s).length).concat([1]));
+    const lbMaxRows = Math.max.apply(null, lbStages.map((s) => lbMatches.filter((m) => m.stage === s).length).concat([1]));
+    const ubH = PAD + ubMaxRows * (NODE_H + GAP);
+    const lbH = PAD + lbMaxRows * (NODE_H + GAP);
+    const H = ubH + ZONE_GAP + lbH + PAD;
+    const W = PAD * 2 + (COLS + (gfMatch ? 1 : 0)) * COL_W;
+
+    const nodeById = {};
     matches.forEach((m) => {
-      const c = colOf(m.stage);
-      (byCol[c] = byCol[c] || []).push(m);
+      nodeById[m.id] = m;
     });
-    return Object.keys(byCol)
-      .map(Number)
-      .sort((a, b) => a - b)
-      .map((c) => {
-        const list = byCol[c];
-        return {
-          stage: c,
-          title: TITLES[list[0].stage] || list[0].stage,
-          matches: list,
+
+    // 每列均布起始 y（胜者组区从顶部，败者组区从胜者组区下方）
+    const colStartY = (stage, isLower) => {
+      const n = (isLower ? lbMatches : ubMatches).filter((m) => m.stage === stage).length;
+      const zoneH = isLower ? lbH : ubH;
+      const base = isLower ? ubH + ZONE_GAP : 0;
+      return base + (zoneH - n * (NODE_H + GAP) + GAP) / 2;
+    };
+
+    // 节点坐标：第一列均布，后续列取同区上游输入的 y 均值（形成树形汇聚）
+    const pos = {};
+    ubStages.forEach((s, ci) => {
+      const list = ubMatches.filter((m) => m.stage === s);
+      const startY = colStartY(s, false);
+      list.forEach((m, i) => {
+        const sameY = ['A', 'B']
+          .map((sl) => m['team' + sl])
+          .filter((src) => src && src.type === 'match' && nodeById[src.matchId])
+          .filter((src) => pos[src.matchId] && isUB(nodeById[src.matchId].stage))
+          .map((src) => pos[src.matchId].y);
+        pos[m.id] = {
+          x: PAD + ci * COL_W,
+          y: sameY.length ? sameY.reduce((a, b) => a + b, 0) / sameY.length : startY + i * (NODE_H + GAP),
         };
       });
+    });
+    lbStages.forEach((s, ci) => {
+      const list = lbMatches.filter((m) => m.stage === s);
+      const startY = colStartY(s, true);
+      list.forEach((m, i) => {
+        const sameY = ['A', 'B']
+          .map((sl) => m['team' + sl])
+          .filter((src) => src && src.type === 'match' && nodeById[src.matchId])
+          .filter((src) => pos[src.matchId] && isLB(nodeById[src.matchId].stage))
+          .map((src) => pos[src.matchId].y);
+        pos[m.id] = {
+          x: PAD + ci * COL_W,
+          y: sameY.length ? sameY.reduce((a, b) => a + b, 0) / sameY.length : startY + i * (NODE_H + GAP),
+        };
+      });
+    });
+    // 总决赛：单独放最右一列，y 取同区（胜者组）输入 UBF 的位置
+    if (gfMatch) {
+      const sameY = ['A', 'B']
+        .map((sl) => gfMatch['team' + sl])
+        .filter((src) => src && src.type === 'match' && nodeById[src.matchId])
+        .filter((src) => pos[src.matchId] && isUB(nodeById[src.matchId].stage))
+        .map((src) => pos[src.matchId].y);
+      pos[gfMatch.id] = {
+        x: PAD + COLS * COL_W,
+        y: sameY.length ? sameY.reduce((a, b) => a + b, 0) / sameY.length : colStartY('GF', false),
+      };
+    }
+
+    // 连线：A 位来自上游胜者（金色实线），B 位来自上游败者（灰色虚线）
+    // 跨列 → 水平折线（源右边缘 → 目标左边缘）；同列（败者垂直掉落）→ 源底部竖直向下进目标顶部
+    const lines = [];
+    let lidx = 0;
+    matches.forEach((m) => {
+      const q = pos[m.id];
+      if (!q) return;
+      ['A', 'B'].forEach((sl) => {
+        const src = m['team' + sl];
+        if (!src || src.type !== 'match') return;
+        const p = pos[src.matchId];
+        if (!p) return;
+        const win = sl === 'A';
+        const added = [];
+        if (q.x >= p.x + NODE_W) {
+          // 跨列折线
+          const x1 = p.x + NODE_W;
+          const y1 = p.y + NODE_H / 2;
+          const x2 = q.x;
+          const y2 = q.y + NODE_H / 2;
+          const xm = (x1 + x2) / 2;
+          if (xm - x1 > 0) added.push({ horizontal: true, x: x1, y: y1, w: xm - x1 });
+          if (y2 - y1 !== 0) {
+            const hh = Math.abs(y2 - y1);
+            added.push({ horizontal: false, x: xm, y: y2 - y1 > 0 ? y1 : y2, w: hh });
+          }
+          if (x2 - xm > 0) added.push({ horizontal: true, x: xm, y: y2, w: x2 - xm });
+        } else {
+          // 同列垂直掉落
+          const sx = p.x + NODE_W / 2;
+          const sy = p.y + NODE_H;
+          const tx = q.x + NODE_W / 2;
+          const ty = q.y;
+          if (ty - sy !== 0) {
+            const hh = Math.abs(ty - sy);
+            added.push({ horizontal: false, x: sx, y: ty - sy > 0 ? sy : ty, w: hh });
+          }
+          if (Math.abs(tx - sx) > 1) added.push({ horizontal: true, x: Math.min(sx, tx), y: ty, w: Math.abs(tx - sx) });
+        }
+        added.forEach((sg) => {
+          lines.push({ idx: lidx++, type: win ? 'win' : 'lose', horizontal: sg.horizontal, x: sg.x, y: sg.y, w: sg.w });
+        });
+      });
+    });
+
+    const nodes = matches.map((m) => {
+      const p = pos[m.id] || { x: 0, y: 0 };
+      return {
+        id: m.id,
+        status: m.status,
+        winner: m.winner,
+        teamAInfo: m.teamAInfo,
+        displayA: m.displayA,
+        scoreA: m.scoreA,
+        membersA: m.membersA,
+        teamBInfo: m.teamBInfo,
+        displayB: m.displayB,
+        scoreB: m.scoreB,
+        membersB: m.membersB,
+        bo: m.bo,
+        boRange: m.boRange,
+        boIndex: m.boIndex,
+        showAdmin: m.showAdmin,
+        x: p.x,
+        y: p.y,
+      };
+    });
+    return { nodes, lines, w: W, h: H };
   },
 
   /* ---------- 赛制与结果（管理员） ---------- */

@@ -8,103 +8,42 @@
       <view class="tree-toggle" bindtap="{{showTree ? 'onHideTree' : 'onShowTree'}}">{{showTree ? '收起晋级图' : '查看晋级图'}}</view>
     </view>
     <scroll-view class="tree-scroll" scroll-x wx:if="{{showTree}}">
-      <view class="tree-wrap">
-        <!-- 胜者组树 -->
-        <view class="tree-row">
-          <view class="tree-zone">
-            <text class="tree-zone-text">胜者组</text>
+      <view class="tree-canvas" style="width:{{treeW}}rpx;height:{{treeH}}rpx;">
+        <!-- 连线（胜者金色实线 / 败者灰色虚线） -->
+        <view
+          wx:for="{{treeLines}}"
+          wx:key="idx"
+          wx:for-item="ln"
+          class="tree-line {{ln.horizontal ? 'line-h' : 'line-v'}} {{ln.type === 'win' ? 'line-win' : 'line-lose'}}"
+          style="{{ln.horizontal ? 'left:' + ln.x + 'rpx;top:' + ln.y + 'rpx;width:' + ln.w + 'rpx;' : 'left:' + ln.x + 'rpx;top:' + ln.y + 'rpx;height:' + ln.w + 'rpx;'}}"
+        ></view>
+        <!-- 比赛节点 -->
+        <view
+          wx:for="{{treeNodes}}"
+          wx:key="id"
+          wx:for-item="nd"
+          class="tree-node tree-node-abs"
+          style="left:{{nd.x}}rpx;top:{{nd.y}}rpx;"
+        >
+          <view class="tree-node-head">
+            <text class="tree-node-status {{nd.status === 'done' ? 'done' : ''}}">{{nd.status === 'done' ? '已结束' : '待打'}}</text>
           </view>
-          <view class="tree-col" wx:for="{{ubTreeCols}}" wx:key="stage" wx:for-item="col">
-            <view class="tree-col-title">{{col.title}}</view>
-            <block wx:for="{{col.matches}}" wx:for-item="m" wx:key="id">
-              <view class="tree-node">
-                <view class="tree-node-head">
-                  <text class="tree-node-status {{m.status === 'done' ? 'done' : 'pending'}}">{{m.status === 'done' ? '已结束' : '待打'}}</text>
-                </view>
-                <view class="tree-node-team {{m.status === 'done' && m.winner === m.teamAInfo.openid ? 'win' : ''}}">
-                  <text class="tn-name">{{m.displayA}}</text>
-                  <text class="tn-score" wx:if="{{m.status === 'done'}}">{{m.scoreA}}</text>
-                  <text class="tn-expand" wx:if="{{m.membersA}}" data-id="{{m.id}}" data-side="A" bindtap="toggleTeam">{{m.expandedA ? '收起' : '队员'}}</text>
-                </view>
-                <view class="team-members" wx:if="{{m.expandedA && m.membersA}}">
-                  <view class="member" wx:for="{{m.membersA}}" wx:for-item="p" wx:key="openid">
-                    <view class="member-name">{{p.nickname}}<text wx:if="{{p.isCaptain}}" class="member-captain">队长</text></view>
-                    <view class="member-line">天梯：{{p.mmr ? p.mmr : '未填'}}</view>
-                    <view class="member-line" wx:if="{{p.rolesText}}">位置：{{p.rolesText}}</view>
-                    <view class="member-line" wx:if="{{p.signature}}">签名：{{p.signature}}</view>
-                  </view>
-                </view>
-                <view class="tree-node-team {{m.status === 'done' && m.winner === m.teamBInfo.openid ? 'win' : ''}}">
-                  <text class="tn-name">{{m.displayB}}</text>
-                  <text class="tn-score" wx:if="{{m.status === 'done'}}">{{m.scoreB}}</text>
-                  <text class="tn-expand" wx:if="{{m.membersB}}" data-id="{{m.id}}" data-side="B" bindtap="toggleTeam">{{m.expandedB ? '收起' : '队员'}}</text>
-                </view>
-                <view class="team-members" wx:if="{{m.expandedB && m.membersB}}">
-                  <view class="member" wx:for="{{m.membersB}}" wx:for-item="p" wx:key="openid">
-                    <view class="member-name">{{p.nickname}}<text wx:if="{{p.isCaptain}}" class="member-captain">队长</text></view>
-                    <view class="member-line">天梯：{{p.mmr ? p.mmr : '未填'}}</view>
-                    <view class="member-line" wx:if="{{p.rolesText}}">位置：{{p.rolesText}}</view>
-                    <view class="member-line" wx:if="{{p.signature}}">签名：{{p.signature}}</view>
-                  </view>
-                </view>
-                <view class="tree-node-admin" wx:if="{{m.showAdmin && m.status !== 'done'}}">
-                  <picker mode="selector" range="{{m.boRange}}" value="{{m.boIndex}}" bindchange="onBoChange" data-id="{{m.id}}">
-                    <view class="tree-picker">赛制 {{m.bo}}</view>
-                  </picker>
-                  <view class="spacer"></view>
-                  <view class="btn-small tree-rec" data-id="{{m.id}}" bindtap="recordResult">记录胜负</view>
-                </view>
-              </view>
-            </block>
+          <view class="tree-node-team {{nd.status === 'done' && nd.winner === nd.teamAInfo.openid ? 'win' : ''}}">
+            <text class="tn-name">{{nd.displayA}}</text>
+            <text class="tn-score" wx:if="{{nd.status === 'done'}}">{{nd.scoreA}}</text>
+            <text class="tn-expand" wx:if="{{nd.membersA}}" data-mid="{{nd.id}}" data-side="A" bindtap="showMembers">队员</text>
           </view>
-        </view>
-        <!-- 败者组树 -->
-        <view class="tree-row">
-          <view class="tree-zone">
-            <text class="tree-zone-text">败者组</text>
+          <view class="tree-node-team {{nd.status === 'done' && nd.winner === nd.teamBInfo.openid ? 'win' : ''}}">
+            <text class="tn-name">{{nd.displayB}}</text>
+            <text class="tn-score" wx:if="{{nd.status === 'done'}}">{{nd.scoreB}}</text>
+            <text class="tn-expand" wx:if="{{nd.membersB}}" data-mid="{{nd.id}}" data-side="B" bindtap="showMembers">队员</text>
           </view>
-          <view class="tree-col" wx:for="{{lbTreeCols}}" wx:key="stage" wx:for-item="col">
-            <view class="tree-col-title">{{col.title}}</view>
-            <block wx:for="{{col.matches}}" wx:for-item="m" wx:key="id">
-              <view class="tree-node">
-                <view class="tree-node-head">
-                  <text class="tree-node-status {{m.status === 'done' ? 'done' : 'pending'}}">{{m.status === 'done' ? '已结束' : '待打'}}</text>
-                </view>
-                <view class="tree-node-team {{m.status === 'done' && m.winner === m.teamAInfo.openid ? 'win' : ''}}">
-                  <text class="tn-name">{{m.displayA}}</text>
-                  <text class="tn-score" wx:if="{{m.status === 'done'}}">{{m.scoreA}}</text>
-                  <text class="tn-expand" wx:if="{{m.membersA}}" data-id="{{m.id}}" data-side="A" bindtap="toggleTeam">{{m.expandedA ? '收起' : '队员'}}</text>
-                </view>
-                <view class="team-members" wx:if="{{m.expandedA && m.membersA}}">
-                  <view class="member" wx:for="{{m.membersA}}" wx:for-item="p" wx:key="openid">
-                    <view class="member-name">{{p.nickname}}<text wx:if="{{p.isCaptain}}" class="member-captain">队长</text></view>
-                    <view class="member-line">天梯：{{p.mmr ? p.mmr : '未填'}}</view>
-                    <view class="member-line" wx:if="{{p.rolesText}}">位置：{{p.rolesText}}</view>
-                    <view class="member-line" wx:if="{{p.signature}}">签名：{{p.signature}}</view>
-                  </view>
-                </view>
-                <view class="tree-node-team {{m.status === 'done' && m.winner === m.teamBInfo.openid ? 'win' : ''}}">
-                  <text class="tn-name">{{m.displayB}}</text>
-                  <text class="tn-score" wx:if="{{m.status === 'done'}}">{{m.scoreB}}</text>
-                  <text class="tn-expand" wx:if="{{m.membersB}}" data-id="{{m.id}}" data-side="B" bindtap="toggleTeam">{{m.expandedB ? '收起' : '队员'}}</text>
-                </view>
-                <view class="team-members" wx:if="{{m.expandedB && m.membersB}}">
-                  <view class="member" wx:for="{{m.membersB}}" wx:for-item="p" wx:key="openid">
-                    <view class="member-name">{{p.nickname}}<text wx:if="{{p.isCaptain}}" class="member-captain">队长</text></view>
-                    <view class="member-line">天梯：{{p.mmr ? p.mmr : '未填'}}</view>
-                    <view class="member-line" wx:if="{{p.rolesText}}">位置：{{p.rolesText}}</view>
-                    <view class="member-line" wx:if="{{p.signature}}">签名：{{p.signature}}</view>
-                  </view>
-                </view>
-                <view class="tree-node-admin" wx:if="{{m.showAdmin && m.status !== 'done'}}">
-                  <picker mode="selector" range="{{m.boRange}}" value="{{m.boIndex}}" bindchange="onBoChange" data-id="{{m.id}}">
-                    <view class="tree-picker">赛制 {{m.bo}}</view>
-                  </picker>
-                  <view class="spacer"></view>
-                  <view class="btn-small tree-rec" data-id="{{m.id}}" bindtap="recordResult">记录胜负</view>
-                </view>
-              </view>
-            </block>
+          <view class="tree-node-admin" wx:if="{{nd.showAdmin && nd.status !== 'done'}}">
+            <picker mode="selector" range="{{nd.boRange}}" value="{{nd.boIndex}}" bindchange="onBoChange" data-id="{{nd.id}}">
+              <view class="tree-picker">赛制 {{nd.bo}}</view>
+            </picker>
+            <view class="spacer"></view>
+            <view class="btn-small tree-rec" data-id="{{nd.id}}" bindtap="recordResult">记录胜负</view>
           </view>
         </view>
       </view>
@@ -190,6 +129,25 @@
         <view class="btn btn-plain panel-btn" bindtap="closePanel">取消</view>
         <view class="spacer"></view>
         <view class="btn panel-btn" bindtap="confirmResult">确认记录</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 队员信息弹层（晋级树图用） -->
+  <view class="mask" wx:if="{{memberPanel.show}}">
+    <view class="panel">
+      <view class="card-title">{{memberPanel.title}}</view>
+      <view class="sub">报名时填写的资料，队长选人可见</view>
+      <view class="divider"></view>
+      <view wx:if="{{!memberPanel.members.length}}" class="sub">暂无队员信息</view>
+      <view class="member" wx:for="{{memberPanel.members}}" wx:key="openid" wx:for-item="p">
+        <view class="member-name">{{p.nickname}}<text wx:if="{{p.isCaptain}}" class="member-captain">队长</text></view>
+        <view class="member-line">天梯：{{p.mmr ? p.mmr : '未填'}}</view>
+        <view class="member-line" wx:if="{{p.rolesText}}">位置：{{p.rolesText}}</view>
+        <view class="member-line" wx:if="{{p.signature}}">签名：{{p.signature}}</view>
+      </view>
+      <view class="row">
+        <view class="btn panel-btn" bindtap="closeMembers">关闭</view>
       </view>
     </view>
   </view>
