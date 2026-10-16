@@ -254,13 +254,16 @@ const actions = {
       .orderBy('createdAt', 'desc')
       .limit(50)
       .get();
+    const todayRaw = (todayRes.data || []).map((t) => summarize(t, openid));
+    const olderRaw = (olderRes.data || []).map((t) => summarize(t, openid));
     return ok({
       user,
       isAdmin: isAdminFlag,
       isSuper: isSuperFlag,
       hasSuper: !!cfg.superAdmin,
-      today: (todayRes.data || []).map((t) => summarize(t, openid)),
-      older: (olderRes.data || []).map((t) => summarize(t, openid)),
+      // 已归档（archivedAt 非空）的比赛从"今天"移入历史，未归档的保留在主页
+      today: todayRaw.filter((x) => !x.archivedAt),
+      older: todayRaw.filter((x) => x.archivedAt).concat(olderRaw),
     });
   },
 

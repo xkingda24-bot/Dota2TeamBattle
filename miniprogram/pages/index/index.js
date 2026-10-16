@@ -49,6 +49,8 @@ Page({
                 : item.status === 'battle'
                 ? '对战中'
                 : '已结束',
+            swipeX: 0, // 左滑偏移（px），露出归档/删除按钮
+            swipeOpen: false,
           })
         );
         this.setData({
@@ -181,6 +183,11 @@ Page({
   },
 
   goTournament(e) {
+    // 刚完成滑动操作时忽略本次点击（避免滑完误触进入）
+    if (this._swipeMoved) {
+      this._swipeMoved = false;
+      return;
+    }
     const item = this.data.today[e.currentTarget.dataset.index];
     if (!item) return;
     if (item.status === 'registration') {
@@ -227,6 +234,90 @@ Page({
         }
       },
     });
+  },
+
+  /* ---------- 左滑卡片：归档 / 删除（管理员） ---------- */
+  onSwipeStart(e) {
+    if (!this.data.isAdmin) return;
+    this._swipeStartX = e.touches[0].clientX;
+    this._swipeIndex = e.currentTarget.dataset.index;
+    this._swipeMoved = false;
+  },
+
+  onSwipeMove(e) {
+    const index = this._swipeIndex;
+    if (index == null) return;
+    const dx = e.touches[0].clientX - this._swipeStartX;
+    const wasOpen = this.data.today[index] && this.data.today[index].swipeOpen;
+    const base = wasOpen ? -140 : 0;
+    let x = base + dx;
+    if (x > 0) x = 0;
+    if (x < -140) x = -140;
+    if (Math.abs(dx) > 8) this._swipeMoved = true;
+    this.setData({ ['today[' + index + '].swipeX']: x });
+  },
+
+  onSwipeEnd() {
+    const index = this._swipeIndex;
+    if (index == null) return;
+    const x = this.data.today[index] ? this.data.today[index].swipeX : 0;
+    const open = x < -70;
+    const patches = {
+      ['today[' + index + '].swipeX']: open ? -140 : 0,
+      ['today[' + index + '].swipeOpen']: open,
+    };
+    this.data.today.forEach((it, i) => {
+      if (i !== index && it.swipeOpen) {
+        patches['today[' + i + '].swipeX'] = 0;
+        patches['today[' + i + '].swipeOpen'] = false;
+      }
+    });
+    this.setData(patches);
+    this._swipeIndex = null;
+  },
+
+  onSwipeAction(e) {
+    const index = Number(e.currentTarget.dataset.index);
+    const action = e.currentTarget.dataset.action;
+    const item = this.data.today[index];
+    if (!item || !this.data.isAdmin) return;
+    // 先收起卡片
+    this.setData({ ['today[' + index + '].swipeX']: 0, ['today[' + index + '].swipeOpen']: false });
+    if (action === 'archive') {
+      wx.showModal({
+        title: '归档比赛',
+        content: '将「' + item.name + '」归档到历史比赛，确定归档？',
+        success: (res) => {
+          if (res.confirm) {
+            api
+              .call('finishTournament', { id: item.id })
+              .then(() => {
+                wx.showToast({ title: '已归档', icon: 'success' });
+                this.load();
+              })
+              .catch((err) => wx.showToast({ title: err.message, icon: 'none' }));
+          }
+        },
+      });
+    } else if (action === 'delete') {
+      wx.showModal({
+        title: '删除比赛',
+        content: '将永久删除「' + item.name + '」的全部数据（报名/选人/赛程），不可恢复！确定删除？',
+        confirmText: '删除',
+        confirmColor: '#e5484d',
+        success: (res) => {
+          if (res.confirm) {
+            api
+              .call('deleteTournament', { id: item.id })
+              .then(() => {
+                wx.showToast({ title: '已删除', icon: 'success' });
+                this.load();
+              })
+              .catch((err) => wx.showToast({ title: err.message, icon: 'none' }));
+          }
+        },
+      });
+    }
   },
 
   onSecretInput(e) {
