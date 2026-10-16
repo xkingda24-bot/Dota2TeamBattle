@@ -159,6 +159,8 @@ Page({
           showSeeding,
           seedSlots,
           teamNames,
+          // 赛程未生成时（落位调整阶段）不显示晋级图
+          showTree: (t.matches || []).length > 0 ? this.data.showTree : false,
           treeNodes: tree.nodes,
           treeLines: tree.lines,
           treeW: tree.w,

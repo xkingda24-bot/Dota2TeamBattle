@@ -2,8 +2,8 @@
 <nav-bar title="对战赛程" />
 <view class="container">
   <block wx:if="{{t}}">
-    <!-- 晋级树形图 -->
-    <view class="tree-head">
+    <!-- 晋级树形图（赛程生成后才有） -->
+    <view class="tree-head" wx:if="{{t.matches.length > 0}}">
       <view class="tree-title">晋级树形图</view>
       <view class="tree-toggle" bindtap="{{showTree ? 'onHideTree' : 'onShowTree'}}">{{showTree ? '收起晋级图' : '查看晋级图'}}</view>
     </view>
