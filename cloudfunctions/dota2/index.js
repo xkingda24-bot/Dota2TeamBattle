@@ -267,26 +267,25 @@ const actions = {
     });
   },
 
-  /* 完善/更新我的资料（昵称 + 天梯分 + 常玩位置 + 个人签名） */
+  /* 完善/更新我的资料（昵称 + 天梯分 + 常玩位置 + 个人签名）；天梯分与常玩位置为必填 */
   async saveProfile(event) {
     const openid = getOpenId();
     const nickname = String(event.nickname || '').trim();
     if (!nickname) return fail('昵称不能为空');
     if (nickname.length > 20) return fail('昵称最多 20 个字');
-    // 天梯分（选填，0-20000）
-    let mmr = null;
-    if (event.mmr !== '' && event.mmr != null && String(event.mmr).trim() !== '') {
-      mmr = Number(event.mmr);
-      if (!isFinite(mmr) || mmr < 0 || mmr > 20000) return fail('天梯分需在 0-20000 之间');
-      mmr = Math.round(mmr);
-    }
-    // 常玩位置（选填，1-5 多选）
+    // 天梯分（必填，0-20000）
+    const mmrRaw = String(event.mmr == null ? '' : event.mmr).trim();
+    if (mmrRaw === '') return fail('请填写天梯分');
+    const mmr = Math.round(Number(mmrRaw));
+    if (!isFinite(mmr) || mmr < 0 || mmr > 20000) return fail('天梯分需在 0-20000 之间');
+    // 常玩位置（必填，1-5 至少选一个）
     let roles = [];
     if (Array.isArray(event.roles)) {
       roles = Array.from(new Set(event.roles.map((v) => Number(v)).filter((v) => v >= 1 && v <= 5))).sort(
         (a, b) => a - b
       );
     }
+    if (roles.length === 0) return fail('请至少选择一个常玩位置');
     // 个人签名（选填，不超过 15 个字）
     const signature = String(event.signature || '').trim();
     if (signature.length > 15) return fail('个人签名最多 15 个字');
@@ -498,11 +497,13 @@ const actions = {
     return ok({ correct: String(event.secret || '') === String(t.secret || '') });
   },
 
-  /* 报名（需暗号）：队长/队员/替补；队员满时自动进入替补 */
+  /* 报名（需暗号）：队长/队员/替补；队员满时自动进入替补；资料（昵称/天梯分/常玩位置）必填才可报名 */
   async register(event) {
     const openid = getOpenId();
     const me = await getUser(openid);
-    if (!me) return fail('请先完善昵称资料');
+    if (!me || !me.nickname) return fail('请先设置昵称');
+    if (me.mmr == null) return fail('请先在「我的-编辑资料」填写天梯分后再报名');
+    if (!Array.isArray(me.roles) || me.roles.length === 0) return fail('请先在「我的-编辑资料」选择常玩位置后再报名');
     const t = await getTournamentById(event.id);
     if (!t) return fail('比赛不存在');
     if (t.status !== 'registration') return fail('当前不在报名阶段');

@@ -170,14 +170,18 @@ Page({
       wx.showToast({ title: '个人签名最多 15 个字', icon: 'none' });
       return;
     }
-    let mmr = '';
-    if ((pf.mmr || '').trim() !== '') {
-      mmr = Number(pf.mmr);
-      if (!isFinite(mmr) || mmr < 0 || mmr > 20000) {
-        wx.showToast({ title: '天梯分需在 0-20000 之间', icon: 'none' });
-        return;
-      }
-      mmr = Math.round(mmr);
+    if ((pf.mmr || '').trim() === '') {
+      wx.showToast({ title: '请填写天梯分', icon: 'none' });
+      return;
+    }
+    const mmr = Math.round(Number(pf.mmr));
+    if (!isFinite(mmr) || mmr < 0 || mmr > 20000) {
+      wx.showToast({ title: '天梯分需在 0-20000 之间', icon: 'none' });
+      return;
+    }
+    if (pf.roles.length === 0) {
+      wx.showToast({ title: '请至少选择一个常玩位置', icon: 'none' });
+      return;
     }
     this.setData({ saving: true });
     api

@@ -107,10 +107,10 @@
     <view class="field-label">昵称 <text class="req">*</text></view>
     <input class="input" placeholder="请输入昵称（最多20字）" placeholder-class="ph" maxlength="20" value="{{pf.nickname}}" bindinput="onPfNick" />
 
-    <view class="field-label">天梯分</view>
-    <input class="input" type="number" placeholder="选填，如 4500" placeholder-class="ph" value="{{pf.mmr}}" bindinput="onPfMmr" />
+    <view class="field-label">天梯分 <text class="req">*</text></view>
+    <input class="input" type="number" placeholder="必填，如 4500" placeholder-class="ph" value="{{pf.mmr}}" bindinput="onPfMmr" />
 
-    <view class="field-label">常玩位置（可多选）</view>
+    <view class="field-label">常玩位置（必填，可多选）<text class="req">*</text></view>
     <view class="role-btns">
       <view class="role-btn {{pf.rolesActive[0] ? 'role-btn-active' : ''}}" data-role="1" bindtap="onToggleRole">1号位</view>
       <view class="role-btn {{pf.rolesActive[1] ? 'role-btn-active' : ''}}" data-role="2" bindtap="onToggleRole">2号位</view>
@@ -128,5 +128,6 @@
       <view class="panel-btn btn-plain" bindtap="onCloseProfile">取消</view>
       <view class="panel-btn btn" bindtap="onSaveProfile">{{saving ? '保存中…' : '保存'}}</view>
     </view>
+    <view class="sub" style="text-align:center;margin-top:12rpx;">昵称、天梯分、常玩位置为必填，填好后才能报名</view>
   </view>
 </view>
