@@ -31,6 +31,7 @@ Page({
     // 队长队名
     teamNameInput: '',
     teamNameSaving: false,
+    teamNameDirty: false, // 输入框正在编辑中，轮询刷新不要覆盖
   },
 
   onLoad(options) {
@@ -82,7 +83,8 @@ Page({
           playerList: regs.filter((r) => r.role === 'player'),
           waitlistList: regs.filter((r) => r.role === 'waitlist'),
           secretOk,
-          teamNameInput: myReg && myReg.role === 'captain' ? myReg.teamName || '' : this.data.teamNameInput,
+          // 正在编辑队名时保留输入框内容，不被轮询刷新覆盖；否则（队长）用云端已保存的队名初始化
+          teamNameInput: this.data.teamNameDirty || !(myReg && myReg.role === 'captain') ? this.data.teamNameInput : myReg.teamName || '',
         });
       })
       .catch((e) => {
@@ -210,7 +212,7 @@ Page({
 
   /* 队长：设置队伍名称 */
   onTeamNameInput(e) {
-    this.setData({ teamNameInput: e.detail.value });
+    this.setData({ teamNameInput: e.detail.value, teamNameDirty: true });
   },
 
   onSaveTeamName() {
@@ -227,7 +229,7 @@ Page({
       .call('setTeamName', { id: t.id, teamName })
       .then(() => {
         wx.showToast({ title: teamName ? '队名已保存' : '已清除队名', icon: 'success' });
-        this.setData({ teamNameSaving: false });
+        this.setData({ teamNameSaving: false, teamNameInput: teamName, teamNameDirty: false });
         this.load();
       })
       .catch((err) => {
