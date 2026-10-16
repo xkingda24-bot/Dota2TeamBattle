@@ -141,7 +141,12 @@ Page({
           const teams = t.teams || [];
           teamNames = teams.map((tm, i) => (tm.captain ? tm.captain.nickname + '战队' : '队' + (i + 1)));
           const seeding = Array.isArray(t.seeding) && t.seeding.length === t.N ? t.seeding : teams.map((_, i) => i);
-          seedSlots = seeding.map((idx, slot) => ({ slot, idx, name: teamNames[idx] || '队' + (idx + 1) }));
+          seedSlots = seeding.map((idx, slot) => ({
+            slot,
+            idx,
+            name: teamNames[idx] || '队' + (idx + 1),
+            members: buildMembers(teams[idx]) || [],
+          }));
         }
 
         const tree = this.buildTreeData(matches);
@@ -169,6 +174,24 @@ Page({
   },
 
   /* ---------- 对阵调整 ---------- */
+  onSeedMove(e) {
+    if (this.data.readonly) return;
+    const slot = Number(e.currentTarget.dataset.slot);
+    const dir = Number(e.currentTarget.dataset.dir);
+    const seedSlots = this.data.seedSlots.slice();
+    const target = slot + dir;
+    if (target < 0 || target >= seedSlots.length) return;
+    const tmp = seedSlots[slot];
+    seedSlots[slot] = seedSlots[target];
+    seedSlots[target] = tmp;
+    seedSlots.forEach((s, i) => (s.slot = i));
+    this.setData({ seedSlots });
+    const seeding = seedSlots.map((s) => s.idx);
+    api
+      .call('setSeeding', { id: this.data.t.id, seeding })
+      .catch((err) => wx.showToast({ title: err.message, icon: 'none' }));
+  },
+
   onSeedChange(e) {
     if (this.data.readonly) return;
     const slot = Number(e.currentTarget.dataset.slot);

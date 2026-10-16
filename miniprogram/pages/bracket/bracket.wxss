@@ -251,22 +251,53 @@
 /* 落位调整 */
 .seed-row {
   display: flex;
-  align-items: center;
-  margin-bottom: 14rpx;
+  align-items: flex-start;
+  margin-bottom: 20rpx;
+  border: 1rpx solid rgba(224, 181, 111, 0.12);
+  border-radius: 12rpx;
+  padding: 16rpx 20rpx;
+  background: #1a2130;
+}
+.seed-col {
+  flex: 1;
+  min-width: 0;
 }
 .seed-label {
-  width: 110rpx;
   font-size: 24rpx;
   color: #98a0ab;
 }
-.seed-row .picker {
-  flex: 1;
-  background: #1a2130;
-  border: 1rpx solid rgba(224, 181, 111, 0.12);
-  border-radius: 10rpx;
-  padding: 14rpx 20rpx;
+.seed-name {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #e8c27c;
+  margin: 6rpx 0 8rpx;
+}
+.seed-members {
+  border-top: 1rpx solid rgba(224, 181, 111, 0.1);
+  padding-top: 8rpx;
+}
+.seed-members .member-line {
+  font-size: 24rpx;
   color: #e8e4da;
-  font-size: 26rpx;
+  line-height: 1.7;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.seed-members .member-name {
+  color: #fff;
+}
+.seed-members .kv {
+  color: #98a0ab;
+}
+.seed-btns {
+  display: flex;
+  flex-direction: column;
+  margin-left: 16rpx;
+}
+.seed-move {
+  margin-top: 0;
+  margin-bottom: 12rpx;
 }
 .seed-btn {
   flex: 1;

@@ -52,15 +52,27 @@
     <!-- 冠军 -->
     <view wx:if="{{t.champion}}" class="champion-banner">冠军：{{t.champion.name}}</view>
 
-    <!-- 对阵调整（选人完成后、生成对阵前） -->
+    <!-- 对阵调整（选人/分组完成后、生成对阵前） -->
     <view class="card" wx:if="{{showSeeding}}">
       <view class="card-title">对阵调整（胜者组第一轮落位）</view>
-      <view class="sub">共 {{t.N}} 个落位，相邻两个落位互为第一轮对手；可手动调整或随机排位</view>
+      <view class="sub">共 {{t.N}} 个落位，相邻两个落位互为第一轮对手；可用上移/下移调整顺序或随机排位</view>
       <view class="seed-row" wx:for="{{seedSlots}}" wx:key="slot">
-        <view class="seed-label">落位 {{item.slot + 1}}</view>
-        <picker mode="selector" range="{{teamNames}}" value="{{item.idx}}" bindchange="onSeedChange" data-slot="{{item.slot}}">
-          <view class="picker">{{item.name}}</view>
-        </picker>
+        <view class="seed-col">
+          <view class="seed-label">落位 {{item.slot + 1}}</view>
+          <view class="seed-name">{{item.name}}</view>
+          <view class="seed-members">
+            <view class="member-line" wx:for="{{item.members}}" wx:key="openid" wx:for-item="m">
+              <text class="member-name">{{m.nickname}}{{m.isCaptain ? '（组长）' : ''}}</text>
+              <text class="kv"> · 天梯{{m.mmr || '未填'}}</text>
+              <text class="kv" wx:if="{{m.rolesText}}"> · {{m.rolesText}}</text>
+              <text class="kv" wx:if="{{m.signature}}"> · {{m.signature}}</text>
+            </view>
+          </view>
+        </view>
+        <view class="seed-btns">
+          <view class="btn-small btn-plain seed-move" data-slot="{{item.slot}}" data-dir="-1" bindtap="onSeedMove">上移</view>
+          <view class="btn-small btn-plain seed-move" data-slot="{{item.slot}}" data-dir="1" bindtap="onSeedMove">下移</view>
+        </view>
       </view>
       <view class="row">
         <view class="btn btn-plain seed-btn" bindtap="onShuffleSeeding">随机排位</view>
