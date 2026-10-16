@@ -548,13 +548,16 @@ Page({
     });
   },
 
-  /* ---------- 结束 / 删除（管理员） ---------- */
+  /* ---------- 结束 / 归档 / 删除（管理员） ---------- */
   onFinish() {
     const t = this.data.t;
     if (!t || this.data.readonly) return;
+    const isFinished = t.status === 'finished';
     wx.showModal({
-      title: '结束并归档',
-      content: '结束本场比赛（需已有冠军），归档后可创建新比赛，确定？',
+      title: isFinished ? '归档比赛' : '结束并归档',
+      content: isFinished
+        ? '将本场比赛归档到历史比赛（主页不再显示），确定归档？'
+        : '结束本场比赛（需已有冠军，未结束不能归档），确定？',
       success: (res) => {
         if (res.confirm) {
           api

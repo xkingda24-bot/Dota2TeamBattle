@@ -866,7 +866,8 @@ const actions = {
         matches,
         champion: _.set(champion),
         status,
-        archivedAt: status === 'finished' ? Date.now() : t.archivedAt || null,
+        // 决赛打完标记已结束，但**不自动归档**：由管理员在主页/对战页手动归档
+        archivedAt: t.archivedAt || null,
       },
     });
     return ok({ champion: champion ? champion.name : null, finished: status === 'finished' });
@@ -923,13 +924,13 @@ const actions = {
     return ok(true);
   },
 
-  /* 结束并归档（管理员）：手动把比赛标记为已结束（要求已有冠军） */
+  /* 结束并归档（管理员）：手动把已结束的比赛归档到历史（要求已有冠军，未结束不能归档） */
   async finishTournament(event) {
     if (!(await isAdminUser())) return fail('需要管理员权限');
     const t = await getTournamentById(event.id);
     if (!t) return fail('比赛不存在');
-    if (t.status === 'finished') return fail('比赛已结束');
-    if (!t.champion) return fail('还没有产生冠军，无法结束（总决赛打完会自动结束）');
+    if (t.archivedAt) return fail('比赛已归档');
+    if (!t.champion) return fail('比赛还未结束（未产生冠军），不能归档');
     await db.collection('tournaments').doc(t._id).update({
       data: { status: 'finished', archivedAt: Date.now() },
     });

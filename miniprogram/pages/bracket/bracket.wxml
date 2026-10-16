@@ -92,9 +92,9 @@
     <!-- 管理员操作（结束/删除） -->
     <view class="card" wx:if="{{isAdmin && !readonly && (t.status === 'battle' || t.status === 'finished')}}">
       <view class="card-title">管理员操作</view>
-      <view class="sub">{{t.status === 'finished' ? '本场比赛已结束归档' : '比赛结束后归档，可在主页创建新比赛'}}</view>
+      <view class="sub">{{t.status === 'finished' ? '本场比赛已结束，归档后主页不再显示' : '比赛结束后（产生冠军）才可归档'}}</view>
       <view class="row">
-        <view class="btn btn-plain admin-btn" wx:if="{{t.status === 'battle'}}" bindtap="onFinish">结束并归档</view>
+        <view class="btn btn-plain admin-btn" wx:if="{{t.status === 'battle' || t.status === 'finished'}}" bindtap="onFinish">{{t.status === 'finished' ? '归档到历史' : '结束并归档'}}</view>
         <view class="spacer"></view>
         <view class="btn btn-danger admin-btn" bindtap="onDelete">删除比赛</view>
       </view>

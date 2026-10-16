@@ -28,7 +28,7 @@
   </view>
 
   <!-- 今天的比赛 -->
-  <view class="section">今天的比赛（{{today.length}}）<text wx:if="{{isAdmin}}" class="section-hint"> · 左滑卡片可归档/删除</text></view>
+  <view class="section">今天的比赛（{{today.length}}）<text wx:if="{{isAdmin}}" class="section-hint"> · 左滑卡片可操作</text></view>
   <view wx:if="{{today.length === 0}}" class="empty">今天还没有创建比赛</view>
   <view
     class="swipe-item"
@@ -41,7 +41,7 @@
   >
     <!-- 操作按钮（卡片左滑露出） -->
     <view class="swipe-btns" wx:if="{{isAdmin}}">
-      <view class="swipe-btn" wx:if="{{item.status === 'battle'}}" data-index="{{index}}" data-action="archive" catchtap="onSwipeAction">归档</view>
+      <view class="swipe-btn" wx:if="{{item.status === 'finished'}}" data-index="{{index}}" data-action="archive" catchtap="onSwipeAction">归档</view>
       <view class="swipe-btn danger" data-index="{{index}}" data-action="delete" catchtap="onSwipeAction">删除</view>
     </view>
     <!-- 卡片本体 -->
