@@ -20,7 +20,8 @@ Page({
     scoreA: '',
     scoreB: '',
     showTree: false,
-    treeCols: [],
+    ubTreeCols: [],
+    lbTreeCols: [],
   },
 
   onLoad(options) {
@@ -122,8 +123,8 @@ Page({
             expandedB: !!prevExp[m.id + ':B'],
           });
         });
-        const ubMatches = matches.filter((m) => m.stage === 'upper');
-        const lbMatches = matches.filter((m) => m.stage === 'lower');
+        const ubMatches = matches.filter((m) => m.stage === 'upper' || (m.stage || '').indexOf('UB') === 0);
+        const lbMatches = matches.filter((m) => m.stage === 'lower' || (m.stage || '').indexOf('LB') === 0);
         const gf = matches.find((m) => m.isChampionMatch) || null;
 
         let showSeeding = false;
@@ -137,6 +138,7 @@ Page({
           seedSlots = seeding.map((idx, slot) => ({ slot, idx, name: teamNames[idx] || '队' + (idx + 1) }));
         }
 
+        const allCols = this.buildTreeCols(matches);
         this.setData({
           t,
           isAdmin: !!t.isAdmin,
@@ -146,7 +148,11 @@ Page({
           showSeeding,
           seedSlots,
           teamNames,
-          treeCols: this.buildTreeCols(matches),
+          ubTreeCols: allCols.filter((c) => {
+            const s = c.matches[0].stage || '';
+            return s === 'GF' || s.indexOf('UB') === 0;
+          }),
+          lbTreeCols: allCols.filter((c) => (c.matches[0].stage || '').indexOf('LB') === 0),
           loading: false,
         });
         // 注意：这里不再调用 closePanel()——否则 8 秒轮询会把正在填写的"记录结果"弹层关掉
@@ -214,12 +220,28 @@ Page({
       this.setData({ [arrName]: next });
       return true;
     };
-    if (flip(this.data.ubMatches, 'ubMatches')) return;
-    if (flip(this.data.lbMatches, 'lbMatches')) return;
+    if (flip(this.data.ubMatches, 'ubMatches')) return this.syncTree();
+    if (flip(this.data.lbMatches, 'lbMatches')) return this.syncTree();
     const gf = this.data.gf;
     if (gf && gf.id === id) {
       this.setData({ gf: Object.assign({}, gf, { [key]: !gf[key] }) });
+      this.syncTree();
     }
+  },
+
+  // 展开/收起后同步树形图数据（树节点与列表共用同一批 match 对象）
+  syncTree() {
+    const all = (this.data.ubMatches || [])
+      .concat(this.data.lbMatches || [])
+      .concat(this.data.gf ? [this.data.gf] : []);
+    const allCols = this.buildTreeCols(all);
+    this.setData({
+      ubTreeCols: allCols.filter((c) => {
+        const s = c.matches[0].stage || '';
+        return s === 'GF' || s.indexOf('UB') === 0;
+      }),
+      lbTreeCols: allCols.filter((c) => (c.matches[0].stage || '').indexOf('LB') === 0),
+    });
   },
 
   /* ---------- 晋级树形图 ---------- */
