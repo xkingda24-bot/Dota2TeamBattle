@@ -1165,31 +1165,53 @@ const actions = {
     };
     const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
-    // 系统分组模式：只补虚拟队员到报满（不生成队长）；位置按 1-5 轮转，保证每组都能覆盖所有号位
+    // 系统分组模式：补足虚拟队员到报满（不生成队长），并补足替补（最多 5 个）；位置按 1-5 轮转
     if (t.mode === 'auto') {
       const need = t.N * t.K;
+      const waitLimit = t.waitLimit || 0;
       const curPlayers = (t.registrations || []).filter((r) => r.role === 'player');
-      if (curPlayers.length >= need) {
-        return fail('队员已报满（' + curPlayers.length + '/' + need + '），无需注入虚拟队员');
-      }
-      const count = need - curPlayers.length;
-      const vplys = [];
-      for (let i = 0; i < count; i++) {
-        const nm = VNAMES[i % VNAMES.length] + (i >= VNAMES.length ? '·' + (Math.floor(i / VNAMES.length) + 1) : '');
-        const base = (i % 5) + 1; // 轮转保证 1-5 号位都有人
+      const curWait = (t.registrations || []).filter((r) => r.role === 'waitlist');
+      const mkName = (i) => VNAMES[i % VNAMES.length] + (i >= VNAMES.length ? '·' + (Math.floor(i / VNAMES.length) + 1) : '');
+      const mkRoles = (base) => {
         const extra = pickRoles().filter((r) => r !== base);
-        vplys.push({
-          openid: 'vgrp' + (i + 1),
-          nickname: nm,
-          mmr: 4000 + Math.floor(Math.random() * 5000),
-          roles: [base].concat(extra.slice(0, 1)).sort(),
-          signature: pick(SIGS),
-        });
+        return [base].concat(extra.slice(0, 1)).sort();
+      };
+      const vplys = [];
+      if (curPlayers.length < need) {
+        const count = need - curPlayers.length;
+        for (let i = 0; i < count; i++) {
+          const base = (i % 5) + 1;
+          vplys.push({
+            openid: 'vgrp' + (i + 1),
+            nickname: mkName(i),
+            mmr: 4000 + Math.floor(Math.random() * 5000),
+            roles: mkRoles(base),
+            signature: pick(SIGS),
+            role: 'player',
+          });
+        }
       }
+      const vwaits = [];
+      if (waitLimit > 0 && curWait.length < waitLimit) {
+        const wc = Math.min(5, waitLimit - curWait.length);
+        for (let i = 0; i < wc; i++) {
+          const base = ((i + 17) % 5) + 1; // 与队员错开轮转
+          vwaits.push({
+            openid: 'vgwa' + (i + 1),
+            nickname: mkName(need + i),
+            mmr: 3500 + Math.floor(Math.random() * 4500),
+            roles: mkRoles(base),
+            signature: pick(SIGS),
+            role: 'waitlist',
+          });
+        }
+      }
+      const all = vplys.concat(vwaits);
+      if (!all.length) return fail('队员与替补均已满，无需注入虚拟用户');
       const existing = (t.registrations || []).map((r) => r.openid);
       const skip = new Set(existing);
-      const toAdd = vplys.filter((u) => !skip.has(u.openid));
-      if (!toAdd.length) return fail('虚拟队员已全部报名过了（如需重新注入，请先删除本场比赛再重建）');
+      const toAdd = all.filter((u) => !skip.has(u.openid));
+      if (!toAdd.length) return fail('虚拟用户已全部报名过了（如需重新注入，请先删除本场比赛再重建）');
       const dups = await Promise.all(toAdd.map((u) => getUser(u.openid)));
       const toCreate = toAdd.filter((u, i) => !dups[i]);
       const CHUNK = 8;
@@ -1207,7 +1229,7 @@ const actions = {
       const regs = toAdd.map((u) => ({
         openid: u.openid,
         nickname: u.nickname,
-        role: 'player',
+        role: u.role,
         ts: Date.now(),
         mmr: u.mmr,
         roles: u.roles,
@@ -1219,6 +1241,8 @@ const actions = {
         added: regs.length,
         playerFilled: registrations.filter((r) => r.role === 'player').length,
         playerTotal: need,
+        waitlistFilled: registrations.filter((r) => r.role === 'waitlist').length,
+        waitLimit,
         auto: true,
       });
     }
