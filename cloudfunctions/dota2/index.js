@@ -841,14 +841,16 @@ const actions = {
     return ok(true);
   },
 
-  /* 调整胜者组第一轮对阵（管理员，选人完成后、生成对阵前） */
+  /* 调整胜者组第一轮对阵（管理员，选人/分组完成后、生成对阵前） */
   async setSeeding(event) {
     if (!(await isAdminUser())) return fail('需要管理员权限');
     const t = await getTournamentById(event.id);
     if (!t) return fail('比赛不存在');
-    if (t.status !== 'draft') return fail('当前不在选人阶段');
-    const totalPicks = t.N * t.K;
-    if ((t.draft.turn || 0) < totalPicks) return fail('选人还未完成');
+    if (t.status !== 'draft') return fail('当前不在生成对阵阶段');
+    if (t.mode !== 'auto') {
+      const totalPicks = t.N * t.K;
+      if (!t.draft || (t.draft.turn || 0) < totalPicks) return fail('选人还未完成');
+    }
     const seeding = event.seeding;
     if (!Array.isArray(seeding) || seeding.length !== t.N) return fail('对阵落位数据不正确');
     const seen = {};
@@ -865,7 +867,7 @@ const actions = {
     if (!(await isAdminUser())) return fail('需要管理员权限');
     const t = await getTournamentById(event.id);
     if (!t) return fail('比赛不存在');
-    if (t.status !== 'draft') return fail('当前不在选人阶段');
+    if (t.status !== 'draft') return fail('当前不在生成对阵阶段');
     const base = [];
     for (let i = 0; i < t.N; i++) base.push(i);
     await db.collection('tournaments').doc(t._id).update({ data: { seeding: shuffle(base) } });
@@ -877,20 +879,27 @@ const actions = {
     if (!(await isAdminUser())) return fail('需要管理员权限');
     const t = await getTournamentById(event.id);
     if (!t) return fail('比赛不存在');
-    if (t.status !== 'draft') return fail('当前不在选人阶段');
-    const totalPicks = t.N * t.K;
-    if ((t.draft.turn || 0) < totalPicks) return fail('选人还未完成');
-    const captainOrder = t.captainOrder || [];
-    const picks = t.draft.picks || [];
-    const playerRegMap = {};
-    (t.registrations || [])
-      .filter((r) => r.role === 'player')
-      .forEach((r) => (playerRegMap[r.openid] = r));
-    const teams = captainOrder.map((cap, i) => ({
-      captain: cap,
-      players: (picks[i] || []).map((p) => playerRegMap[p] || { openid: p, nickname: '队员' }),
-    }));
-    const seeding = Array.isArray(t.seeding) && t.seeding.length === t.N ? t.seeding : shuffle(captainOrder.map((_, i) => i));
+    if (t.status !== 'draft') return fail('当前不在生成对阵阶段');
+    let teams;
+    if (t.mode === 'auto') {
+      // 系统分组：队伍已在分组确认时写入，无选人环节
+      teams = t.teams || [];
+      if (!teams.length) return fail('队伍尚未生成（请先完成系统分组）');
+    } else {
+      const totalPicks = t.N * t.K;
+      if (!t.draft || (t.draft.turn || 0) < totalPicks) return fail('选人还未完成');
+      const captainOrder = t.captainOrder || [];
+      const picks = t.draft.picks || [];
+      const playerRegMap = {};
+      (t.registrations || [])
+        .filter((r) => r.role === 'player')
+        .forEach((r) => (playerRegMap[r.openid] = r));
+      teams = captainOrder.map((cap, i) => ({
+        captain: cap,
+        players: (picks[i] || []).map((p) => playerRegMap[p] || { openid: p, nickname: '队员' }),
+      }));
+    }
+    const seeding = Array.isArray(t.seeding) && t.seeding.length === t.N ? t.seeding : shuffle(teams.map((_, i) => i));
     const ordered = seeding.map((idx) => teams[idx]);
     const bracketTeams = ordered.map((team, i) => ({
       openid: 'T' + i,
