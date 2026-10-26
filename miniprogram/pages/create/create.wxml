@@ -1,61 +1,116 @@
-<!--pages/create/create.wxml - 创建比赛 / 修改配置-->
+<!-- 创建比赛 / 管理员修改配置 -->
 <nav-bar title="{{editMode ? '修改配置' : '创建比赛'}}" />
-<view class="container">
-  <view class="card">
-    <view class="card-title">比赛信息</view>
-    <view class="field">
-      <view class="label">比赛名称</view>
-      <input class="input" placeholder="输入比赛名称" placeholder-class="ph" value="{{name}}" bindinput="onName" />
-    </view>
-    <view class="field">
-      <view class="label">报名暗号（想报名的用户需输入正确暗号才能报名）</view>
-      <input class="input" placeholder="输入报名暗号" placeholder-class="ph" value="{{secret}}" bindinput="onSecret" />
-    </view>
-    <view class="field">
-      <view class="label">比赛日期</view>
-      <picker mode="date" value="{{date}}" bindchange="onDate">
-        <view class="picker">{{date}}</view>
-      </picker>
-    </view>
-    <view class="field">
-      <view class="label">比赛时间</view>
-      <picker mode="time" value="{{time}}" bindchange="onTime">
-        <view class="picker">{{time}}</view>
-      </picker>
-    </view>
+
+<view class="create-page">
+  <view wx:if="{{pageLoading || checkingAdmin}}" class="gate-card">
+    <view class="gate-orbit">✦</view>
+    <view class="gate-title">正在准备赛事设置</view>
+    <view class="gate-desc">正在确认权限并读取赛事信息</view>
+    <view class="gate-skeleton"></view>
   </view>
 
-  <view class="card">
-    <view class="card-title">赛制配置</view>
-    <view class="field">
-      <view class="label">分组模式</view>
-      <picker mode="selector" range="{{modeRange}}" value="{{modeIndex}}" bindchange="onMode">
-        <view class="picker">{{modeRange[modeIndex]}}</view>
-      </picker>
-    </view>
-    <view class="field">
-      <view class="label">{{mode === 'auto' ? '队伍数量（N）' : '队长数量（N）'}}</view>
-      <picker mode="selector" range="{{nRange}}" value="{{nIndex}}" bindchange="onN">
-        <view class="picker">{{N}} {{mode === 'auto' ? '支队伍' : '个队长'}}</view>
-      </picker>
-    </view>
-    <view class="field">
-      <view class="label">{{mode === 'auto' ? '每组人数（K）' : '每个队长选队友数（K）'}}</view>
-      <picker mode="selector" range="{{kRange}}" value="{{kIndex}}" bindchange="onK">
-        <view class="picker">{{mode === 'auto' ? '每组 ' + K + ' 人' : '每队 ' + K + ' 个队友'}}</view>
-      </picker>
-    </view>
-    <view class="field">
-      <view class="label">替补队员数量</view>
-      <picker mode="selector" range="{{waitRange}}" value="{{waitIndex}}" bindchange="onWait">
-        <view class="picker">{{waitLimit === 0 ? '无替补' : waitLimit + ' 个替补'}}</view>
-      </picker>
-    </view>
-    <view class="divider"></view>
-    <view class="sub" wx:if="{{editMode}}">修改后名额按新配置计算（不能小于已报名人数）；已报名的用户不受影响。</view>
-    <view class="sub" wx:if="{{mode === 'auto'}}">系统分组模式：用户只能报名队员和替补。队员报满 {{N * K}} 人后，管理员点「进行系统分组」，系统自动分成 {{N}} 组（每组 {{K}} 人），保证各组天梯均分尽量接近（相差 ≤300）且尽量覆盖 1-5 号位。</view>
-    <view class="sub" wx:else>报名名额：{{N}} 个队长 + {{N * K}} 个队员 + {{waitLimit}} 个替补，共 {{N * (K + 1) + waitLimit}} 人。选人蛇形共 {{K}} 轮；赛程按 {{N}} 队双败淘汰自动生成（TI 国际邀请赛赛制）。队员报满后自动进入替补，也可直接报名替补。</view>
+  <view wx:elif="{{accessCheckFailed}}" class="gate-card gate-error">
+    <view class="gate-orbit">!</view>
+    <view class="gate-title">暂时无法打开赛事设置</view>
+    <view class="gate-desc">{{accessMessage}}</view>
+    <view class="retry-button" bindtap="retryAccessCheck" hover-class="button-pressed">重新加载</view>
   </view>
 
-  <view class="btn {{submitting ? 'btn-disabled' : ''}}" bindtap="submit">{{submitting ? '保存中...' : editMode ? '保存修改' : '创建比赛并进入报名'}}</view>
+  <block wx:else>
+    <view class="form-heading">
+      <view class="form-kicker">TOURNAMENT SETUP</view>
+      <view class="form-title">{{editMode ? '调整赛事设置' : '开启一场新赛事'}}</view>
+      <view class="form-intro">先设置基本信息，再选择队伍组织方式。报名开始后，玩家将按这些名额加入比赛。</view>
+    </view>
+
+    <view class="card form-card">
+      <view class="card-heading">
+        <view class="step-number">01</view>
+        <view class="card-heading-copy">
+          <view class="card-title">比赛信息</view>
+          <view class="card-caption">名字、入场暗号和开赛时间</view>
+        </view>
+      </view>
+
+      <view class="field">
+        <view class="label">比赛名称</view>
+        <input class="input" placeholder="例如：周五晚 Dota2 群赛" placeholder-class="ph" value="{{name}}" bindinput="onName" />
+      </view>
+      <view class="field">
+        <view class="label">报名暗号</view>
+        <input class="input" placeholder="设置一个群内报名暗号" placeholder-class="ph" maxlength="20" value="{{secret}}" bindinput="onSecret" />
+        <view class="field-hint">报名时需要输入正确暗号；最多 20 个字。</view>
+      </view>
+      <view class="field-pair">
+        <view class="field field-half">
+          <view class="label">比赛日期</view>
+          <picker mode="date" value="{{date}}" bindchange="onDate">
+            <view class="picker picker-control" hover-class="form-control-pressed"><text class="picker-value">{{date}}</text><text class="picker-chevron">⌄</text></view>
+          </picker>
+        </view>
+        <view class="field field-half">
+          <view class="label">开赛时间</view>
+          <picker mode="time" value="{{time}}" bindchange="onTime">
+            <view class="picker picker-control" hover-class="form-control-pressed"><text class="picker-value">{{time}}</text><text class="picker-chevron">⌄</text></view>
+          </picker>
+        </view>
+      </view>
+    </view>
+
+    <view class="card form-card">
+      <view class="card-heading">
+        <view class="step-number">02</view>
+        <view class="card-heading-copy">
+          <view class="card-title">队伍与赛制</view>
+          <view class="card-caption">按参赛人数规划报名名额</view>
+        </view>
+      </view>
+
+      <view class="field">
+        <view class="label">组队方式</view>
+        <picker mode="selector" range="{{modeRange}}" value="{{modeIndex}}" bindchange="onMode">
+          <view class="picker picker-control" hover-class="form-control-pressed"><text class="picker-value">{{modeRange[modeIndex]}}</text><text class="picker-chevron">⌄</text></view>
+        </picker>
+      </view>
+      <view class="field">
+        <view class="label">{{mode === 'auto' ? '队伍数量' : '队长数量'}}</view>
+        <picker mode="selector" range="{{nRange}}" value="{{nIndex}}" bindchange="onN">
+          <view class="picker picker-control" hover-class="form-control-pressed"><text class="picker-value">{{N}} {{mode === 'auto' ? '支队伍' : '位队长'}}</text><text class="picker-chevron">⌄</text></view>
+        </picker>
+      </view>
+      <view class="field">
+        <view class="label">{{mode === 'auto' ? '每组人数' : '每位队长可选队员'}}</view>
+        <picker mode="selector" range="{{kRange}}" value="{{kIndex}}" bindchange="onK">
+          <view class="picker picker-control" hover-class="form-control-pressed"><text class="picker-value">{{K}} {{mode === 'auto' ? '人 / 组' : '人 / 队'}}</text><text class="picker-chevron">⌄</text></view>
+        </picker>
+      </view>
+      <view class="field">
+        <view class="label">替补名额</view>
+        <picker mode="selector" range="{{waitRange}}" value="{{waitIndex}}" bindchange="onWait">
+          <view class="picker picker-control" hover-class="form-control-pressed"><text class="picker-value">{{waitLimit === 0 ? '不设置替补' : waitLimit + ' 个替补'}}</text><text class="picker-chevron">⌄</text></view>
+        </picker>
+      </view>
+
+      <view class="capacity-card">
+        <view class="capacity-title">报名名额预览</view>
+        <view class="capacity-values">
+          <view class="capacity-item"><text class="capacity-number">{{N}}</text><text class="capacity-label">支队伍</text></view>
+          <view class="capacity-divider"></view>
+          <view class="capacity-item"><text class="capacity-number">{{mode === 'auto' ? N * K : N * (K + 1)}}</text><text class="capacity-label">正式名额</text></view>
+          <view class="capacity-divider"></view>
+          <view class="capacity-item"><text class="capacity-number">{{waitLimit}}</text><text class="capacity-label">替补</text></view>
+        </view>
+        <view class="capacity-note" wx:if="{{mode === 'auto'}}">队员报满后，管理员可以进行系统分组，按天梯分和位置平衡各队。</view>
+        <view class="capacity-note" wx:else>正式名额包含 {{N}} 位队长和 {{N * K}} 位队员。队员报满后自动进入替补，队长通过蛇形选人组队。</view>
+      </view>
+
+      <view class="edit-note" wx:if="{{editMode}}"><text class="note-icon">i</text><text>修改名额不能低于已报名人数。若人数或模式不兼容，保存时会提示原因。</text></view>
+    </view>
+
+    <view class="submit-button {{submitting ? 'button-disabled' : ''}}" bindtap="submit" hover-class="button-pressed">
+      <text>{{submitting ? '保存中…' : editMode ? '保存赛事设置' : '创建赛事并开始报名'}}</text>
+      <text class="submit-arrow">›</text>
+    </view>
+    <view class="form-bottom-note">GLHF <text>·</text> GOOD LUCK, HAVE FUN</view>
+  </block>
 </view>

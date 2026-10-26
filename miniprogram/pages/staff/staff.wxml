@@ -1,6 +1,20 @@
-<!--pages/staff/staff.wxml - 我的（资料 + 管理员名单）-->
+<!--pages/staff/staff.wxml - 我的（资料 + 管理员管理）-->
 <nav-bar title="我的" />
 <view class="container">
+  <view wx:if="{{loading && !hasLoaded}}" class="card">
+    <view class="card-title">正在加载</view>
+    <view class="sub">正在读取个人资料和管理员信息，请稍候…</view>
+  </view>
+  <view wx:elif="{{loadError && !hasLoaded}}" class="card">
+    <view class="card-title">加载失败</view>
+    <view class="sub">{{loadError}}</view>
+    <view class="btn" bindtap="retryLoad">重试</view>
+  </view>
+  <block wx:if="{{hasLoaded}}">
+  <view wx:if="{{refreshError}}" class="card">
+    <view class="sub">刷新失败，当前显示的是上次加载的数据。</view>
+    <view class="btn-small btn-plain" bindtap="retryLoad">重新加载</view>
+  </view>
   <!-- 我的资料 -->
   <view class="card">
     <view class="row">
@@ -8,23 +22,36 @@
         <view class="card-title my-nick">{{user ? user.nickname : '未设置昵称'}}</view>
         <view class="sub">微信自动登录</view>
       </view>
+    </view>
+  </view>
+
+  <view class="card profile-card-showcase">
+    <view class="row">
+      <view class="profile-title">
+        <view class="card-title">我的名片</view>
+      </view>
       <view class="spacer"></view>
-      <view class="btn-small btn-plain" bindtap="onEditProfile">{{user ? '编辑资料' : '设置资料'}}</view>
+      <view class="profile-actions">
+        <view class="btn-small btn-plain" bindtap="onEditProfile">{{user ? '编辑资料' : '设置资料'}}</view>
+        <view class="btn-small btn-plain" bindtap="goCardStyle">{{user ? '装扮名片' : '先设置资料'}}</view>
+      </view>
     </view>
-    <view class="divider" wx:if="{{user}}"></view>
-    <view class="pinfo" wx:if="{{user}}">
-      <text class="kv">{{user.mmrText || '天梯分未填写'}}</text>
-      <text wx:if="{{user.rolesText}}"> · 常玩：{{user.rolesText}}</text>
-    </view>
-    <view class="pinfo" wx:if="{{user && user.signature}}">{{user.signature}}</view>
-    <view class="sub" wx:else>报名/选人时，群友可见你的天梯分、常玩位置和签名，方便队长选人</view>
+    <player-card wx:if="{{user}}" player="{{user}}" card-style="{{user.cardStyle}}" />
+    <view wx:else class="sub">设置昵称后即可创建并预览自己的专属名片。</view>
   </view>
 
   <!-- 未初始化 -->
   <view class="card" wx:if="{{!superAdmin}}">
     <view class="card-title">尚未初始化最高管理员</view>
-    <view class="sub">第一个初始化的人将成为最高管理员（最高权限：可添加/移除管理员）。请群主完成此步骤。</view>
-    <view class="btn" bindtap="initSuper">初始化最高管理员</view>
+    <view wx:if="{{canInitializeSuperAdmin && user}}" class="sub">当前账号已被指定为初始超管，可以完成初始化。</view>
+    <view wx:elif="{{canInitializeSuperAdmin}}" class="sub">当前账号已被指定为初始超管；请先设置个人资料。</view>
+    <view wx:else class="sub">初始化账号需由项目维护者预先配置在云函数环境变量 INITIAL_SUPER_ADMIN_OPENID 中。</view>
+    <view wx:if="{{!canInitializeSuperAdmin && bootstrapOpenid}}" class="bootstrap-openid-row">
+      <text class="bootstrap-openid">{{bootstrapOpenid}}</text>
+      <view class="btn-small btn-plain" bindtap="copyBootstrapOpenid">复制本人 OpenID</view>
+    </view>
+    <view wx:if="{{canInitializeSuperAdmin && user}}" class="btn" bindtap="initSuper">初始化最高管理员</view>
+    <view wx:elif="{{canInitializeSuperAdmin}}" class="sub">请先设置个人资料，再初始化最高管理员。</view>
   </view>
 
   <!-- 最高管理员 -->
@@ -35,7 +62,7 @@
       <view class="spacer"></view>
       <view class="tag tag-red">最高权限</view>
     </view>
-    <view class="sub" wx:if="{{isSuper}}">（你）你可以添加或移除管理员</view>
+    <view class="sub" wx:if="{{isSuper}}">（你）可以在管理员管理中调整用户权限</view>
   </view>
 
   <!-- 管理员列表 -->
@@ -46,52 +73,75 @@
       <view class="staff-nick">{{item.nickname}}</view>
       <view class="spacer"></view>
       <view wx:if="{{isAdmin}}" class="tag tag-green">管理员</view>
-      <view wx:if="{{isSuper}}" class="btn-small btn-danger" data-openid="{{item.openid}}" data-nickname="{{item.nickname}}" bindtap="remove">移除</view>
     </view>
   </view>
 
-  <!-- 超管：添加管理员 -->
+  <!-- 超管：管理员管理 -->
   <view class="card" wx:if="{{isSuper}}">
-    <view class="card-title">添加管理员（仅最高管理员）</view>
-    <view class="sub">从已设置昵称的用户列表中选择；普通管理员看不到此卡片</view>
-    <view class="btn" bindtap="onOpenUserList">从用户列表选择</view>
+    <view class="card-title">管理员管理</view>
+    <view class="sub">分页查看全部用户，按 Dota ID、天梯分、用户名或段位排序；可管理管理员权限或删除用户资料。</view>
+    <view class="btn" bindtap="onOpenUserList">管理员管理</view>
+  </view>
+
+  <!-- 超管：队标库管理 -->
+  <view class="card" wx:if="{{isSuper}}">
+    <view class="card-title">队标库管理</view>
+    <view class="sub">增加、隐藏和调整内置队标顺序；已用于历史赛事的队标不会消失。</view>
+    <view class="btn" bindtap="goTeamLogos">打开队标库管理</view>
   </view>
 
   <!-- 说明 -->
   <view class="card">
     <view class="card-title">权限说明</view>
-    <view class="sub">· 只有管理员可以在主页创建比赛，并管理报名/选人/赛程。<br />· 最高管理员可以添加或移除管理员。<br />· 普通用户可正常报名、选人、查看赛程。</view>
+    <view class="sub">· 只有管理员可以在主页创建比赛，并管理报名/选人/赛程。<br />· 最高管理员可以管理用户、设置管理员或删除用户资料。<br />· 普通用户可正常报名、选人、查看赛程。</view>
   </view>
+  </block>
 </view>
 
-<!-- 用户列表弹窗（选择添加管理员） -->
+<!-- 管理员管理：分页用户列表 -->
 <view class="mask" wx:if="{{userListModal}}" bindtap="onCloseUserList">
-  <view class="panel" catchtap="noop">
-    <view class="panel-title">选择要添加的用户</view>
-    <view class="panel-sub">共 {{userList.length}} 位已设置昵称的群友</view>
+  <view class="panel admin-panel" catchtap="noop">
+    <view class="panel-title">管理员管理</view>
+    <view class="panel-sub">共 {{userListTotal}} 位用户 · 仅最高管理员可操作</view>
+    <view class="sort-label">排序（点击切换升序 / 降序）</view>
+    <view class="user-sort-options">
+      <view class="user-sort-option {{userListSortBy === 'dota2Id' ? 'user-sort-active' : ''}}" data-sort="dota2Id" bindtap="onChangeUserSort">Dota ID{{userListSortBy === 'dota2Id' ? (userListOrder === 'asc' ? ' ↑' : ' ↓') : ''}}</view>
+      <view class="user-sort-option {{userListSortBy === 'mmr' ? 'user-sort-active' : ''}}" data-sort="mmr" bindtap="onChangeUserSort">天梯分{{userListSortBy === 'mmr' ? (userListOrder === 'asc' ? ' ↑' : ' ↓') : ''}}</view>
+      <view class="user-sort-option {{userListSortBy === 'nickname' ? 'user-sort-active' : ''}}" data-sort="nickname" bindtap="onChangeUserSort">用户名{{userListSortBy === 'nickname' ? (userListOrder === 'asc' ? ' ↑' : ' ↓') : ''}}</view>
+      <view class="user-sort-option {{userListSortBy === 'dota2RankTier' ? 'user-sort-active' : ''}}" data-sort="dota2RankTier" bindtap="onChangeUserSort">段位{{userListSortBy === 'dota2RankTier' ? (userListOrder === 'asc' ? ' ↑' : ' ↓') : ''}}</view>
+    </view>
     <view wx:if="{{listLoading}}" class="empty">加载中...</view>
-    <view wx:elif="{{userList.length === 0}}" class="empty">暂无其他用户（群友需先设置昵称）</view>
-    <block wx:else>
+    <view wx:elif="{{userListError}}" class="empty">
+      <view>{{userListError}}</view>
+      <view class="btn-small btn-plain" bindtap="onRetryUserList">重试</view>
+    </view>
+    <view wx:elif="{{userList.length === 0}}" class="empty">暂无用户记录</view>
+    <scroll-view wx:else class="admin-user-scroll" scroll-y>
       <view
-        class="user-row"
+        class="admin-user-row"
         wx:for="{{userList}}"
         wx:key="openid"
-        data-openid="{{item.openid}}"
-        data-nickname="{{item.nickname}}"
-        bindtap="onPickUser"
       >
-        <view class="user-info">
-          <view class="user-nick">{{item.nickname}}</view>
-          <view class="pinfo" wx:if="{{item.mmrText || item.rolesText}}">
-            <text class="kv">{{item.mmrText}}</text>
-            <text wx:if="{{item.mmrText && item.rolesText}}"> · </text>
-            <text>{{item.rolesText}}</text>
+        <view class="admin-user-info">
+          <view class="admin-user-heading">
+            <text class="user-nick">{{item.nickname || '未设置昵称'}}</text>
+            <text wx:if="{{item.isSuper}}" class="tag tag-red">最高管理员</text>
+            <text wx:elif="{{item.isAdmin}}" class="tag tag-green">管理员</text>
           </view>
+          <view class="admin-user-meta">Dota ID：{{item.dotaIdText}} · {{item.mmrText}}</view>
+          <view class="admin-user-meta">段位：{{item.rankText}}</view>
         </view>
-        <view class="spacer"></view>
-        <view class="btn-small">添加</view>
+        <view wx:if="{{!item.isSuper}}" class="admin-user-actions">
+          <view class="btn-small {{item.isAdmin ? 'btn-plain' : ''}} {{userActionOpenid === item.openid ? 'btn-disabled' : ''}}" data-openid="{{item.openid}}" data-nickname="{{item.nickname}}" data-admin="{{item.isAdmin ? 'true' : 'false'}}" bindtap="onToggleUserAdmin">{{item.isAdmin ? '移除管理员' : '设为管理员'}}</view>
+          <view class="btn-small btn-danger {{userActionOpenid === item.openid ? 'btn-disabled' : ''}}" data-openid="{{item.openid}}" data-nickname="{{item.nickname}}" data-dotaid="{{item.dota2Id}}" bindtap="onDeleteUser">删除账号</view>
+        </view>
       </view>
-    </block>
+    </scroll-view>
+    <view class="user-page-controls" wx:if="{{userListTotal > 0}}">
+      <view class="btn-small btn-plain {{userListPage <= 1 || listLoading ? 'btn-disabled' : ''}}" data-delta="-1" bindtap="onChangeUserPage">上一页</view>
+      <view class="user-page-text">第 {{userListPage}} / {{userListPageCount}} 页</view>
+      <view class="btn-small btn-plain {{userListPage >= userListPageCount || listLoading ? 'btn-disabled' : ''}}" data-delta="1" bindtap="onChangeUserPage">下一页</view>
+    </view>
     <view class="panel-btns">
       <view class="panel-btn btn-plain" bindtap="onCloseUserList">关闭</view>
     </view>
@@ -103,9 +153,22 @@
   <view class="panel" catchtap="noop">
     <view class="panel-title">{{user ? '编辑资料' : '设置资料'}}</view>
     <view class="panel-sub">报名/选人时其他群友看到的信息</view>
+    <view class="sub" style="margin-bottom:14rpx;">报名必填：昵称、天梯分、至少一个常玩位置；个人签名选填。</view>
 
     <view class="field-label">昵称 <text class="req">*</text></view>
     <input class="input" placeholder="请输入昵称（最多20字）" placeholder-class="ph" maxlength="20" value="{{pf.nickname}}" bindinput="onPfNick" />
+
+    <view class="field-label">Dota 2 ID <text class="optional">可选</text></view>
+    <input class="input" type="number" maxlength="12" placeholder="5-12 位数字 ID" placeholder-class="ph" value="{{pf.dota2Id}}" bindinput="onPfDotaId" />
+
+    <view class="field-label">段位</view>
+    <view class="dota-rank-row">
+      <input class="input dota-rank-input" value="{{pf.dota2RankLabel || '未校验段位'}}" disabled="{{true}}" />
+      <view class="btn-small dota-lookup-btn {{lookingUpDota || saving ? 'btn-disabled' : ''}}" bindtap="onLookupDota">{{lookingUpDota ? '校验中…' : '段位校验'}}</view>
+    </view>
+    <view class="sub dota-help">段位校验只读取 OpenDota 资料，不会修改天梯分。</view>
+    <view wx:if="{{pf.dotaRankVerified}}" class="sub dota-verified-time">已校验于{{pf.dotaRankVerifiedAtText}}（14 天有效）</view>
+    <view wx:elif="{{pf.dota2RankVerifiedAt}}" class="sub dota-expired-time">段位校验已过期，可重新校验</view>
 
     <view class="field-label">天梯分 <text class="req">*</text></view>
     <input class="input" type="number" placeholder="必填，如 4500" placeholder-class="ph" value="{{pf.mmr}}" bindinput="onPfMmr" />
@@ -128,6 +191,5 @@
       <view class="panel-btn btn-plain" bindtap="onCloseProfile">取消</view>
       <view class="panel-btn btn" bindtap="onSaveProfile">{{saving ? '保存中…' : '保存'}}</view>
     </view>
-    <view class="sub" style="text-align:center;margin-top:12rpx;">昵称、天梯分、常玩位置为必填，填好后才能报名</view>
   </view>
 </view>

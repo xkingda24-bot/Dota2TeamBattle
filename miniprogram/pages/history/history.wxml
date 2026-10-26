@@ -1,26 +1,44 @@
 <!--pages/history/history.wxml - 历史比赛（列表 + 详情）-->
-<nav-bar title="历史比赛" />
+<nav-bar title="历史赛事" />
 <view class="container">
   <!-- 列表 -->
   <block wx:if="{{mode === 'list'}}">
-    <view wx:if="{{older.length === 0}}" class="card">
+    <view wx:if="{{loading}}" class="card load-state">
+      <view class="card-title">正在加载历史赛事</view>
+      <view class="sub">请稍候…</view>
+    </view>
+    <view wx:elif="{{loadError}}" class="card load-error">
+      <view class="card-title">历史赛事暂时无法加载</view>
+      <view class="sub">{{loadError}}</view>
+      <view class="btn btn-plain" bindtap="retryLoad">重新加载</view>
+    </view>
+    <view wx:elif="{{older.length === 0}}" class="card">
       <view class="card-title">还没有历史比赛</view>
       <view class="sub">之前创建的比赛会显示在这里，可查看比赛过程与结果</view>
     </view>
-    <view class="card" wx:for="{{older}}" wx:key="id" data-index="{{index}}" bindtap="goDetail">
-      <view class="row">
-        <view class="card-title">{{item.name}}</view>
-        <view class="tag {{item.status === 'registration' ? 'tag-blue' : item.status === 'draft' ? 'tag-red' : item.status === 'battle' ? 'tag-green' : 'tag-gray'}}">{{item.phaseText}}</view>
+    <block wx:if="{{!loading && !loadError && older.length > 0}}">
+      <view class="card history-list-card" wx:for="{{older}}" wx:key="id" data-index="{{index}}" bindtap="goDetail">
+        <view class="row">
+          <view class="card-title">{{item.name}}</view>
+          <view class="tag {{item.status === 'registration' ? 'tag-blue' : item.status === 'draft' ? 'tag-red' : item.status === 'battle' ? 'tag-green' : 'tag-gray'}}">{{item.phaseText}}</view>
+        </view>
+        <view class="sub">时间：{{item.time}} · {{item.N}} 队 · 队长 {{item.captainFilled}}/{{item.captainTotal}} 队员 {{item.playerFilled}}/{{item.playerTotal}}</view>
+        <view wx:if="{{item.champion}}" class="sub">冠军：{{item.champion.name}}</view>
+        <button wx:if="{{isAdmin}}" class="btn btn-danger history-delete" data-index="{{index}}" catch:tap="deleteFromHistory" hover-class="btn-pressed">{{deletingId === item.id || deletingId === item._id ? '处理中…' : '删除赛事'}}</button>
       </view>
-      <view class="sub">时间：{{item.time}} · {{item.N}} 队 · 队长 {{item.captainFilled}}/{{item.captainTotal}} 队员 {{item.playerFilled}}/{{item.playerTotal}}</view>
-      <view wx:if="{{item.champion}}" class="sub">冠军：{{item.champion.name}}</view>
-    </view>
+    </block>
   </block>
 
   <!-- 详情 -->
   <block wx:elif="{{mode === 'detail'}}">
-    <view wx:if="{{!t}}" class="card">
-      <view class="card-title">加载中...</view>
+    <view wx:if="{{loading}}" class="card load-state">
+      <view class="card-title">正在加载比赛详情</view>
+      <view class="sub">请稍候…</view>
+    </view>
+    <view wx:elif="{{loadError}}" class="card load-error">
+      <view class="card-title">比赛详情暂时无法加载</view>
+      <view class="sub">{{loadError}}</view>
+      <view class="btn btn-plain" bindtap="retryLoad">重新加载</view>
       <view class="btn btn-plain" bindtap="backList">返回列表</view>
     </view>
     <block wx:else>
@@ -35,9 +53,18 @@
         <view class="card-title">队伍名单</view>
         <view wx:if="{{!t.teams || t.teams.length === 0}}" class="empty">尚未生成队伍名单</view>
         <view class="team-block" wx:for="{{t.teams}}" wx:key="teamIndex" wx:for-item="team">
-          <view class="team-title">队{{index + 1}} · {{team.captain.nickname}}战队</view>
-          <view class="sub" wx:if="{{team.players.length === 0}}">队员：（空）</view>
-          <view class="sub" wx:else>队员：<text wx:for="{{team.players}}" wx:key="openid" wx:for-item="p">{{p.nickname}}{{index < team.players.length - 1 ? '、' : ''}}</text></view>
+          <view class="team-title">队{{team.teamIndex + 1}} · {{team.displayName}}</view>
+          <view wx:if="{{!team.members.length}}" class="sub">暂无成员资料</view>
+          <view wx:else class="history-members">
+            <player-card
+              wx:for="{{team.members}}"
+              wx:key="openid"
+              wx:for-item="member"
+              player="{{member}}"
+              card-style="{{member.cardStyle}}"
+              compact="{{true}}"
+            />
+          </view>
         </view>
       </view>
 
@@ -56,6 +83,7 @@
       </block>
       <view wx:if="{{t.status !== 'draft' && t.matches.length === 0}}" class="empty">本场比赛未生成赛程</view>
       <view class="btn" wx:if="{{t.matches && t.matches.length > 0}}" bindtap="goTree">查看晋级图</view>
+      <button wx:if="{{isAdmin}}" class="btn btn-danger history-delete" data-id="{{t.id || t._id}}" catch:tap="deleteFromHistory" hover-class="btn-pressed">{{deletingId === t.id || deletingId === t._id ? '处理中…' : '删除赛事'}}</button>
       <view class="btn btn-plain" bindtap="backList">返回列表</view>
     </block>
   </block>

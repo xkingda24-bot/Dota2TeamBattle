@@ -4,7 +4,7 @@
   "description": "Dota2 群内比赛管理云函数（报名 / 选人 / 双败赛程）",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node standings.test.js && node bootstrap.test.js && node card-profile.test.js && node user-records.test.js && node admin-users.test.js && node test-registration.test.js && node grouping.test.js && node ../../miniprogram/utils/dota-rank.test.js"
   },
   "license": "ISC",
   "dependencies": {

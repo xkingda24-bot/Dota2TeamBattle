@@ -49,7 +49,12 @@ function buildBracket(teams) {
   let cid = 0;
   const newId = () => ++cid;
 
-  const teamSource = (team) => ({ type: 'team', openid: team.openid, name: team.name });
+  const teamSource = (team) => ({
+    type: 'team',
+    openid: team.openid,
+    name: team.name,
+    teamIcon: team.teamIcon || '',
+  });
   const matchSource = (matchId, slot) => ({ type: 'match', matchId, slot });
 
   // 把输入源放入某个 match 的 A/B 位，同时回填上游比赛的输出接线

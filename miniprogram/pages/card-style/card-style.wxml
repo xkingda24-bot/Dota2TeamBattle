@@ -1,0 +1,66 @@
+<nav-bar title="名片装扮" />
+<view class="container card-style-page">
+  <view wx:if="{{loading}}" class="card"><view class="card-title">正在读取名片</view><view class="sub">请稍候…</view></view>
+  <view wx:elif="{{!user}}" class="card">
+    <view class="card-title">先完善个人资料</view>
+    <view class="sub">名片会展示你的昵称、天梯分、常玩位置和签名。</view>
+    <view class="btn btn-plain" bindtap="goProfile">返回我的</view>
+  </view>
+  <block wx:elif="{{user}}">
+    <view class="card-style-intro">
+      <view class="card-style-kicker">HERO PROFILE</view>
+      <view class="card-style-heading">打造你的战场名片</view>
+      <view class="card-style-copy">选择背景、边框、字体、强调色和 Dota 风格动画。装扮会在赛事队伍资料中对群友展示。</view>
+      <player-card player="{{previewPlayer}}" card-style="{{cardStyle}}" />
+      <view class="preview-caption">实时预览 · {{user.nickname}}</view>
+    </view>
+
+    <view class="style-section">
+      <view class="style-heading">战场背景</view>
+      <view class="option-grid">
+        <view class="style-option {{cardStyle.background === item.id ? 'style-option-active' : ''}}" wx:for="{{options.backgrounds}}" wx:for-item="item" wx:key="id" data-group="background" data-value="{{item.id}}" bindtap="selectOption">
+          <view class="option-swatch swatch-{{item.id}}"></view><view class="option-name">{{item.label}}</view><view class="option-desc">{{item.description}}</view>
+        </view>
+      </view>
+    </view>
+
+    <view class="style-section">
+      <view class="style-heading">边框样式</view>
+      <view class="choice-row">
+        <view class="choice-chip {{cardStyle.border === item.id ? 'choice-chip-active' : ''}}" wx:for="{{options.borders}}" wx:key="id" data-group="border" data-value="{{item.id}}" bindtap="selectOption">{{item.label}}</view>
+      </view>
+    </view>
+
+    <view class="style-section">
+      <view class="style-heading">名字字体</view>
+      <view class="choice-row">
+        <view class="choice-chip {{cardStyle.font === item.id ? 'choice-chip-active' : ''}}" wx:for="{{options.fonts}}" wx:key="id" data-group="font" data-value="{{item.id}}" bindtap="selectOption">{{item.label}}</view>
+      </view>
+    </view>
+
+    <view class="style-section">
+      <view class="style-heading">强调颜色</view>
+      <view class="choice-row">
+        <view class="choice-chip {{cardStyle.color === item.id ? 'choice-chip-active' : ''}}" wx:for="{{options.colors}}" wx:key="id" data-group="color" data-value="{{item.id}}" bindtap="selectOption"><view class="color-dot color-{{item.id}}"></view>{{item.label}}</view>
+      </view>
+    </view>
+
+    <view class="style-section">
+      <view class="style-heading">Dota 动画</view>
+      <view class="sub style-hint">选择静态名片或一款战斗特效；效果较轻，适配小程序列表展示。</view>
+      <view class="animation-list">
+        <view class="animation-option {{cardStyle.animation === item.id ? 'animation-option-active' : ''}}" wx:for="{{options.animations}}" wx:key="id" data-group="animation" data-value="{{item.id}}" bindtap="selectOption">
+          <view class="animation-icon animation-icon-{{item.id}}"><text>{{item.icon}}</text></view>
+          <view class="animation-copy"><view class="animation-name">{{item.label}}</view><view class="animation-desc">{{item.description}}</view></view>
+          <view class="animation-check">{{cardStyle.animation === item.id ? '✓' : ''}}</view>
+        </view>
+      </view>
+    </view>
+
+    <view class="style-actions">
+      <view class="btn btn-plain reset-btn" bindtap="resetStyle">恢复默认</view>
+      <view class="btn save-btn {{saving ? 'btn-disabled' : ''}}" bindtap="saveStyle">{{saving ? '保存中…' : '保存名片'}}</view>
+    </view>
+    <view class="style-footnote">样式会同步应用到今后的赛事资料展示；旧比赛中的队伍资料读取当前名片设置。</view>
+  </block>
+</view>

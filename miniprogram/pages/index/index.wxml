@@ -1,36 +1,58 @@
-<!--pages/index/index.wxml - 主页-->
-<nav-bar title="Dota2 战队赛" />
-<view class="container">
-  <!-- 顶部横幅 -->
+<!-- 刀塔集结首页 -->
+<nav-bar title="刀塔集结" />
+
+<view class="home-page">
   <view class="hero">
-    <image class="hero-bg" src="/images/ti-banner.png" mode="aspectFill"></image>
-    <view class="hero-scrim"></view>
-    <view class="hero-title">DOTA2 战队赛</view>
-    <view class="hero-sub">THE INTERNATIONAL · 群内赛 · 报名 / 选人 / 赛程全自动</view>
-  </view>
-
-  <!-- 超管未初始化提示 -->
-  <view wx:if="{{!hasSuper}}" class="card tip-card">
-    <view class="tip-text">系统尚未初始化最高管理员：请点右上角「我的」，第一位初始化者将成为最高管理员（可添加/移除管理员）。</view>
-  </view>
-
-  <!-- 创建比赛（仅管理员） -->
-  <view class="card">
-    <view class="row">
-      <view>
-        <view class="card-title">创建比赛</view>
-        <view class="sub">设置名称、时间、队长数、每队队友数、报名暗号</view>
+    <image class="hero-bg" src="/images/ti-banner.png" mode="aspectFill" />
+    <view class="hero-shade"></view>
+    <view class="hero-copy">
+      <view class="hero-kicker">COMMUNITY LEAGUE</view>
+      <view class="hero-title">今晚，组队开战</view>
+      <view class="hero-subtitle">和熟悉的队友，一起打出属于你们的精彩。</view>
+      <view wx:if="{{isAdmin}}" class="hero-action" bindtap="goCreate" hover-class="hero-action-pressed">
+        <text>创建比赛</text><text class="hero-action-icon">＋</text>
       </view>
-      <view class="spacer"></view>
-      <view class="btn-small {{isAdmin ? '' : 'btn-disabled'}}" bindtap="goCreate">{{isAdmin ? '去创建' : '仅管理员'}}</view>
+      <view wx:else class="hero-hint">选择一场赛事，加入战斗</view>
     </view>
-    <view class="sub" wx:if="{{!isAdmin}}">只有管理员可以创建比赛；管理员由最高管理员添加</view>
+    <view class="hero-rune" aria-hidden="true">✦</view>
   </view>
 
-  <!-- 今天的比赛 -->
-  <view class="section">今天的比赛（{{today.length}}）<text wx:if="{{isAdmin}}" class="section-hint"> · 左滑卡片可操作</text></view>
-  <view wx:if="{{today.length === 0}}" class="empty">今天还没有创建比赛</view>
+  <view wx:if="{{!loading && !loadError && !hasSuper}}" class="setup-note">
+    <view class="setup-mark">!</view>
+    <view class="setup-copy">
+      <view class="setup-title">完成赛事大厅初始化</view>
+      <view class="setup-desc">请前往「我的」设置最高管理员</view>
+    </view>
+    <view class="setup-arrow">›</view>
+  </view>
+
+  <view class="section-head">
+    <view>
+      <view class="section-kicker">MATCH CENTER</view>
+      <view class="section-title">今日新增赛事 <text class="section-count">{{today.length}}</text></view>
+    </view>
+  </view>
+
+  <view wx:if="{{loading}}" class="loading-list" aria-label="正在加载赛事">
+    <view class="skeleton-card"><view class="skeleton-line skeleton-title"></view><view class="skeleton-line skeleton-meta"></view><view class="skeleton-line skeleton-bar"></view></view>
+    <view class="skeleton-card"><view class="skeleton-line skeleton-title"></view><view class="skeleton-line skeleton-meta"></view><view class="skeleton-line skeleton-bar"></view></view>
+  </view>
+
+  <view wx:if="{{!loading && loadError}}" class="load-error">
+    <view class="load-error-title">赛事暂时无法加载</view>
+    <view class="load-error-desc">{{loadError}}</view>
+    <view class="load-error-action" bindtap="load" hover-class="link-pressed">重试</view>
+  </view>
+
+  <view wx:if="{{!loading && !loadError && today.length === 0}}" class="empty-state">
+    <view class="empty-emblem">⚔</view>
+    <view class="empty-title">今天还没有新建赛事</view>
+    <view class="empty-desc">新建的比赛会显示在这里</view>
+    <view wx:if="{{isAdmin}}" class="empty-action" bindtap="goCreate" hover-class="link-pressed">创建第一场比赛 <text>›</text></view>
+  </view>
+
   <view
+    wx:if="{{!loading && !loadError}}"
     class="swipe-item"
     wx:for="{{today}}"
     wx:key="id"
@@ -39,47 +61,134 @@
     bindtouchmove="onSwipeMove"
     bindtouchend="onSwipeEnd"
   >
-    <!-- 操作按钮（卡片左滑露出） -->
-    <view class="swipe-btns" wx:if="{{isAdmin}}">
-      <view class="swipe-btn" wx:if="{{item.status === 'finished'}}" data-index="{{index}}" data-action="archive" catchtap="onSwipeAction">归档</view>
-      <view class="swipe-btn danger" data-index="{{index}}" data-action="delete" catchtap="onSwipeAction">删除</view>
+    <view class="swipe-actions {{item.champion ? 'swipe-actions-wide' : ''}}" wx:if="{{isAdmin}}">
+      <view class="swipe-action" wx:if="{{item.champion}}" data-index="{{index}}" data-action="archive" catch:tap="onSwipeAction">
+        <text class="action-symbol">✓</text><text>归档</text>
+      </view>
+      <view class="swipe-action danger" data-index="{{index}}" data-action="delete" catch:tap="onSwipeAction">
+        <text class="action-symbol">×</text><text>删除</text>
+      </view>
     </view>
-    <!-- 卡片本体 -->
-    <view class="swipe-card" style="transform: translateX({{item.swipeX}}px);" data-index="{{index}}" bindtap="goTournament">
-      <view class="row">
-        <view class="card-title">{{item.name}}</view>
-        <view class="tag {{item.status === 'registration' ? 'tag-blue' : item.status === 'draft' ? 'tag-red' : item.status === 'battle' ? 'tag-green' : 'tag-gray'}}">{{item.phaseText}}</view>
-      </view>
-      <view class="sub">时间：{{item.time}} · {{item.N}} 队<text wx:if="{{item.creatorName}}"> · 创建人：{{item.creatorName}}</text></view>
-      <view class="divider"></view>
-      <view class="row">
-        <view class="progress-item">
-          <view class="num">{{item.captainFilled}}/{{item.captainTotal}}</view>
-          <view class="sub">队长</view>
+
+    <view
+      class="match-card {{item.swipeDragging ? 'match-card-dragging' : ''}}"
+      style="transform: translateX({{item.swipeX}}px);"
+      data-index="{{index}}"
+      bindtap="goTournament"
+      bindlongpress="onLongPressTournament"
+      hover-class="match-card-pressed"
+    >
+      <view class="match-topline">
+        <view class="match-title-wrap">
+          <view class="match-title">{{item.name}}</view>
+          <view class="match-meta">{{item.time}}<text wx:if="{{item.N}}"> · {{item.N}} 支队伍</text></view>
         </view>
-        <view class="progress-item">
-          <view class="num">{{item.playerFilled}}/{{item.playerTotal}}</view>
-          <view class="sub">队员</view>
+        <view class="match-tools">
+          <view class="phase-tag {{item.status === 'registration' ? 'phase-registration' : item.status === 'draft' ? 'phase-draft' : item.status === 'battle' ? 'phase-battle' : 'phase-finished'}}">
+            <view class="phase-dot"></view>{{item.phaseText}}
+          </view>
+          <view wx:if="{{isAdmin}}" class="admin-menu" catch:tap="onAdminMenu" data-index="{{index}}" aria-label="比赛管理菜单">•••</view>
         </view>
-        <view class="spacer"></view>
-        <view wx:if="{{item.champion}}" class="tag tag-red">冠军 {{item.champion.name}}</view>
-        <view wx:else class="tag tag-blue">进入</view>
       </view>
+
+      <view class="match-rule"></view>
+
+      <view class="progress-grid">
+        <view class="progress-block" wx:if="{{item.captainTotal > 0}}">
+          <view class="progress-label"><text>队长</text><text class="progress-value">{{item.captainFilled}}<text class="progress-total"> / {{item.captainTotal}}</text></text></view>
+          <view class="progress-track"><view class="progress-fill captain-fill" style="width: {{item.captainTotal > 0 ? item.captainFilled / item.captainTotal * 100 : 0}}%;"></view></view>
+        </view>
+        <view class="progress-block">
+          <view class="progress-label"><text>队员</text><text class="progress-value">{{item.playerFilled}}<text class="progress-total"> / {{item.playerTotal}}</text></text></view>
+          <view class="progress-track"><view class="progress-fill player-fill" style="width: {{item.playerTotal > 0 ? item.playerFilled / item.playerTotal * 100 : 0}}%;"></view></view>
+        </view>
+      </view>
+
+      <view class="match-footer">
+        <view class="creator" wx:if="{{item.creatorName}}">发起人 <text>{{item.creatorName}}</text></view>
+        <view class="creator" wx:else>比赛详情与队伍信息</view>
+        <view wx:if="{{item.champion}}" class="match-cta champion-cta"><text class="champion-star">✦</text>冠军 {{item.champion.name}}</view>
+        <view wx:else class="match-cta">查看赛事 <text class="cta-arrow">›</text></view>
+      </view>
+
     </view>
   </view>
 
-  <!-- 历史比赛 -->
-  <view class="card row" bindtap="goHistory" hover-class="nav-hover">
-    <view>
-      <view class="card-title">历史比赛</view>
-      <view class="sub">查看之前创建的比赛、比赛过程与结果</view>
+  <view wx:if="{{!loading && !loadError}}" class="history-section">
+    <view class="history-heading" bindtap="toggleHistory" aria-expanded="{{historyExpanded}}" hover-class="link-pressed">
+      <view class="history-heading-copy">
+        <view class="history-kicker">TOURNAMENT HISTORY</view>
+        <view class="history-title">历史赛事</view>
+        <view class="history-subtitle">查看已归档赛事与比赛结果</view>
+      </view>
+      <view class="history-heading-meta">
+        <view class="history-count">{{older.length}}</view>
+        <view class="trash-chevron {{historyExpanded ? 'trash-chevron-open' : ''}}">›</view>
+      </view>
     </view>
-    <view class="spacer"></view>
-    <view class="btn-small btn-plain">进入</view>
+    <view wx:if="{{historyExpanded}}" class="history-body">
+      <view wx:if="{{older.length === 0}}" class="trash-empty">暂无历史赛事</view>
+      <view wx:for="{{older}}" wx:for-item="item" wx:key="id" class="history-item" data-index="{{index}}" bindtap="goHistoryDetail">
+        <view class="history-item-main">
+          <view class="history-item-top">
+            <view class="history-item-title">{{item.name}}</view>
+            <view class="phase-tag {{item.status === 'registration' ? 'phase-registration' : item.status === 'draft' ? 'phase-draft' : item.status === 'battle' ? 'phase-battle' : 'phase-finished'}}">{{item.phaseText}}</view>
+          </view>
+          <view class="history-item-meta">{{item.time}}<text wx:if="{{item.N}}"> · {{item.N}} 支队伍</text></view>
+          <view wx:if="{{item.champion}}" class="history-item-meta history-champion">冠军：{{item.champion.name}}</view>
+        </view>
+        <button wx:if="{{isAdmin}}" class="trash-action trash-purge history-delete-action" data-index="{{index}}" catch:tap="deleteFromHistory" hover-class="btn-pressed">{{historyBusyId === item.id || historyBusyId === item._id ? '处理中…' : '删除'}}</button>
+      </view>
+      <view wx:if="{{older.length === 50}}" class="trash-footnote">显示最近 50 场历史赛事</view>
+    </view>
+  </view>
+
+  <view wx:if="{{!loading && !loadError}}" class="trash-section">
+    <view class="trash-heading" bindtap="toggleTrash" aria-expanded="{{trashExpanded}}">
+      <view class="trash-heading-copy">
+        <view class="trash-kicker">RECENTLY DELETED</view>
+        <view class="trash-title">回收站 <text class="trash-count">{{trash.length}}</text></view>
+      </view>
+      <view class="trash-chevron {{trashExpanded ? 'trash-chevron-open' : ''}}">›</view>
+    </view>
+    <view wx:if="{{trashExpanded}}" class="trash-body">
+      <view wx:if="{{trashLoading}}" class="trash-state">正在加载回收站</view>
+      <view wx:elif="{{trashError}}" class="trash-state trash-state-error">
+        <view>{{trashError}}</view>
+        <view class="trash-retry" bindtap="loadTrash">重试</view>
+      </view>
+      <view wx:elif="{{trash.length === 0}}" class="trash-empty">回收站暂无比赛</view>
+      <block wx:if="{{!trashLoading && !trashError}}">
+        <view wx:for="{{trash}}" wx:for-item="item" wx:key="id" class="trash-item">
+          <view class="trash-item-main">
+            <view class="trash-item-top">
+              <view class="trash-item-title">{{item.name}}</view>
+              <view class="phase-tag {{item.status === 'registration' ? 'phase-registration' : item.status === 'draft' ? 'phase-draft' : item.status === 'battle' ? 'phase-battle' : 'phase-finished'}}">{{item.status === 'registration' ? '报名中' : item.status === 'draft' ? '选人中' : item.status === 'battle' ? '对战中' : '已结束'}}</view>
+            </view>
+            <view class="trash-item-meta">{{item.mode === 'auto' ? '系统分组' : '队长选人'}}<text wx:if="{{item.time}}"> · {{item.time}}</text><text wx:if="{{item.N}}"> · {{item.N}} 支队伍</text></view>
+            <view class="trash-item-meta">
+              <text wx:if="{{item.champion}}">冠军：{{item.champion.name}} · </text>
+              <text wx:if="{{item.deletedAtText}}">删除于 {{item.deletedAtText}}</text>
+              <text wx:else>已移入回收站</text>
+            </view>
+          </view>
+          <view wx:if="{{isAdmin}}" class="trash-actions">
+            <view class="trash-action trash-restore {{trashBusyId ? 'trash-action-disabled' : ''}}" data-index="{{index}}" bindtap="restoreFromTrash">恢复</view>
+            <view class="trash-action trash-purge {{trashBusyId ? 'trash-action-disabled' : ''}}" data-index="{{index}}" bindtap="purgeFromTrash">彻底删除</view>
+          </view>
+        </view>
+        <view wx:if="{{trash.length === 10}}" class="trash-footnote">显示最近 10 场已删除比赛</view>
+      </block>
+    </view>
+  </view>
+
+  <view class="home-bottom-note">
+    <view>GLHF <text>·</text> GOOD LUCK, HAVE FUN</view>
+    <view class="home-feedback-note">有bug · 找Ada阿达</view>
   </view>
 </view>
 
-<!-- 暗号验证弹窗 -->
+<!-- 报名暗号验证 -->
 <view class="mask" wx:if="{{secretModal}}" bindtap="onCloseSecret">
   <view class="panel" catchtap="noop">
     <view class="panel-title">输入报名暗号</view>
@@ -87,24 +196,35 @@
     <input class="input secret-input" placeholder="请输入暗号" placeholder-class="ph" value="{{secretInput}}" bindinput="onSecretInput" />
     <view class="panel-btns">
       <view class="panel-btn btn-plain" bindtap="onCloseSecret">取消</view>
-      <view class="panel-btn btn" bindtap="onConfirmSecret">{{secretChecking ? '验证中…' : '确认'}}</view>
+      <view class="panel-btn btn" bindtap="onConfirmSecret">{{secretChecking ? '验证中…' : '确认报名'}}</view>
     </view>
   </view>
 </view>
 
-<!-- 昵称设置弹窗 -->
+<!-- 首次资料设置 -->
 <view class="mask" wx:if="{{nickModal}}" bindtap="onCloseNick">
-  <view class="panel" catchtap="noop">
-    <view class="panel-title">设置你的资料</view>
-    <view class="panel-sub">报名、选人时其他群友看到的名称和信息</view>
+  <view class="panel profile-panel" catchtap="noop">
+    <view class="panel-title">先完善个人资料</view>
+    <view class="panel-sub">报名和选人时，队友会看到这些信息</view>
 
     <view class="field-label">昵称 <text class="req">*</text></view>
     <input class="input nick-input" placeholder="请输入昵称（最多20字）" placeholder-class="ph" maxlength="20" value="{{nickInput}}" bindinput="onNickInput" />
 
-    <view class="field-label">天梯分 <text class="req">*</text></view>
-    <input class="input" type="number" placeholder="必填，如 4500" placeholder-class="ph" value="{{pfMmr}}" bindinput="onPfMmr" />
+    <view class="field-label">Dota 2 ID <text class="optional">可选</text></view>
+    <input class="input" type="number" maxlength="12" placeholder="5-12 位数字 ID" placeholder-class="ph" value="{{pfDota2Id}}" bindinput="onPfDotaId" />
+    <view class="field-label">段位</view>
+    <view class="dota-id-row">
+      <input class="input dota-id-input" value="{{pfDotaRankLabel}}" disabled="{{true}}" />
+      <view class="btn-small dota-lookup-btn {{dotaLookupLoading || nickSaving ? 'btn-disabled' : ''}}" bindtap="onLookupDota">{{dotaLookupLoading ? '校验中…' : '段位校验'}}</view>
+    </view>
+    <view class="sub dota-help">段位校验只读取 OpenDota 资料，不会修改天梯分。</view>
+    <view wx:if="{{pfDotaRankVerified}}" class="sub dota-verified-time">已校验于{{pfDotaRankVerifiedAtText}}（14 天有效）</view>
+    <view wx:if="{{pfDotaRankVerifiedAt && !pfDotaRankVerified}}" class="sub dota-help">段位校验已过期，可重新校验</view>
 
-    <view class="field-label">常玩位置（必填，可多选）<text class="req">*</text></view>
+    <view class="field-label">天梯分 <text class="req">*</text></view>
+    <input class="input" type="number" placeholder="例如 4500" placeholder-class="ph" value="{{pfMmr}}" bindinput="onPfMmr" />
+
+    <view class="field-label">常玩位置 <text class="req">* 至少选择一个</text></view>
     <view class="role-btns">
       <view class="role-btn {{rolesActive[0] ? 'role-btn-active' : ''}}" data-role="1" bindtap="onToggleRole">1号位</view>
       <view class="role-btn {{rolesActive[1] ? 'role-btn-active' : ''}}" data-role="2" bindtap="onToggleRole">2号位</view>
@@ -112,17 +232,15 @@
       <view class="role-btn {{rolesActive[3] ? 'role-btn-active' : ''}}" data-role="4" bindtap="onToggleRole">4号位</view>
       <view class="role-btn {{rolesActive[4] ? 'role-btn-active' : ''}}" data-role="5" bindtap="onToggleRole">5号位</view>
     </view>
-    <view class="sub" style="margin-top:8rpx;">1号位核心 · 2号位中单 · 3号位劣单 · 4/5号位辅助</view>
+    <view class="sub role-help">1 核心 · 2 中单 · 3 劣单 · 4/5 辅助</view>
 
     <view class="field-label">个人签名</view>
     <input class="input" placeholder="选填，最多15个字" placeholder-class="ph" maxlength="15" value="{{pfSig}}" bindinput="onPfSig" />
-    <view class="char-count {{pfSig.length > 15 ? 'over' : ''}}">{{pfSig.length}}/15</view>
+    <view class="char-count">{{pfSig.length}}/15</view>
 
     <view class="panel-btns">
-      <view class="panel-btn btn-plain" bindtap="onCloseNick">稍后再说</view>
-      <view class="panel-btn btn" bindtap="onConfirmNick">{{nickSaving ? '保存中…' : '保存'}}</view>
+      <view class="panel-btn btn-plain" bindtap="onCloseNick">稍后</view>
+      <view class="panel-btn btn" bindtap="onConfirmNick">{{nickSaving ? '保存中…' : '保存资料'}}</view>
     </view>
-    <view class="sub" style="text-align:center;margin-top:12rpx;">昵称、天梯分、常玩位置为必填，填好后才能报名</view>
   </view>
 </view>
-

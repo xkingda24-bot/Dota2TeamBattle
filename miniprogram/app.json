@@ -6,13 +6,15 @@
     "pages/draft/draft",
     "pages/bracket/bracket",
     "pages/history/history",
-    "pages/staff/staff"
+    "pages/staff/staff",
+    "pages/card-style/card-style",
+    "pages/team-logos/team-logos"
   ],
   "window": {
     "backgroundColor": "#131821",
     "backgroundTextStyle": "light",
     "navigationBarBackgroundColor": "#131821",
-    "navigationBarTitleText": "Dota2 战队赛",
+    "navigationBarTitleText": "刀塔集结",
     "navigationBarTextStyle": "white",
     "navigationStyle": "custom"
   },

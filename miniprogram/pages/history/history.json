@@ -1,8 +1,9 @@
 {
-  "navigationBarTitleText": "历史比赛",
+  "navigationBarTitleText": "历史赛事",
   "enablePullDownRefresh": true,
   "backgroundColor": "#131821",
   "usingComponents": {
-    "nav-bar": "/components/nav-bar/index"
+    "nav-bar": "/components/nav-bar/index",
+    "player-card": "/components/player-card/index"
   }
 }

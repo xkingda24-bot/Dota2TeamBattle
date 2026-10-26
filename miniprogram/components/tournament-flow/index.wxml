@@ -1,0 +1,19 @@
+<!--components/tournament-flow/index.wxml-->
+<view class="tournament-flow" wx:if="{{steps.length}}">
+  <scroll-view class="flow-scroll" scroll-x>
+    <view class="flow-track">
+      <block wx:for="{{steps}}" wx:key="key">
+        <view
+          class="flow-step flow-step-{{item.state}} {{item.clickable ? '' : 'flow-step-disabled'}}"
+          data-index="{{index}}"
+          bindtap="onStepTap"
+          hover-class="flow-step-hover"
+        >
+          <view class="flow-dot"><text>{{item.number}}</text></view>
+          <view class="flow-label">{{item.label}}</view>
+        </view>
+        <view wx:if="{{index < steps.length - 1}}" class="flow-line {{item.lineState}}"></view>
+      </block>
+    </view>
+  </scroll-view>
+</view>

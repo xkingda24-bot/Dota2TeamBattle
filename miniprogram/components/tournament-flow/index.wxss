@@ -1,0 +1,86 @@
+/* components/tournament-flow/index.wxss */
+.tournament-flow {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12rpx 0 2rpx;
+  background: #0d1017;
+  border-bottom: 1rpx solid rgba(224, 181, 111, 0.1);
+}
+.flow-scroll {
+  width: 100%;
+  white-space: nowrap;
+}
+.flow-track {
+  display: flex;
+  align-items: flex-start;
+  min-width: 720rpx;
+  padding: 0 20rpx 12rpx;
+  box-sizing: border-box;
+}
+.flow-step {
+  display: flex;
+  flex: 0 0 130rpx;
+  flex-direction: column;
+  align-items: center;
+  color: #697280;
+  text-align: center;
+  transition: opacity 0.2s ease;
+}
+.flow-step-hover {
+  opacity: 0.72;
+}
+.flow-step-disabled {
+  opacity: 0.72;
+}
+.flow-dot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48rpx;
+  height: 48rpx;
+  border: 2rpx solid #59616d;
+  border-radius: 50%;
+  box-sizing: border-box;
+  background: #151b25;
+  color: #89929f;
+  font-size: 23rpx;
+  font-weight: 700;
+}
+.flow-label {
+  margin-top: 8rpx;
+  font-size: 23rpx;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+.flow-step-active {
+  color: #e8c27c;
+}
+.flow-step-active .flow-dot {
+  border-color: #e8c27c;
+  background: rgba(224, 181, 111, 0.18);
+  color: #f3d598;
+  box-shadow: 0 0 0 6rpx rgba(224, 181, 111, 0.06);
+}
+.flow-step-done {
+  color: #9ebfae;
+}
+.flow-step-done .flow-dot {
+  border-color: #5caa7e;
+  background: rgba(46, 180, 120, 0.12);
+  color: #76d09e;
+}
+.flow-step-locked {
+  color: #59616d;
+}
+.flow-line {
+  flex: 1 0 36rpx;
+  height: 2rpx;
+  margin: 24rpx 8rpx 0;
+  background: #3c444f;
+}
+.flow-line.line-done {
+  background: linear-gradient(90deg, #5caa7e, #b89458);
+}
+.flow-line.line-locked {
+  background: #343b46;
+}

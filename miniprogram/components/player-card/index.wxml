@@ -1,0 +1,23 @@
+<view class="player-card card-bg-{{normalizedStyle.background}} card-border-{{normalizedStyle.border}} card-font-{{normalizedStyle.font}} card-color-{{normalizedStyle.color}} {{compact ? 'player-card-compact' : ''}}">
+  <view class="player-card-glow" aria-hidden="true"></view>
+  <view class="player-card-effect effect-{{normalizedStyle.animation}}" aria-hidden="true">
+    <view class="effect-a"></view>
+    <view class="effect-b"></view>
+    <view class="effect-c"></view>
+  </view>
+  <view class="player-card-content">
+    <view class="player-card-heading">
+      <view class="player-card-name">{{player.nickname || '未设置昵称'}}</view>
+      <text wx:if="{{player.isCaptain}}" class="player-card-role">队长</text>
+    </view>
+    <view class="player-card-meta">
+      <view class="player-card-dota">
+        <text wx:if="{{dotaCard.displayText}}">{{dotaCard.displayText}}</text>
+        <text wx:else>未校验段位</text>
+      </view>
+      <text wx:if="{{player.rolesText}}" class="player-card-location">· {{player.rolesText}}</text>
+      <text wx:elif="{{player.roles && player.roles.length}}" class="player-card-location">· {{player.roles}}号位</text>
+    </view>
+    <view wx:if="{{player.signature}}" class="player-card-signature">{{player.signature}}</view>
+  </view>
+</view>

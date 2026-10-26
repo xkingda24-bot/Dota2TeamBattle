@@ -1,0 +1,34 @@
+.card-style-page { padding-bottom: 48rpx; }
+.card-style-intro { padding: 34rpx 28rpx 26rpx; margin-bottom: 24rpx; border: 1rpx solid rgba(224,181,111,.18); border-radius: 18rpx; background: radial-gradient(ellipse at 94% 0%, rgba(120,86,190,.22), transparent 38%), linear-gradient(160deg,#1a2230,#11161e 72%); }
+.card-style-kicker { color: #a79877; font-size: 20rpx; letter-spacing: 4rpx; }
+.card-style-heading { margin-top: 10rpx; color: #edd5a4; font-size: 36rpx; font-weight: 700; }
+.card-style-copy { margin: 10rpx 0 24rpx; color: #9ca4b0; font-size: 23rpx; line-height: 1.6; }
+.preview-caption { margin-top: 14rpx; color: #777f8b; text-align: right; font-size: 20rpx; }
+.style-section { padding: 24rpx 22rpx; margin-bottom: 18rpx; border: 1rpx solid rgba(224,181,111,.1); border-radius: 14rpx; background: rgba(21,27,37,.86); }
+.style-heading { margin-bottom: 18rpx; color: #dfc68f; font-size: 28rpx; font-weight: 600; }
+.option-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14rpx; }
+.style-option { min-width: 0; padding: 12rpx; border: 1rpx solid rgba(255,255,255,.07); border-radius: 12rpx; background: #141a24; }
+.style-option-active { border-color: #dbb56c; background: rgba(219,181,108,.09); box-shadow: 0 0 0 2rpx rgba(219,181,108,.09); }
+.option-swatch { height: 70rpx; border-radius: 8rpx; margin-bottom: 12rpx; }
+.swatch-arena { background: radial-gradient(circle at 75% 10%,#aa7b38,transparent 42%),linear-gradient(120deg,#3d4854,#121722); }
+.swatch-dire { background: radial-gradient(circle at 75% 10%,#aa3a32,transparent 42%),linear-gradient(120deg,#4b2929,#17131a); }
+.swatch-ice { background: radial-gradient(circle at 75% 10%,#54a9bc,transparent 42%),linear-gradient(120deg,#24404b,#121923); }
+.swatch-arcane { background: radial-gradient(circle at 75% 10%,#8061bd,transparent 42%),linear-gradient(120deg,#372c52,#131520); }
+.option-name { color: #e0d4bb; font-size: 24rpx; }
+.option-desc { margin-top: 6rpx; color: #808997; font-size: 20rpx; }
+.choice-row { display: flex; flex-wrap: wrap; gap: 12rpx; }
+.choice-chip { display: flex; align-items: center; gap: 10rpx; padding: 12rpx 18rpx; border: 1rpx solid rgba(255,255,255,.09); border-radius: 30rpx; color: #aab0ba; background: #151b25; font-size: 22rpx; }
+.choice-chip-active { color: #ecd49c; border-color: rgba(224,181,111,.7); background: rgba(224,181,111,.1); }
+.color-dot { width: 14rpx; height: 14rpx; border-radius: 50%; }
+.color-gold { background: #e8c27c; }.color-arcane { background: #b99cff; }.color-frost { background: #8fe0ed; }.color-toxic { background: #a9df89; }.color-ember { background: #ff927c; }
+.style-hint { margin: -8rpx 0 18rpx; line-height: 1.5; }
+.animation-list { display: flex; flex-direction: column; gap: 10rpx; }
+.animation-option { display: flex; align-items: center; min-height: 82rpx; padding: 12rpx 14rpx; border: 1rpx solid rgba(255,255,255,.07); border-radius: 12rpx; background: #141a24; }
+.animation-option-active { border-color: rgba(224,181,111,.68); background: linear-gradient(90deg,rgba(224,181,111,.12),rgba(24,30,41,.7)); }
+.animation-icon { display: flex; align-items: center; justify-content: center; width: 58rpx; height: 58rpx; margin-right: 14rpx; border-radius: 14rpx; color: #d6c098; background: rgba(224,181,111,.1); font-size: 32rpx; }
+.animation-icon-blink { color: #c69aff; background: rgba(153,104,229,.15); }.animation-icon-bkb { color: #f5ca62; background: rgba(231,176,54,.15); }.animation-icon-ward { color: #82e89b; background: rgba(76,203,111,.13); }.animation-icon-illusion { color: #c9c7ff; background: rgba(142,142,239,.15); }.animation-icon-roshan { color: #ff927c; background: rgba(218,69,55,.15); }.animation-icon-arcane { color: #7de5e8; background: rgba(68,198,205,.15); }
+.animation-copy { flex: 1; min-width: 0; }.animation-name { color: #e1d7c5; font-size: 24rpx; }.animation-desc { margin-top: 4rpx; color: #828b98; font-size: 20rpx; }
+.animation-check { width: 32rpx; color: #e8c27c; font-size: 28rpx; text-align: center; }
+.style-actions { display: flex; gap: 14rpx; margin-top: 24rpx; }.style-actions .btn { flex: 1; margin: 0; }
+.reset-btn { background: #191f2b; color: #aaaeb6; border: 1rpx solid rgba(255,255,255,.1); }.save-btn { box-shadow: 0 8rpx 22rpx rgba(181,132,57,.18); }
+.style-footnote { padding: 16rpx 10rpx; color: #727b89; font-size: 20rpx; line-height: 1.55; text-align: center; }

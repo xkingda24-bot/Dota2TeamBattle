@@ -5,7 +5,7 @@ const ROLE_LABELS = ['', '1号位', '2号位', '3号位', '4号位', '5号位'];
 
 function fmtRoles(roles) {
   const arr = Array.isArray(roles) ? roles.filter((v) => v >= 1 && v <= 5) : [];
-  return arr.length ? arr.map((v) => ROLE_LABELS[v]).join('/') : '';
+  return arr.length ? arr.map((v) => ROLE_LABELS[v]).join(' / ') : '';
 }
 
 function fmtReg(r) {
@@ -19,7 +19,14 @@ function fmtReg(r) {
 Page({
   data: {
     loading: true,
+    loadError: '',
+    notFound: false,
+    refreshError: false,
+    regSubmitting: false,
+    testFillSubmitting: false,
     t: null,
+    readonly: false,
+    stageView: '',
     myReg: null,
     isAdmin: false,
     activeTab: 'captain',
@@ -30,25 +37,54 @@ Page({
     secretOk: false,
     // 队长队名
     teamNameInput: '',
+    teamIconInput: '',
+    teamLogos: [],
+    allTeamLogos: [],
+    teamLogoLoadFailed: false,
+    showTeamModal: false,
     teamNameSaving: false,
     teamNameDirty: false, // 输入框正在编辑中，轮询刷新不要覆盖
-    // 系统分组预览
-    groupModal: false,
-    groupResult: null,
     grouping: false,
-    confirming: false,
-    // 手动微调：选择目标组 / 选择交换对象
-    movePanel: { show: false, gidx: 0, openid: '', nickname: '', targets: [] },
-    exchangePanel: { show: false, fromGidx: 0, toGidx: 0, fromOid: '', toNickname: '', members: [] },
   },
 
   onLoad(options) {
     this.id = (options && options.id) || '';
+    const stageView = options && options.stage === 'registration' ? 'registration' : '';
+    this.setData({ readonly: !!(options && options.readonly === '1'), stageView });
   },
 
   onShow() {
     this.load();
+    this.loadTeamLogos();
     this.startPoll();
+  },
+
+  loadTeamLogos() {
+    return api.call('teamLogoList').then((d) => {
+      const logos = d.logos || [];
+      const allLogos = d.presets || logos;
+      this.setData({
+        teamLogos: logos,
+        allTeamLogos: allLogos,
+        teamLogoLoadFailed: false,
+      });
+      this.refreshRegistrationIcons(allLogos);
+    }).catch(() => this.setData({ teamLogoLoadFailed: true }));
+  },
+
+  refreshRegistrationIcons(logos) {
+    if (!this.data.t) return;
+    const iconSource = {};
+    (logos || []).forEach((logo) => (iconSource[logo.id] = logo.src));
+    const addIcon = (registration) => Object.assign({}, registration, {
+      teamIconSrc: iconSource[registration.teamIcon] || '',
+    });
+    this.setData({
+      myReg: this.data.myReg ? addIcon(this.data.myReg) : null,
+      captainList: (this.data.captainList || []).map(addIcon),
+      playerList: (this.data.playerList || []).map(addIcon),
+      waitlistList: (this.data.waitlistList || []).map(addIcon),
+    });
   },
   onHide() {
     this.stopPoll();
@@ -72,33 +108,64 @@ Page({
   },
 
   load(silent) {
-    if (!silent) this.setData({ loading: true });
+    const hadData = !!this.data.t;
+    if (!silent && !hadData) {
+      this.setData({ loading: true, loadError: '', notFound: false, refreshError: false });
+    } else if (!silent) {
+      this.setData({ refreshError: false });
+    }
     const data = this.id ? { id: this.id } : {};
     const now = new Date();
     data.todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
     return api
       .call('tournament', data)
       .then((t) => {
-        const regs = (t.registrations || []).map(fmtReg);
+        if (!t) {
+          this.setData(hadData
+            ? { loading: false, refreshError: true }
+            : { loading: false, t: null, notFound: true, loadError: '', refreshError: false });
+          return;
+        }
+        const iconSource = {};
+        (this.data.allTeamLogos || []).forEach((logo) => (iconSource[logo.id] = logo.src));
+        const regs = (t.registrations || []).map((registration) => Object.assign(fmtReg(registration), {
+          teamIconSrc: iconSource[registration.teamIcon] || '',
+        }));
         const secretOk = !!this.getStoredSecret() || !!t.myReg;
-        const myReg = t.myReg ? fmtReg(t.myReg) : null;
+        const myReg = t.myReg ? Object.assign(fmtReg(t.myReg), { teamIconSrc: iconSource[t.myReg.teamIcon] || '' }) : null;
+        const activeTab = t.mode === 'auto' && this.data.activeTab === 'captain' ? 'player' : this.data.activeTab;
         this.setData({
           t,
           myReg,
-          isAdmin: !!t.isAdmin,
+          activeTab,
+          isAdmin: !!t.isAdmin && !this.data.readonly,
           loading: false,
+          loadError: '',
+          notFound: false,
+          refreshError: false,
           captainList: regs.filter((r) => r.role === 'captain'),
           playerList: regs.filter((r) => r.role === 'player'),
           waitlistList: regs.filter((r) => r.role === 'waitlist'),
           secretOk,
           // 正在编辑队名时保留输入框内容，不被轮询刷新覆盖；否则（队长）用云端已保存的队名初始化
           teamNameInput: this.data.teamNameDirty || !(myReg && myReg.role === 'captain') ? this.data.teamNameInput : myReg.teamName || '',
+          teamIconInput: this.data.teamNameDirty || !(myReg && myReg.role === 'captain') ? this.data.teamIconInput : myReg.teamIcon || '',
         });
       })
       .catch((e) => {
-        this.setData({ loading: false, t: null });
-        if (!silent) wx.showToast({ title: e.message, icon: 'none' });
+        const hasData = !!this.data.t;
+        const notFound = !hasData && e.message === '比赛不存在';
+        this.setData({
+          loading: false,
+          loadError: hasData || notFound ? '' : (e.message || '比赛加载失败，请重试'),
+          notFound,
+          refreshError: hasData,
+        });
       });
+  },
+
+  retryLoad() {
+    this.load();
   },
 
   getStoredSecret() {
@@ -112,7 +179,7 @@ Page({
 
   onVerifySecret() {
     const t = this.data.t;
-    if (!t) return;
+    if (!t || this.data.readonly || t.status !== 'registration' || this.data.myReg) return;
     const secret = this.data.secretInput.trim();
     if (!secret) {
       wx.showToast({ title: '请输入报名暗号', icon: 'none' });
@@ -134,27 +201,82 @@ Page({
 
   onReg(e) {
     const role = e.currentTarget.dataset.role;
-    if (!this.data.t) return;
+    const t = this.data.t;
+    if (!t || this.data.readonly || this.data.regSubmitting) return;
+    if (['captain', 'player', 'waitlist'].indexOf(role) < 0) return;
+    if (t.status !== 'registration') {
+      wx.showToast({ title: '当前不在报名阶段', icon: 'none' });
+      return;
+    }
     if (this.data.myReg) {
       wx.showToast({ title: '你已经报名了', icon: 'none' });
       return;
     }
+    if (role === 'captain' && (t.mode === 'auto' || t.captainFilled >= t.captainTotal)) {
+      wx.showToast({ title: t.mode === 'auto' ? '本场比赛为系统分组模式' : '队长名额已满', icon: 'none' });
+      return;
+    }
+    if (role === 'waitlist' && (t.waitLimit <= 0 || t.waitlistFilled >= t.waitLimit)) {
+      wx.showToast({ title: t.waitLimit <= 0 ? '本场比赛未设置替补' : '替补名额已满', icon: 'none' });
+      return;
+    }
+    if (role === 'player' && t.playerFilled >= t.playerTotal && (t.waitLimit <= 0 || t.waitlistFilled >= t.waitLimit)) {
+      wx.showToast({ title: t.waitLimit <= 0 ? '队员名额已满' : '队员与替补名额已满', icon: 'none' });
+      return;
+    }
     const secret = this.getStoredSecret();
+    this.setData({ regSubmitting: true });
     api
-      .call('register', { id: this.data.t.id, role, secret })
+      .call('register', { id: t.id, role, secret })
       .then((d) => {
         wx.showToast({
           title: d.auto ? '队员已满，已加入替补' : d.role === 'captain' ? '队长报名成功' : d.role === 'waitlist' ? '替补报名成功' : '报名成功',
           icon: 'success',
         });
-        this.load();
+        return this.load();
       })
-      .catch((err) => wx.showToast({ title: err.message, icon: 'none' }));
+      .catch((err) => {
+        if (err.message === '报名暗号错误') {
+          this.clearStoredSecret();
+          this.setData({ secretOk: false, secretInput: '' });
+          wx.showToast({ title: '报名暗号已变更，请重新验证', icon: 'none' });
+          return;
+        }
+        if (/请先设置昵称|请先在「我的-编辑资料」/.test(err.message || '')) {
+          wx.showModal({
+            title: '先完善个人资料',
+            content: '报名需要昵称、天梯分和常玩位置。现在去「我的」完善资料吗？',
+            confirmText: '去完善',
+            success: (res) => {
+              if (res.confirm) wx.navigateTo({ url: '/pages/staff/staff' });
+            },
+          });
+          return;
+        }
+        wx.showToast({ title: err.message, icon: 'none' });
+      })
+      .finally(() => {
+        this.setData({ regSubmitting: false });
+      });
+  },
+
+  clearStoredSecret() {
+    if (this.id) wx.removeStorageSync('dota2_secret_' + this.id);
+  },
+
+  onReenterSecret() {
+    this.clearStoredSecret();
+    this.setData({ secretOk: false, secretInput: '' });
+    wx.showToast({ title: '请输入最新报名暗号', icon: 'none' });
   },
 
   onCancelReg() {
     const t = this.data.t;
-    if (!t) return;
+    if (!t || this.data.readonly) return;
+    if (t.status !== 'registration') {
+      wx.showToast({ title: '报名已锁定，无法取消', icon: 'none' });
+      return;
+    }
     wx.showModal({
       title: '取消报名',
       content: '确定要退出本次报名吗？名额将自动释放',
@@ -174,6 +296,7 @@ Page({
 
   onRemoveReg(e) {
     const t = this.data.t;
+    if (!t || this.data.readonly || !this.data.isAdmin) return;
     const openid = e.currentTarget.dataset.openid;
     const nickname = e.currentTarget.dataset.nickname;
     wx.showModal({
@@ -199,7 +322,7 @@ Page({
     const openid = e.currentTarget.dataset.openid;
     const nickname = e.currentTarget.dataset.nickname;
     const to = e.currentTarget.dataset.to;
-    if (!t) return;
+    if (!t || this.data.readonly || !this.data.isAdmin) return;
     const actionText = to === 'player' ? '移回队员名单' : '移入替补';
     wx.showModal({
       title: actionText,
@@ -219,13 +342,43 @@ Page({
   },
 
   /* 队长：设置队伍名称 */
+  onOpenTeamModal() {
+    const myReg = this.data.myReg;
+    if (this.data.readonly || !myReg || myReg.role !== 'captain' || !this.data.t || this.data.t.status !== 'registration') return;
+    this.setData({
+      showTeamModal: true,
+      teamNameInput: myReg.teamName || '',
+      teamIconInput: myReg.teamIcon || '',
+      teamNameDirty: true,
+    });
+  },
+
+  onCloseTeamModal() {
+    if (this.data.teamNameSaving) return;
+    const myReg = this.data.myReg || {};
+    this.setData({
+      showTeamModal: false,
+      teamNameInput: myReg.teamName || '',
+      teamIconInput: myReg.teamIcon || '',
+      teamNameDirty: false,
+    });
+  },
+
   onTeamNameInput(e) {
     this.setData({ teamNameInput: e.detail.value, teamNameDirty: true });
   },
 
+  onTeamIconSelect(e) {
+    this.setData({ teamIconInput: e.currentTarget.dataset.id, teamNameDirty: true });
+  },
+
+  onTeamIconClear() {
+    this.setData({ teamIconInput: '', teamNameDirty: true });
+  },
+
   onSaveTeamName() {
     const t = this.data.t;
-    if (!t) return;
+    if (!t || this.data.readonly || !this.data.myReg || this.data.myReg.role !== 'captain' || t.status !== 'registration') return;
     if (this.data.teamNameSaving) return;
     const teamName = (this.data.teamNameInput || '').trim();
     if (teamName.length > 10) {
@@ -234,11 +387,11 @@ Page({
     }
     this.setData({ teamNameSaving: true });
     api
-      .call('setTeamName', { id: t.id, teamName })
+      .call('setTeamName', { id: t.id, teamName, teamIcon: this.data.teamIconInput || '' })
       .then(() => {
-        wx.showToast({ title: teamName ? '队名已保存' : '已清除队名', icon: 'success' });
-        this.setData({ teamNameSaving: false, teamNameInput: teamName, teamNameDirty: false });
-        this.load();
+        wx.showToast({ title: '队名和队标已保存', icon: 'success' });
+        this.setData({ teamNameSaving: false, showTeamModal: false, teamNameInput: teamName, teamNameDirty: false });
+        return this.load();
       })
       .catch((err) => {
         this.setData({ teamNameSaving: false });
@@ -248,175 +401,35 @@ Page({
 
   onEditConfig() {
     const t = this.data.t;
-    if (!t) return;
+    if (!t || this.data.readonly || !this.data.isAdmin) return;
     wx.navigateTo({ url: '/pages/create/create?id=' + t.id });
   },
 
   /* ---------- 系统分组（管理员） ---------- */
   onAutoGroup() {
     const t = this.data.t;
-    if (!t) return;
+    if (!t || this.data.readonly || !this.data.isAdmin || this.data.grouping) return;
     this.setData({ grouping: true });
     api
       .call('autoGroup', { id: t.id })
       .then((d) => {
-        this.setData({ grouping: false, groupModal: true, groupResult: d });
+        const groups = (d.groups || []).map((group) => (group.members || []).map((member) => member.openid));
+        return api.call('confirmGroup', { id: t.id, groups });
+      })
+      .then(() => {
+        wx.showToast({ title: '分组完成', icon: 'success' });
+        this.stopPoll();
+        setTimeout(() => wx.redirectTo({ url: '/pages/bracket/bracket?id=' + t.id }), 600);
       })
       .catch((err) => {
         this.setData({ grouping: false });
         wx.showToast({ title: err.message, icon: 'none' });
       });
-  },
-
-  onRegroup() {
-    if (this.data.grouping) return;
-    const t = this.data.t;
-    if (!t) return;
-    this.setData({ grouping: true });
-    api
-      .call('autoGroup', { id: t.id })
-      .then((d) => {
-        this.setData({ grouping: false, groupResult: d, movePanel: { show: false }, exchangePanel: { show: false } });
-      })
-      .catch((err) => {
-        this.setData({ grouping: false });
-        wx.showToast({ title: err.message, icon: 'none' });
-      });
-  },
-
-  onConfirmGroup() {
-    if (this.data.confirming) return;
-    const t = this.data.t;
-    if (!t) return;
-    const r = this.data.groupResult;
-    const warn = r && r.groups.some((g) => g.missingRoles.length);
-    wx.showModal({
-      title: '确认分组',
-      content: warn
-        ? '部分组缺少某些位置的队员（缺位已标注），仍确认分组？确认后进入对战页生成赛程。'
-        : '确认按当前分组结果分队？确认后进入对战页生成赛程。',
-      success: (res) => {
-        if (!res.confirm) return;
-        this.setData({ confirming: true });
-        const payload = (this.data.groupResult.groups || []).map((g) => g.members.map((m) => m.openid));
-        api
-          .call('confirmGroup', { id: t.id, groups: payload })
-          .then(() => {
-            wx.showToast({ title: '分组完成', icon: 'success' });
-            this.stopPoll();
-            setTimeout(() => wx.redirectTo({ url: '/pages/bracket/bracket?id=' + t.id }), 600);
-          })
-          .catch((err) => {
-            this.setData({ confirming: false });
-            wx.showToast({ title: err.message, icon: 'none' });
-          });
-      },
-    });
-  },
-
-  onCloseGroup() {
-    if (this.data.confirming) return;
-    this.setData({ groupModal: false, movePanel: { show: false }, exchangePanel: { show: false } });
-  },
-
-  /* ---------- 手动微调（预览里换人） ---------- */
-  onMoveMember(e) {
-    if (this.data.confirming) return;
-    const gidx = Number(e.currentTarget.dataset.gidx);
-    const openid = e.currentTarget.dataset.openid;
-    const nickname = e.currentTarget.dataset.nickname;
-    const groups = (this.data.groupResult && this.data.groupResult.groups) || [];
-    const targets = [];
-    for (let i = 0; i < groups.length; i++) {
-      if (i === gidx) continue;
-      targets.push({ idx: i, label: '第 ' + (i + 1) + ' 组' });
-    }
-    this.setData({ movePanel: { show: true, gidx, openid, nickname, targets } });
-  },
-
-  onCloseMove() {
-    this.setData({ movePanel: { show: false }, exchangePanel: { show: false } });
-  },
-
-  // 选择目标组：组不满直接移入，组已满则选择交换对象
-  onPickTarget(e) {
-    const toGidx = Number(e.currentTarget.dataset.target);
-    const mp = this.data.movePanel;
-    const groups = (this.data.groupResult && this.data.groupResult.groups) || [];
-    const target = groups[toGidx];
-    if (!target) return;
-    const K = (this.data.t && this.data.t.K) || 5;
-    if (target.members.length < K) {
-      this.doMove(mp.gidx, mp.openid, toGidx, null);
-    } else {
-      this.setData({
-        exchangePanel: {
-          show: true,
-          fromGidx: mp.gidx,
-          toGidx,
-          fromOid: mp.openid,
-          toNickname: mp.nickname,
-          members: target.members,
-        },
-      });
-    }
-  },
-
-  onCloseExchange() {
-    this.setData({ exchangePanel: { show: false } });
-  },
-
-  // 执行移动（toOid 为空 = 直接移入；否则与该队员交换）
-  doMove(fromGidx, fromOid, toGidx, toOid) {
-    const groups = (this.data.groupResult && this.data.groupResult.groups) || [];
-    const from = groups[fromGidx];
-    const to = groups[toGidx];
-    if (!from || !to) return;
-    const fi = from.members.findIndex((m) => m.openid === fromOid);
-    if (fi < 0) return;
-    if (toOid) {
-      const ti = to.members.findIndex((m) => m.openid === toOid);
-      if (ti < 0) return;
-      const mover = from.members[fi];
-      const swapper = to.members[ti];
-      from.members.splice(fi, 1, swapper);
-      to.members.splice(ti, 1, mover);
-    } else {
-      const mover = from.members.splice(fi, 1)[0];
-      to.members.push(mover);
-    }
-    this.recalcGroups();
-    this.setData({ groupResult: this.data.groupResult, movePanel: { show: false }, exchangePanel: { show: false } });
-    wx.showToast({ title: toOid ? '已交换' : '已移动', icon: 'success' });
-  },
-
-  onPickExchange(e) {
-    const ep = this.data.exchangePanel;
-    this.doMove(ep.fromGidx, ep.fromOid, ep.toGidx, e.currentTarget.dataset.openid);
-  },
-
-  // 重算各组均分 / 组长 / 缺位 / 组间均分差
-  recalcGroups() {
-    const r = this.data.groupResult;
-    if (!r || !r.groups) return;
-    r.groups.forEach((g) => {
-      const members = g.members;
-      const captain = members.reduce((a, b) => ((b.mmr || 0) > (a.mmr || 0) ? b : a), members[0]);
-      const avg = Math.round(members.reduce((s, m) => s + (m.mmr || 0), 0) / members.length);
-      const roleSet = {};
-      members.forEach((m) => (m.roles || []).forEach((x) => (roleSet[x] = true)));
-      g.captain = captain;
-      g.avgMmr = avg;
-      g.missingRoles = [1, 2, 3, 4, 5].filter((x) => !roleSet[x]);
-    });
-    const avgs = r.groups.map((g) => g.avgMmr);
-    r.maxDiff = Math.max(...avgs) - Math.min(...avgs);
-    r.maxDiffOk = r.maxDiff <= 300;
   },
 
   onStartDraft() {
     const t = this.data.t;
-    if (!t) return;
+    if (!t || this.data.readonly || !this.data.isAdmin) return;
     wx.showModal({
       title: '开始选人',
       content: '将随机排序 ' + t.N + ' 位队长并按蛇形顺序选人，确定开始？',
@@ -436,20 +449,46 @@ Page({
     });
   },
 
+  onFillTestData() {
+    const t = this.data.t;
+    if (!t || this.data.readonly || !t.isSuper || t.status !== 'registration' || this.data.testFillSubmitting) return;
+    wx.showModal({
+      title: '用测试数据补全报名',
+      content: '只补齐尚未报满的名额；队长模式会补齐队长、队员和替补，系统分组模式会补齐队员和替补。现有报名不变。确定继续？',
+      confirmText: '补全报名',
+      success: (res) => {
+        if (!res.confirm) return;
+        this.setData({ testFillSubmitting: true });
+        api.call('fillTestRegistrations', { id: t.id })
+          .then((result) => {
+            if (!result.added) {
+              wx.showToast({ title: '报名和替补名额已满', icon: 'none' });
+              this.load(true);
+              return;
+            }
+            wx.showToast({ title: '已补全测试数据，新增 ' + result.added + ' 人', icon: 'success' });
+            this.load(true);
+          })
+          .catch((err) => wx.showToast({ title: err.message || '补全失败，请重试', icon: 'none' }))
+          .finally(() => this.setData({ testFillSubmitting: false }));
+      },
+    });
+  },
+
   onDelete() {
     const t = this.data.t;
-    if (!t) return;
+    if (!t || this.data.readonly || !this.data.isAdmin) return;
     wx.showModal({
-      title: '删除比赛',
-      content: '将永久删除「' + t.name + '」的全部数据（报名/选人/赛程），不可恢复！确定删除？',
-      confirmText: '删除',
+      title: '确认删除？',
+      content: '（删除的比赛会移入回收站。）',
+      confirmText: '删除比赛',
       confirmColor: '#e5484d',
       success: (res) => {
         if (res.confirm) {
           api
             .call('deleteTournament', { id: t.id })
             .then(() => {
-              wx.showToast({ title: '已删除', icon: 'success' });
+              wx.showToast({ title: '比赛已移入回收站', icon: 'success' });
               setTimeout(() => wx.reLaunch({ url: '/pages/index/index' }), 600);
             })
             .catch((err) => wx.showToast({ title: err.message, icon: 'none' }));
@@ -465,4 +504,6 @@ Page({
   goBack() {
     wx.navigateBack();
   },
+
+  noop() {},
 });

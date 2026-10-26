@@ -1,4 +1,9 @@
 /* pages/history/history.wxss - Dota2 风格 */
+.load-state, .load-error { padding-top: 34rpx; padding-bottom: 34rpx; }
+.load-error { border-color: rgba(216,117,101,.2); }
+.load-error .card-title { color: #e0a39a; }
+.history-list-card { position: relative; }
+.history-delete { margin-top: 14rpx; width: 100%; box-sizing: border-box; border: 0; }
 .champion-banner {
   background: linear-gradient(135deg, rgba(224, 181, 111, 0.28), rgba(200, 69, 47, 0.12));
   border: 2rpx solid rgba(224, 181, 111, 0.5);
@@ -59,3 +64,6 @@
   color: #e8c27c;
   margin-bottom: 6rpx;
 }
+.history-members { margin-top: 12rpx; }
+.history-members .player-card { margin-top: 12rpx; }
+.history-members .player-card:first-child { margin-top: 0; }

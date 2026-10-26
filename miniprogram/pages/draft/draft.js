@@ -8,9 +8,10 @@ function fmtRoles(roles) {
   return arr.length ? arr.map((v) => ROLE_LABELS[v]).join('/') : '';
 }
 
-function fmtPlayer(r) {
+function fmtPlayer(r, isCaptain) {
   return Object.assign({}, r, {
-    mmrText: r.mmr ? '天梯 ' + r.mmr : '',
+    isCaptain: !!isCaptain,
+    mmrText: r.mmr === null || r.mmr === undefined || r.mmr === '' ? '' : '天梯 ' + r.mmr,
     rolesText: fmtRoles(r.roles),
   });
 }
@@ -18,7 +19,11 @@ function fmtPlayer(r) {
 Page({
   data: {
     loading: true,
+    loadError: '',
+    refreshError: false,
     t: null,
+    readonly: false,
+    stageView: '',
     isAdmin: false,
     orderChips: [],
     canPick: false,
@@ -27,6 +32,8 @@ Page({
 
   onLoad(options) {
     this.id = (options && options.id) || '';
+    const stageView = options && options.stage === 'draft' ? 'draft' : '';
+    this.setData({ readonly: !!(options && options.readonly === '1'), stageView });
   },
 
   onShow() {
@@ -55,7 +62,8 @@ Page({
   },
 
   load(silent) {
-    if (!silent) this.setData({ loading: true });
+    const hadData = !!this.data.t;
+    if (!silent && !hadData) this.setData({ loading: true, loadError: '' });
     const data = this.id ? { id: this.id } : {};
     const now = new Date();
     data.todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
@@ -69,23 +77,35 @@ Page({
           }
           if (Array.isArray(di.picks)) {
             di.picks = di.picks.map((pick) =>
-              Object.assign({}, pick, { players: (pick.players || []).map(fmtPlayer) })
+              Object.assign({}, pick, {
+                captain: pick.captain ? fmtPlayer(pick.captain, true) : null,
+                players: (pick.players || []).map((player) => fmtPlayer(player, false)),
+              })
             );
           }
         }
-        this.setData({ t, isAdmin: !!t.isAdmin, loading: false });
+        this.setData({ t, isAdmin: !!t.isAdmin && !this.data.readonly, loading: false, loadError: '', refreshError: false });
         this.computeDraft();
       })
       .catch((e) => {
-        this.setData({ loading: false, t: null });
-        if (!silent) wx.showToast({ title: e.message, icon: 'none' });
+        const hasData = !!this.data.t;
+        this.setData({
+          loading: false,
+          loadError: hasData ? '' : (e.message || '加载比赛失败，请重试'),
+          refreshError: hasData,
+        });
+        if (!silent && !hasData) wx.showToast({ title: e.message, icon: 'none' });
       });
+  },
+
+  retryLoad() {
+    this.load();
   },
 
   // 计算本轮选人顺序条与"是否轮到我"
   computeDraft() {
     const t = this.data.t;
-    if (!t || !t.draftInfo) return;
+    if (!t || this.data.readonly || !t.draftInfo) return;
     const di = t.draftInfo;
     let orderChips = [];
     let canPick = false;
@@ -113,7 +133,7 @@ Page({
     const openid = e.currentTarget.dataset.openid;
     const name = e.currentTarget.dataset.name;
     const t = this.data.t;
-    if (!t || !t.draftInfo) return;
+    if (!t || this.data.readonly || !t.draftInfo) return;
     const di = t.draftInfo;
     if (di.done) return;
     if (!this.data.canPick && !this.data.isAdmin) {
@@ -150,7 +170,7 @@ Page({
 
   onResetDraft() {
     const t = this.data.t;
-    if (!t) return;
+    if (!t || this.data.readonly || !this.data.isAdmin) return;
     wx.showModal({
       title: '重置选人',
       content: '将重新随机排序队长并清空所有已选队员，确定重置？',
@@ -170,7 +190,7 @@ Page({
 
   onStartBracket() {
     const t = this.data.t;
-    if (!t || !t.draftInfo) return;
+    if (!t || this.data.readonly || !this.data.isAdmin || !t.draftInfo) return;
     if (!t.draftInfo.done) {
       wx.showToast({ title: '选人还未完成', icon: 'none' });
       return;
@@ -192,20 +212,25 @@ Page({
     });
   },
 
+  onOpenStageManagement() {
+    if (!this.id || this.data.readonly || !this.data.isAdmin) return;
+    wx.navigateTo({ url: '/pages/bracket/bracket?id=' + this.id });
+  },
+
   onDelete() {
     const t = this.data.t;
-    if (!t) return;
+    if (!t || this.data.readonly || !this.data.isAdmin) return;
     wx.showModal({
-      title: '删除比赛',
-      content: '将永久删除「' + t.name + '」的全部数据（报名/选人/赛程），不可恢复！确定删除？',
-      confirmText: '删除',
+      title: '确认删除？',
+      content: '（删除的比赛会移入回收站。）',
+      confirmText: '删除比赛',
       confirmColor: '#e5484d',
       success: (res) => {
         if (res.confirm) {
           api
             .call('deleteTournament', { id: t.id })
             .then(() => {
-              wx.showToast({ title: '已删除', icon: 'success' });
+              wx.showToast({ title: '比赛已移入回收站', icon: 'success' });
               setTimeout(() => wx.reLaunch({ url: '/pages/index/index' }), 600);
             })
             .catch((err) => wx.showToast({ title: err.message, icon: 'none' }));

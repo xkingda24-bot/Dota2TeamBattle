@@ -8,6 +8,11 @@ function pad(n) {
 Page({
   data: {
     editMode: false,
+    pageLoading: false,
+    checkingAdmin: false,
+    accessCheckFailed: false,
+    accessMessage: '',
+    isSuper: false,
     name: '',
     secret: '',
     date: '',
@@ -17,13 +22,13 @@ Page({
     kRange: [1, 2, 3, 4, 5],
     kIndex: 3, // 默认 每队 4 个队友
     waitRange: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
-    waitIndex: 5, // 默认 5 个替补
+    waitIndex: 10, // 默认 10 个替补
     modeRange: ['队长选人', '系统分组'],
     modeIndex: 0,
     mode: 'captain', // captain=队长选人 auto=系统分组
     N: 8,
     K: 4,
-    waitLimit: 5,
+    waitLimit: 10,
     submitting: false,
   },
 
@@ -37,62 +42,96 @@ Page({
     // 编辑模式：管理员修改比赛配置
     if (options && options.id) {
       this.id = options.id;
-      this.setData({ editMode: true });
-      api
-        .call('tournament', { id: options.id })
-        .then((d) => {
-          if (!d || !d.isAdmin) {
-            wx.showModal({
-              title: '需要管理员',
-              content: '只有管理员可以修改比赛配置。',
-              showCancel: false,
-              success: () => wx.navigateBack(),
-            });
-            return;
-          }
-          const date = (d.time || '').slice(0, 10);
-          const time = (d.time || '').slice(11, 16);
-          const nIdx = this.data.nRange.indexOf(d.N);
-          const kIdx = this.data.kRange.indexOf(d.K);
-          const wLimit = d.waitLimit === undefined || d.waitLimit === null ? 5 : Number(d.waitLimit);
-          const wIdx = this.data.waitRange.indexOf(wLimit);
-          this.setData({
-            name: d.name || '',
-            secret: d.secret || '',
-            date: date || this.data.date,
-            time: time || this.data.time,
-            mode: d.mode === 'auto' ? 'auto' : 'captain',
-            modeIndex: d.mode === 'auto' ? 1 : 0,
-            N: d.N,
-            K: d.K,
-            waitLimit: wLimit,
-            waitIndex: wIdx >= 0 ? wIdx : this.data.waitIndex,
-            nIndex: nIdx >= 0 ? nIdx : this.data.nIndex,
-            kIndex: kIdx >= 0 ? kIdx : this.data.kIndex,
-          });
-        })
-        .catch((e) => {
-          wx.showToast({ title: e.message, icon: 'none' });
-        });
+      this.setData({ editMode: true, pageLoading: true });
+      this.loadTournament();
       return;
     }
 
     // 创建模式：管理员校验
-    api
+    this.setData({ checkingAdmin: true });
+    this.checkAdmin();
+  },
+
+  loadTournament() {
+    return api
+      .call('tournament', { id: this.id })
+      .then((d) => {
+        if (!d || !d.isAdmin) {
+          this.setData({
+            pageLoading: false,
+            accessCheckFailed: true,
+            accessMessage: '当前账号没有修改此赛事的权限',
+          });
+          wx.showModal({
+            title: '需要管理员',
+            content: '只有管理员可以修改比赛配置。',
+            showCancel: false,
+            success: () => wx.navigateBack(),
+          });
+          return;
+        }
+        const date = (d.time || '').slice(0, 10);
+        const time = (d.time || '').slice(11, 16);
+        const nIdx = this.data.nRange.indexOf(d.N);
+        const kIdx = this.data.kRange.indexOf(d.K);
+        const wLimit = d.waitLimit === undefined || d.waitLimit === null ? 5 : Number(d.waitLimit);
+        const wIdx = this.data.waitRange.indexOf(wLimit);
+        this.setData({
+          name: d.name || '',
+          secret: d.secret || '',
+          date: date || this.data.date,
+          time: time || this.data.time,
+          mode: d.mode === 'auto' ? 'auto' : 'captain',
+          modeIndex: d.mode === 'auto' ? 1 : 0,
+          N: d.N,
+          K: d.K,
+          waitLimit: wLimit,
+          isSuper: !!d.isSuper,
+          pageLoading: false,
+          waitIndex: wIdx >= 0 ? wIdx : this.data.waitIndex,
+          nIndex: nIdx >= 0 ? nIdx : this.data.nIndex,
+          kIndex: kIdx >= 0 ? kIdx : this.data.kIndex,
+        });
+      })
+      .catch((e) => {
+        this.setData({ pageLoading: false, accessCheckFailed: true, accessMessage: e.message || '比赛信息加载失败' });
+      });
+  },
+
+  checkAdmin() {
+    return api
       .call('getStaff')
       .then((d) => {
         if (!d.isAdmin) {
+          this.setData({
+            checkingAdmin: false,
+            accessCheckFailed: true,
+            accessMessage: '只有管理员可以创建比赛。',
+          });
           wx.showModal({
             title: '需要管理员',
             content: '只有管理员可以创建比赛。若你已是管理员，请从主页右上角「我的」查看名单。',
             showCancel: false,
             success: () => wx.navigateBack(),
           });
+          return;
         }
+        this.setData({ checkingAdmin: false, accessCheckFailed: false, accessMessage: '', isSuper: !!d.isSuper });
       })
       .catch((e) => {
-        wx.showToast({ title: e.message, icon: 'none' });
+        this.setData({ checkingAdmin: false, accessCheckFailed: true, accessMessage: e.message || '管理员身份检查失败' });
       });
+  },
+
+  retryAccessCheck() {
+    this.setData({ accessCheckFailed: false, accessMessage: '' });
+    if (this.id) {
+      this.setData({ pageLoading: true });
+      this.loadTournament();
+    } else {
+      this.setData({ checkingAdmin: true });
+      this.checkAdmin();
+    }
   },
 
   onName(e) {
@@ -131,7 +170,7 @@ Page({
   },
 
   submit() {
-    if (this.data.submitting) return;
+    if (this.data.submitting || this.data.pageLoading || this.data.checkingAdmin || this.data.accessCheckFailed) return;
     const name = this.data.name.trim();
     if (!name) {
       wx.showToast({ title: '请填写比赛名称', icon: 'none' });
@@ -140,6 +179,14 @@ Page({
     const secret = this.data.secret.trim();
     if (!secret) {
       wx.showToast({ title: '请设置报名暗号', icon: 'none' });
+      return;
+    }
+    if (secret.length > 20) {
+      wx.showToast({ title: '报名暗号最多 20 个字', icon: 'none' });
+      return;
+    }
+    if (!this.data.date || !this.data.time) {
+      wx.showToast({ title: '请设置比赛日期和时间', icon: 'none' });
       return;
     }
     const time = this.data.date + ' ' + this.data.time;

@@ -28,24 +28,184 @@
   color: #9aa4b2;
 }
 
-/* 用户列表弹窗 */
-.user-row {
+.profile-card-showcase .player-card { margin-top: 18rpx; }
+.profile-title {
+  min-width: 0;
+}
+.profile-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+}
+.profile-actions .btn-small {
+  flex: none;
+  white-space: nowrap;
+}
+.profile-actions .btn-small + .btn-small {
+  margin-left: 12rpx;
+}
+
+.optional {
+  margin-left: 10rpx;
+  color: #8993a1;
+  font-size: 22rpx;
+}
+.dota-id-row {
   display: flex;
   align-items: center;
-  padding: 18rpx 8rpx;
-  border-bottom: 1rpx solid rgba(224, 181, 111, 0.08);
+  gap: 14rpx;
 }
-.user-row:last-child {
-  border-bottom: none;
+.dota-rank-row {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
 }
-.user-info {
+.dota-id-input {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+}
+.dota-rank-input {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+  color: #bdc4ce;
+}
+.dota-lookup-btn {
+  flex: none;
+  min-width: 86rpx;
+  text-align: center;
+}
+.dota-help {
+  margin-top: 8rpx;
+}
+.dota-verified-time { margin-top: 8rpx; color: #7bc89b; }
+.dota-expired-time { margin-top: 8rpx; color: #d8b979; }
+.dota-lookup-result {
+  display: flex;
+  align-items: center;
+  margin-top: 14rpx;
+  padding: 14rpx 16rpx;
+  border: 1rpx solid rgba(224, 181, 111, 0.2);
+  border-radius: 8rpx;
+  background: rgba(224, 181, 111, 0.06);
+}
+.dota-lookup-copy {
   flex: 1;
   min-width: 0;
 }
+.dota-player-name {
+  overflow: hidden;
+  color: #e8e4da;
+  font-size: 26rpx;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dota-change-btn {
+  flex: none;
+  margin-left: 12rpx;
+}
+.verified-lock {
+  margin-left: 12rpx;
+  color: #7bc89b;
+  font-size: 22rpx;
+}
+.bootstrap-openid-row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin-top: 14rpx;
+}
+.bootstrap-openid {
+  min-width: 0;
+  flex: 1;
+  color: #8c96a5;
+  font-family: Menlo, Consolas, monospace;
+  font-size: 19rpx;
+  word-break: break-all;
+}
+
+/* 超管：分页用户管理 */
+.admin-panel {
+  width: 94%;
+  max-height: 92vh;
+}
+.sort-label {
+  margin-top: 24rpx;
+  color: #98a0ab;
+  font-size: 22rpx;
+}
+.user-sort-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10rpx;
+  margin: 12rpx 0 8rpx;
+}
+.user-sort-option {
+  padding: 10rpx 15rpx;
+  border: 1rpx solid rgba(224, 181, 111, 0.2);
+  border-radius: 10rpx;
+  background: #1a2130;
+  color: #b9c0ca;
+  font-size: 21rpx;
+}
+.user-sort-active {
+  border-color: rgba(224, 181, 111, 0.72);
+  background: rgba(224, 181, 111, 0.15);
+  color: #e8c27c;
+}
+.admin-user-scroll {
+  height: 55vh;
+  min-height: 300rpx;
+}
+.admin-user-row {
+  padding: 18rpx 4rpx;
+  border-bottom: 1rpx solid rgba(224, 181, 111, 0.12);
+}
+.admin-user-info {
+  min-width: 0;
+}
+.admin-user-heading {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
 .user-nick {
+  min-width: 0;
+  flex: 1;
   font-size: 28rpx;
   color: #e8e4da;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.admin-user-meta {
+  margin-top: 7rpx;
+  color: #a5adba;
+  font-size: 21rpx;
+  line-height: 1.45;
+  word-break: break-all;
+}
+.admin-user-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12rpx;
+  margin-top: 14rpx;
+}
+.admin-user-actions .btn-small {
+  min-width: 132rpx;
+  text-align: center;
+}
+.user-page-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12rpx;
+  padding-top: 16rpx;
+}
+.user-page-text {
+  flex: 1;
+  color: #b9c0ca;
+  text-align: center;
+  font-size: 22rpx;
 }

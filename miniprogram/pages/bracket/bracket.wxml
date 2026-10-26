@@ -1,23 +1,86 @@
 <!--pages/bracket/bracket.wxml - 对战赛程-->
-<nav-bar title="对战赛程" />
+<nav-bar title="{{pageTitle}}" />
+<tournament-flow wx:if="{{t}}" tournament="{{t}}" readonly="{{readonly}}" current="{{t.status}}" display-stage="{{stageView}}" settlement-ready="{{settlementReady}}" />
 <view class="container">
   <block wx:if="{{t}}">
+    <view wx:if="{{refreshError}}" class="card">
+      <view class="sub">刷新失败，当前仍显示已加载的比赛信息。</view>
+      <view class="btn-small btn-plain" bindtap="retryLoad">重新加载</view>
+    </view>
+
     <!-- 系统分组：我的战队命名（组长，天梯分最高者） -->
-    <view class="card" wx:if="{{myTeam && !readonly && (t.status === 'draft' || t.status === 'battle')}}">
+    <view class="card" wx:if="{{myTeam && !readonly && (t.status === 'draft' || stageView === 'draft')}}">
       <view class="card-title">我的战队名称</view>
       <view class="sub">你是本队天梯分最高的组长，可为战队命名（最多 10 字）；不填则用默认「{{myTeam.defaultName}}」</view>
       <view class="row">
         <input class="input team-name-input" maxlength="10" placeholder="输入战队名，留空用默认" placeholder-class="ph" value="{{teamNameInput}}" bindinput="onTeamNameInput" />
-        <view class="btn-small" bindtap="onSaveTeamName">保存队名</view>
+        <view class="btn-small" bindtap="onSaveTeamName">保存队伍资料</view>
+      </view>
+      <view class="team-logo-label">战队队标</view>
+      <view class="team-logo-options">
+        <view wx:for="{{teamLogos}}" wx:key="id" class="team-logo-option {{teamIconInput === item.id ? 'team-logo-option-active' : ''}}" data-id="{{item.id}}" bindtap="onTeamIconSelect">
+          <image class="team-logo-image" src="{{item.src}}" mode="aspectFit" />
+          <text>{{item.name}}</text>
+        </view>
+        <view class="team-logo-clear" bindtap="onTeamIconClear">不使用队标</view>
+      </view>
+    </view>
+
+    <!-- 队伍名单，供参赛者从流程栏返回查看 -->
+    <view id="team-stage-edit-anchor" class="card group-edit-card" wx:if="{{groupedTeams.length && t.mode === 'auto' && t.status === 'draft' && isAdmin && !readonly}}">
+      <view class="card-title">分组调整</view>
+      <view class="sub">点击队员名片，再点其他组队员可交换；使用队伍右侧箭头调整首轮落位，保存后组长按组内天梯分更新。</view>
+      <view wx:if="{{groupSaving}}" class="group-save-status">正在保存分组…</view>
+      <view wx:if="{{groupOrderSaving}}" class="group-save-status">正在保存队伍顺序…</view>
+      <view wx:if="{{groupSelection.openid}}" class="group-selection-hint">已选择：{{groupSelection.nickname}}　请点击其他组的队员完成交换 <text bindtap="clearGroupSelection">取消</text></view>
+      <view class="flow-team group-edit-team" wx:for="{{groupedTeams}}" wx:key="teamIndex">
+        <view class="flow-team-head group-edit-head">
+          <view class="flow-team-name">第 {{item.slot + 1}} 组 · {{item.name}}</view>
+          <view class="group-order-tools">
+            <view class="group-order-btn {{item.slot === 0 || groupOrderSaving ? 'group-order-disabled' : ''}}" data-slot="{{item.slot}}" data-dir="-1" catchtap="onGroupMove">↑</view>
+            <view class="group-order-btn {{item.slot === groupedTeams.length - 1 || groupOrderSaving ? 'group-order-disabled' : ''}}" data-slot="{{item.slot}}" data-dir="1" catchtap="onGroupMove">↓</view>
+          </view>
+        </view>
+        <view class="flow-team-members">
+          <view wx:for="{{item.members}}" wx:key="openid" wx:for-item="member" class="group-edit-member-row">
+            <view class="group-edit-select {{groupSelection.openid === member.openid ? 'group-edit-member-selected' : ''}}" data-team-index="{{item.teamIndex}}" data-openid="{{member.openid}}" bindtap="onOpenGroupSwap">
+              <player-card player="{{member}}" card-style="{{member.cardStyle}}" compact="{{true}}" />
+            </view>
+            <view class="group-edit-replace" data-team-index="{{item.teamIndex}}" data-openid="{{member.openid}}" catchtap="onOpenGroupSubstitution">替换为替补队员</view>
+          </view>
+        </view>
+      </view>
+      <view class="btn group-start-bracket {{groupOrderSaving || groupSaving ? 'btn-disabled' : ''}}" bindtap="onStartBracket">生成对阵并开始</view>
+    </view>
+
+    <view id="team-stage-anchor" class="card" wx:if="{{groupedTeams.length && (t.status === 'draft' || stageView === 'draft') && !(t.mode === 'auto' && t.status === 'draft' && isAdmin && !readonly)}}">
+      <view class="card-title">{{t.mode === 'auto' ? '系统分组结果' : '参赛队伍'}}</view>
+      <view class="flow-team {{index === 0 ? 'flow-team-first' : ''}}" wx:for="{{groupedTeams}}" wx:key="teamIndex">
+        <view class="flow-team-head">
+          <image wx:if="{{item.teamIconSrc}}" class="team-logo-image" src="{{item.teamIconSrc}}" mode="aspectFit" />
+          <view class="flow-team-name">{{item.name}}</view>
+        </view>
+        <view class="flow-team-members">
+          <player-card
+            wx:for="{{item.members}}"
+            wx:key="openid"
+            wx:for-item="member"
+            player="{{member}}"
+            card-style="{{member.cardStyle}}"
+            compact="{{true}}"
+          />
+        </view>
       </view>
     </view>
 
     <!-- 晋级树形图（赛程生成后才有） -->
-    <view class="tree-head" wx:if="{{t.matches.length > 0}}">
+    <view id="battle-stage-anchor" class="flow-anchor" wx:if="{{stageView === 'battle'}}"></view>
+    <view class="tree-head" wx:if="{{stageView === 'battle' && t.matches.length > 0}}">
       <view class="tree-title">晋级树形图</view>
-      <view class="tree-toggle" bindtap="{{showTree ? 'onHideTree' : 'onShowTree'}}">{{showTree ? '收起晋级图' : '查看晋级图'}}</view>
+      <view wx:if="{{showTree}}" class="tree-toggle" bindtap="onHideTree">收起晋级图</view>
+      <view wx:else class="tree-toggle" bindtap="onShowTree">查看晋级图</view>
     </view>
-    <scroll-view class="tree-scroll" scroll-x wx:if="{{showTree}}">
+    <scroll-view class="tree-scroll" scroll-x wx:if="{{stageView === 'battle' && showTree}}">
       <view class="tree-canvas" style="width:{{treeW}}rpx;height:{{treeH}}rpx;">
         <!-- 连线（胜者金色实线 / 败者灰色虚线） -->
         <view
@@ -38,15 +101,15 @@
           <view class="tree-node-head">
             <text class="tree-node-status {{nd.status === 'done' ? 'done' : ''}}">{{nd.status === 'done' ? '已结束' : '待打'}}</text>
           </view>
-          <view class="tree-node-team {{nd.status === 'done' && nd.winner === nd.teamAInfo.openid ? 'win' : ''}}">
-            <text class="tn-name">{{nd.displayA}}</text>
+          <view class="tree-node-team tree-node-team-clickable {{nd.status === 'done' && nd.winner === nd.teamAInfo.openid ? 'win' : ''}}" data-mid="{{nd.id}}" data-side="A" bindtap="showMembers">
+            <image wx:if="{{nd.teamAInfo.teamIconSrc}}" class="tree-team-logo" src="{{nd.teamAInfo.teamIconSrc}}" mode="aspectFit" />
+            <text class="tn-name tn-name-clickable">{{nd.displayA}}</text>
             <text class="tn-score" wx:if="{{nd.status === 'done'}}">{{nd.scoreA}}</text>
-            <text class="tn-expand" wx:if="{{nd.membersA}}" data-mid="{{nd.id}}" data-side="A" bindtap="showMembers">队员</text>
           </view>
-          <view class="tree-node-team {{nd.status === 'done' && nd.winner === nd.teamBInfo.openid ? 'win' : ''}}">
-            <text class="tn-name">{{nd.displayB}}</text>
+          <view class="tree-node-team tree-node-team-clickable {{nd.status === 'done' && nd.winner === nd.teamBInfo.openid ? 'win' : ''}}" data-mid="{{nd.id}}" data-side="B" bindtap="showMembers">
+            <image wx:if="{{nd.teamBInfo.teamIconSrc}}" class="tree-team-logo" src="{{nd.teamBInfo.teamIconSrc}}" mode="aspectFit" />
+            <text class="tn-name tn-name-clickable">{{nd.displayB}}</text>
             <text class="tn-score" wx:if="{{nd.status === 'done'}}">{{nd.scoreB}}</text>
-            <text class="tn-expand" wx:if="{{nd.membersB}}" data-mid="{{nd.id}}" data-side="B" bindtap="showMembers">队员</text>
           </view>
           <view class="tree-node-admin" wx:if="{{nd.showAdmin && nd.status !== 'done'}}">
             <picker mode="selector" range="{{nd.boRange}}" value="{{nd.boIndex}}" bindchange="onBoChange" data-id="{{nd.id}}">
@@ -60,10 +123,118 @@
     </scroll-view>
 
     <!-- 冠军 -->
-    <view wx:if="{{t.champion}}" class="champion-banner">冠军：{{t.champion.name}}</view>
+    <!-- 最终结算：总决赛完成后由云函数确定性返回冠亚季军及其他名次 -->
+    <view id="settlement-anchor" wx:if="{{stageView === 'settlement' && settlement}}" class="settlement-card card {{settlementEditing ? 'settlement-ordering' : ''}}">
+      <view class="settlement-head">
+        <view>
+          <view class="card-title">最终结算</view>
+          <view class="sub">双败赛制 · 名次根据已完成赛果生成</view>
+        </view>
+        <view class="settlement-head-tools">
+          <view class="settlement-badge">{{settlementEditing ? '调整中' : '已结算'}}</view>
+          <view wx:if="{{settlement.canManageOrder && !settlementEditing}}" class="btn-small btn-plain settlement-action" bindtap="onEditSettlementOrder">调整名次</view>
+        </view>
+      </view>
+      <view wx:if="{{settlementEditing}}" class="settlement-edit-actions">
+        <view class="btn-small btn-plain settlement-action" bindtap="onResetSettlementOrder">恢复自动</view>
+        <view class="btn-small btn-plain settlement-action" bindtap="onCancelSettlementOrder">取消</view>
+        <view class="btn-small settlement-action {{settlementSaving ? 'btn-disabled' : ''}}" bindtap="onSaveSettlementOrder">{{settlementSaving ? '保存中…' : '保存名次'}}</view>
+      </view>
+
+      <view class="podium-list">
+        <view
+          wx:for="{{settlement.podium}}"
+          wx:key="teamId"
+          wx:for-item="entry"
+          class="podium-item podium-rank-{{entry.rank}}"
+        >
+          <view class="podium-medal">{{entry.rank === 1 ? '冠' : entry.rank === 2 ? '亚' : '季'}}</view>
+          <view class="podium-main">
+            <view class="podium-line">
+              <view class="podium-rank">{{entry.label}}</view>
+              <image wx:if="{{entry.teamIconSrc}}" class="standing-logo" src="{{entry.teamIconSrc}}" mode="aspectFit" />
+              <view class="podium-team">{{entry.teamName}}</view>
+              <view class="spacer"></view>
+              <view wx:if="{{!settlementEditing}}" class="btn-small btn-plain podium-toggle" data-team-id="{{entry.teamId}}" bindtap="toggleSettlementMembers">{{entry.showMembers ? '收起成员' : '查看成员'}}</view>
+              <view wx:if="{{settlementEditing}}" class="settlement-order-controls">
+                <button class="settlement-order-button" size="mini" plain="{{true}}" aria-label="上移" disabled="{{entry.orderIndex === 0 || settlementSaving}}" data-index="{{entry.orderIndex}}" data-direction="-1" bindtap="moveSettlementItem">↑</button>
+                <button class="settlement-order-button" size="mini" plain="{{true}}" aria-label="下移" disabled="{{entry.orderIndex === settlement.items.length - 1 || settlementSaving}}" data-index="{{entry.orderIndex}}" data-direction="1" bindtap="moveSettlementItem">↓</button>
+              </view>
+            </view>
+            <view class="settlement-members" wx:if="{{entry.showMembers && !settlementEditing}}">
+              <view wx:if="{{!entry.members.length}}" class="sub">暂无队员资料</view>
+              <player-card
+                wx:for="{{entry.members}}"
+                wx:key="openid"
+                wx:for-item="member"
+                player="{{member}}"
+                card-style="{{member.cardStyle}}"
+                compact="{{true}}"
+              />
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <view wx:if="{{settlement.others.length}}" class="settlement-other-title">其他名次</view>
+      <view
+        wx:for="{{settlement.others}}"
+        wx:key="teamId"
+        wx:for-item="entry"
+        class="standing-row"
+      >
+        <view class="standing-rank">{{entry.label}}</view>
+        <image wx:if="{{entry.teamIconSrc}}" class="standing-logo" src="{{entry.teamIconSrc}}" mode="aspectFit" />
+        <view class="standing-team">{{entry.teamName}}</view>
+        <view class="spacer"></view>
+        <view wx:if="{{!settlementEditing}}" class="btn-small btn-plain standing-toggle" data-team-id="{{entry.teamId}}" bindtap="toggleSettlementMembers">{{entry.showMembers ? '收起' : '成员'}}</view>
+        <view wx:if="{{settlementEditing}}" class="settlement-order-controls">
+          <button class="settlement-order-button" size="mini" plain="{{true}}" aria-label="上移" disabled="{{entry.orderIndex === 0 || settlementSaving}}" data-index="{{entry.orderIndex}}" data-direction="-1" bindtap="moveSettlementItem">↑</button>
+          <button class="settlement-order-button" size="mini" plain="{{true}}" aria-label="下移" disabled="{{entry.orderIndex === settlement.items.length - 1 || settlementSaving}}" data-index="{{entry.orderIndex}}" data-direction="1" bindtap="moveSettlementItem">↓</button>
+        </view>
+        <view class="standing-members" wx:if="{{entry.showMembers && !settlementEditing}}">
+          <player-card
+            wx:for="{{entry.members}}"
+            wx:key="openid"
+            wx:for-item="member"
+            player="{{member}}"
+            card-style="{{member.cardStyle}}"
+            compact="{{true}}"
+          />
+        </view>
+      </view>
+
+      <view class="comments-section">
+        <view class="comments-heading">
+          <view class="settlement-other-title comments-title">赛后感言</view>
+          <view class="comments-count">{{settlement.comments.length}} 条</view>
+        </view>
+        <view wx:if="{{!settlement.comments.length}}" class="comments-empty">还没有感言，欢迎参赛者和管理员分享这场比赛。</view>
+        <view wx:for="{{settlement.comments}}" wx:key="viewKey" wx:for-item="comment" class="comment-item">
+          <view class="comment-author">{{comment.nickname}}<text wx:if="{{comment.isMine}}" class="comment-mine">我</text></view>
+          <view class="comment-text">{{comment.text}}</view>
+        </view>
+        <view wx:if="{{settlement.canComment}}" class="comment-editor">
+          <view class="comment-hint">每位参赛者和管理员可发布一条感言，之后可以修改（最多 100 字）</view>
+          <textarea
+            class="comment-input"
+            maxlength="100"
+            auto-height
+            value="{{commentText}}"
+            placeholder="写下你对这场比赛的感受…"
+            placeholder-class="ph"
+            bindinput="onCommentInput"
+          />
+          <view class="row comment-actions">
+            <view class="spacer"></view>
+            <view class="btn-small {{commentSaving ? 'btn-disabled' : ''}}" bindtap="onSubmitComment">{{commentSaving ? '提交中…' : (settlement.myComment ? '保存修改' : '发表感言')}}</view>
+          </view>
+        </view>
+      </view>
+    </view>
 
     <!-- 对阵调整（选人/分组完成后、生成对阵前） -->
-    <view class="card" wx:if="{{showSeeding}}">
+    <view class="card" wx:if="{{stageView !== 'battle' && showSeeding && t.mode !== 'auto'}}">
       <view class="card-title">对阵调整（胜者组第一轮落位）</view>
       <view class="sub">共 {{t.N}} 个落位，相邻两个落位互为第一轮对手；可用上移/下移调整顺序或随机排位</view>
       <view class="seed-row" wx:for="{{seedSlots}}" wx:key="slot">
@@ -71,12 +242,14 @@
           <view class="seed-label">落位 {{item.slot + 1}}</view>
           <view class="seed-name">{{item.name}}</view>
           <view class="seed-members">
-            <view class="member-line" wx:for="{{item.members}}" wx:key="openid" wx:for-item="m">
-              <text class="member-name">{{m.nickname}}{{m.isCaptain ? '（组长）' : ''}}</text>
-              <text class="kv"> · 天梯{{m.mmr || '未填'}}</text>
-              <text class="kv" wx:if="{{m.rolesText}}"> · {{m.rolesText}}</text>
-              <text class="kv" wx:if="{{m.signature}}"> · {{m.signature}}</text>
-            </view>
+            <player-card
+              wx:for="{{item.members}}"
+              wx:key="openid"
+              wx:for-item="m"
+              player="{{m}}"
+              card-style="{{m.cardStyle}}"
+              compact="{{true}}"
+            />
           </view>
         </view>
         <view class="seed-btns">
@@ -91,35 +264,27 @@
       </view>
     </view>
 
-    <!-- 系统分组：返回重新分组（管理员，分组完成未生成对阵前） -->
-    <view class="card" wx:if="{{isAdmin && !readonly && t.mode === 'auto' && t.status === 'draft'}}">
-      <view class="card-title">管理员操作</view>
-      <view class="sub">分组已完成，若对分组不满意可返回报名阶段重新分组（报名名单保留）</view>
-      <view class="btn btn-plain" bindtap="onResetGroup">返回重新分组</view>
+    <!-- 选人/分组阶段管理 -->
+    <view class="card" wx:if="{{isAdmin && !readonly && t.status === 'draft'}}">
+      <view class="card-title">赛前管理</view>
+      <view class="sub" wx:if="{{t.mode !== 'auto'}}">队伍信息有误时可替换队员；退回报名会清除队伍和选人进度，但保留报名名单。</view>
+      <view class="sub" wx:else>退回报名会清除分组结果，但保留报名名单。</view>
+      <view class="replacement-list" wx:if="{{replacementTeams.length && t.mode !== 'auto'}}">
+        <view class="replacement-row" wx:for="{{replacementTeams}}" wx:key="teamIndex">
+          <view class="replacement-team">{{item.teamName}}</view>
+          <view class="spacer"></view>
+          <view class="btn-small btn-plain" data-index="{{index}}" bindtap="onOpenReplacement">替换队员</view>
+        </view>
+      </view>
+      <view class="sub" wx:elif="{{t.mode !== 'auto'}}">暂无可替换队员；需要该队已有队员，并且仍有未选队员或候补。</view>
+      <view class="btn btn-plain" data-stage="registration" bindtap="onRollbackStage">退回报名阶段</view>
     </view>
 
-    <!-- 胜者组 -->
-    <block wx:if="{{ubMatches.length}}">
-      <view class="section">胜者组</view>
-      <template is="matchCard" data="{{...item}}" wx:for="{{ubMatches}}" wx:key="id" />
-    </block>
+    <view wx:if="{{stageView === 'battle' && t.matches.length === 0}}" class="empty">赛程还未生成（需先完成选人）</view>
 
-    <!-- 败者组 -->
-    <block wx:if="{{lbMatches.length}}">
-      <view class="section">败者组</view>
-      <template is="matchCard" data="{{...item}}" wx:for="{{lbMatches}}" wx:key="id" />
-    </block>
-
-    <!-- 总决赛 -->
-    <block wx:if="{{gf}}">
-      <view class="section">总决赛</view>
-      <template is="matchCard" data="{{...gf}}" />
-    </block>
-
-    <view wx:if="{{t.status !== 'draft' && t.matches.length === 0}}" class="empty">赛程还未生成（需先完成选人）</view>
-
+    <!-- 对战阶段管理 -->
     <!-- 管理员操作（结束/删除） -->
-    <view class="card" wx:if="{{isAdmin && !readonly && (t.status === 'battle' || t.status === 'finished')}}">
+    <view class="card" wx:if="{{isAdmin && !readonly && t.status === 'finished'}}">
       <view class="card-title">管理员操作</view>
       <view class="sub">{{t.status === 'finished' ? '本场比赛已结束，归档后主页不再显示' : '比赛结束后（产生冠军）才可归档'}}</view>
       <view class="row">
@@ -129,6 +294,18 @@
       </view>
     </view>
   </block>
+
+  <view wx:elif="{{loading}}" class="card">
+    <view class="card-title">正在加载比赛</view>
+    <view class="sub">正在读取赛程和结算信息，请稍候…</view>
+  </view>
+
+  <view wx:elif="{{loadError && !notFound}}" class="card">
+    <view class="card-title">比赛加载失败</view>
+    <view class="sub">{{loadError}}</view>
+    <view class="btn" bindtap="retryLoad">重试</view>
+    <view class="btn btn-plain" bindtap="goBack">返回</view>
+  </view>
 
   <view wx:else class="card">
     <view class="card-title">暂无比赛</view>
@@ -166,17 +343,66 @@
   <view class="mask" wx:if="{{memberPanel.show}}">
     <view class="panel">
       <view class="card-title">{{memberPanel.title}}</view>
-      <view class="sub">报名时填写的资料，队长选人可见</view>
+      <view class="sub">队员名片信息（只读）</view>
       <view class="divider"></view>
       <view wx:if="{{!memberPanel.members.length}}" class="sub">暂无队员信息</view>
-      <view class="member" wx:for="{{memberPanel.members}}" wx:key="openid" wx:for-item="p">
-        <view class="member-name">{{p.nickname}}<text wx:if="{{p.isCaptain}}" class="member-captain">队长</text></view>
-        <view class="member-line">天梯：{{p.mmr ? p.mmr : '未填'}}</view>
-        <view class="member-line" wx:if="{{p.rolesText}}">位置：{{p.rolesText}}</view>
-        <view class="member-line" wx:if="{{p.signature}}">签名：{{p.signature}}</view>
-      </view>
+      <player-card
+        wx:for="{{memberPanel.members}}"
+        wx:key="openid"
+        wx:for-item="p"
+        player="{{p}}"
+        card-style="{{p.cardStyle}}"
+        compact="{{true}}"
+      />
       <view class="row">
         <view class="btn panel-btn" bindtap="closeMembers">关闭</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 管理员替换队员 -->
+  <view class="mask" wx:if="{{replacementPanel.show}}">
+    <view class="panel">
+      <view class="card-title">替换队员</view>
+      <view class="sub">{{replacementPanel.teamName}} · 换下队员会进入{{replacementPanel.incomingLabel}}。</view>
+      <view class="field">
+        <view class="label">换下</view>
+        <view class="replacement-choice">
+          <player-card player="{{replacementPanel.outPlayers[replacementPanel.outIndex]}}" card-style="{{replacementPanel.outPlayers[replacementPanel.outIndex].cardStyle}}" compact="{{true}}" />
+          <view wx:if="{{t.mode !== 'auto'}}" class="btn-small btn-plain replacement-change" bindtap="onOpenReplacementOptions" data-field="outIndex">选择其他队员</view>
+        </view>
+      </view>
+      <view class="field">
+        <view class="label">换上</view>
+        <view class="replacement-choice">
+          <player-card player="{{replacementPanel.inPlayers[replacementPanel.inIndex]}}" card-style="{{replacementPanel.inPlayers[replacementPanel.inIndex].cardStyle}}" compact="{{true}}" />
+          <view class="btn-small btn-plain replacement-change" bindtap="onOpenReplacementOptions" data-field="inIndex">选择其他队员</view>
+        </view>
+      </view>
+      <view class="row">
+        <view class="btn btn-plain panel-btn" bindtap="onCloseReplacement">取消</view>
+        <view class="spacer"></view>
+        <view class="btn panel-btn {{replacementSaving ? 'btn-disabled' : ''}}" bindtap="onConfirmReplacement">{{replacementSaving ? '保存中…' : '确认替换'}}</view>
+      </view>
+    </view>
+    <view class="replacement-options-mask" wx:if="{{replacementPanel.selecting}}" catchtap="onCloseReplacementOptions">
+      <view class="replacement-options-panel" catchtap="noop">
+        <view class="panel-title">{{replacementPanel.selecting === 'outIndex' ? '选择换下队员' : '选择换上队员'}}</view>
+        <scroll-view scroll-y class="replacement-options-list">
+          <view
+            wx:for="{{replacementPanel.selecting === 'outIndex' ? replacementPanel.outPlayers : replacementPanel.inPlayers}}"
+            wx:key="openid"
+            class="replacement-option"
+            data-field="{{replacementPanel.selecting}}"
+            data-index="{{index}}"
+            bindtap="onSelectReplacementPlayer"
+          >
+            <player-card player="{{item}}" card-style="{{item.cardStyle}}" compact="{{true}}" />
+          </view>
+        </scroll-view>
+        <view class="panel-btns">
+          <view class="panel-btn btn-plain" bindtap="onCloseReplacementOptions">取消</view>
+        </view>
       </view>
     </view>
   </view>
@@ -192,33 +418,35 @@
     </view>
     <view class="vs-row">
       <view class="team-col">
-        <view class="team {{status === 'done' && winner === teamAInfo.openid ? 'team-win' : ''}}">{{displayA}}</view>
+        <view class="team team-clickable {{status === 'done' && winner === teamAInfo.openid ? 'team-win' : ''}}" data-id="{{id}}" data-side="A" bindtap="showMembers"><image wx:if="{{teamAInfo.teamIconSrc}}" class="match-team-logo" src="{{teamAInfo.teamIconSrc}}" mode="aspectFit" /><text>{{displayA}}</text></view>
         <view class="team-info-btn" wx:if="{{membersA}}" bindtap="toggleTeam" data-id="{{id}}" data-side="A">队员信息 {{expandedA ? '收起' : '展开'}}</view>
-        <view class="team-members" wx:if="{{expandedA && membersA}}">
-          <view class="member" wx:for="{{membersA}}" wx:key="openid">
-            <view class="member-name">{{item.nickname}}<text wx:if="{{item.isCaptain}}" class="member-captain">队长</text></view>
-            <view class="member-line">天梯：{{item.mmr ? item.mmr : '未填'}}</view>
-            <view class="member-line" wx:if="{{item.rolesText}}">位置：{{item.rolesText}}</view>
-            <view class="member-line" wx:if="{{item.signature}}">签名：{{item.signature}}</view>
-          </view>
-        </view>
       </view>
       <view class="vs-center">
         <view class="score" wx:if="{{status === 'done'}}">{{scoreA}} : {{scoreB}}</view>
         <view class="vs-text" wx:else>VS</view>
       </view>
       <view class="team-col">
-        <view class="team {{status === 'done' && winner === teamBInfo.openid ? 'team-win' : ''}}">{{displayB}}</view>
+        <view class="team team-clickable {{status === 'done' && winner === teamBInfo.openid ? 'team-win' : ''}}" data-id="{{id}}" data-side="B" bindtap="showMembers"><image wx:if="{{teamBInfo.teamIconSrc}}" class="match-team-logo" src="{{teamBInfo.teamIconSrc}}" mode="aspectFit" /><text>{{displayB}}</text></view>
         <view class="team-info-btn" wx:if="{{membersB}}" bindtap="toggleTeam" data-id="{{id}}" data-side="B">队员信息 {{expandedB ? '收起' : '展开'}}</view>
-        <view class="team-members" wx:if="{{expandedB && membersB}}">
-          <view class="member" wx:for="{{membersB}}" wx:key="openid">
-            <view class="member-name">{{item.nickname}}<text wx:if="{{item.isCaptain}}" class="member-captain">队长</text></view>
-            <view class="member-line">天梯：{{item.mmr ? item.mmr : '未填'}}</view>
-            <view class="member-line" wx:if="{{item.rolesText}}">位置：{{item.rolesText}}</view>
-            <view class="member-line" wx:if="{{item.signature}}">签名：{{item.signature}}</view>
-          </view>
-        </view>
       </view>
+    </view>
+    <view class="team-members" wx:if="{{expandedA && membersA}}">
+      <player-card
+        wx:for="{{membersA}}"
+        wx:key="openid"
+        player="{{item}}"
+        card-style="{{item.cardStyle}}"
+        compact="{{true}}"
+      />
+    </view>
+    <view class="team-members" wx:if="{{expandedB && membersB}}">
+      <player-card
+        wx:for="{{membersB}}"
+        wx:key="openid"
+        player="{{item}}"
+        card-style="{{item.cardStyle}}"
+        compact="{{true}}"
+      />
     </view>
     <view class="row admin-row" wx:if="{{showAdmin && status !== 'done'}}">
       <picker mode="selector" range="{{boRange}}" value="{{boIndex}}" bindchange="onBoChange" data-id="{{id}}">

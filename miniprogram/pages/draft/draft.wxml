@@ -1,6 +1,11 @@
 <!--pages/draft/draft.wxml - 队长选人-->
 <nav-bar title="队长选人" />
+<tournament-flow wx:if="{{t}}" tournament="{{t}}" readonly="{{readonly}}" display-stage="{{stageView}}" settlement-ready="{{t.standings && t.standings.complete}}" />
 <view class="container">
+  <view wx:if="{{refreshError}}" class="card">
+    <view class="sub">刷新失败，当前显示的是上次加载的数据。</view>
+    <view class="btn-small btn-plain" bindtap="retryLoad">重新加载</view>
+  </view>
   <block wx:if="{{t && t.draftInfo}}">
     <!-- 轮次状态 -->
     <view class="card">
@@ -29,48 +34,59 @@
       <view class="team-card" wx:for="{{t.draftInfo.picks}}" wx:key="teamIndex">
         <view class="team-head">
           <view class="team-name">{{item.captain && item.captain.teamName ? item.captain.teamName : '队长' + (item.teamIndex + 1)}}</view>
-          <view class="sub">{{item.captain ? item.captain.nickname : ''}}</view>
           <view class="spacer"></view>
           <view class="tag tag-gray">{{item.players.length}}/{{t.K}}</view>
         </view>
-        <view class="team-players" wx:if="{{item.players.length}}">
-          <view class="player-chip" wx:for="{{item.players}}" wx:for-item="p" wx:key="openid">
-            <view class="pc-name">{{p.nickname}}</view>
-            <view class="pc-roles" wx:if="{{p.rolesText}}">{{p.rolesText}}</view>
-          </view>
+        <view class="team-players" wx:if="{{item.captain || item.players.length}}">
+          <player-card wx:if="{{item.captain}}" player="{{item.captain}}" card-style="{{item.captain.cardStyle}}" compact="{{true}}" />
+          <player-card
+            wx:for="{{item.players}}"
+            wx:key="openid"
+            wx:for-item="p"
+            player="{{p}}"
+            card-style="{{p.cardStyle}}"
+            compact="{{true}}"
+          />
         </view>
         <view class="sub" wx:else>未选队员</view>
       </view>
     </view>
 
-    <!-- 剩余队员 -->
-    <view class="section">可选队员（{{t.draftInfo.remainingPlayers.length}}）</view>
-    <view wx:if="{{t.draftInfo.remainingPlayers.length === 0}}" class="empty">没有剩余队员了</view>
-    <view class="card" wx:for="{{t.draftInfo.remainingPlayers}}" wx:key="openid">
-      <view class="row">
-        <view class="nick">{{item.nickname}}</view>
-        <view class="spacer"></view>
-        <view wx:if="{{canPick || isAdmin}}" class="btn-small" data-openid="{{item.openid}}" data-name="{{item.nickname}}" bindtap="onPick">选他</view>
-        <view wx:else class="sub">等待轮到你</view>
+    <!-- 剩余队员（仅选人阶段） -->
+    <block wx:if="{{t.status === 'draft' && !readonly}}">
+      <view class="section">可选队员（{{t.draftInfo.remainingPlayers.length}}）</view>
+      <view wx:if="{{t.draftInfo.remainingPlayers.length === 0}}" class="empty">没有剩余队员了</view>
+      <view class="card draft-player-row" wx:for="{{t.draftInfo.remainingPlayers}}" wx:key="openid">
+        <player-card player="{{item}}" card-style="{{item.cardStyle}}" compact="{{true}}" />
+        <view class="row">
+          <view wx:if="{{canPick || isAdmin}}" class="btn-small" data-openid="{{item.openid}}" data-name="{{item.nickname}}" bindtap="onPick">选他</view>
+          <view wx:else class="sub">等待轮到你</view>
+        </view>
       </view>
-      <view class="pinfo" wx:if="{{item.mmrText || item.rolesText || item.signature}}">
-        <text class="kv">{{item.mmrText}}</text>
-        <text wx:if="{{item.mmrText && item.rolesText}}"> · </text>
-        <text>{{item.rolesText}}</text>
-        <text wx:if="{{item.signature}}"> · {{item.signature}}</text>
-      </view>
-      <view class="pinfo" wx:else>未填写天梯分 / 位置 / 签名</view>
-    </view>
+    </block>
 
     <!-- 管理员 -->
-    <view class="card" wx:if="{{isAdmin}}">
+    <view class="card" wx:if="{{isAdmin && !readonly}}">
       <view class="card-title">管理员操作</view>
       <view class="sub">可代当前轮次队长选人（直接点上方「选他」）；选人完成后生成对阵进入对战阶段</view>
       <view class="btn" wx:if="{{t.draftInfo.done}}" bindtap="onStartBracket">生成对阵并进入对战</view>
+      <view class="btn btn-plain" bindtap="onOpenStageManagement">队伍管理与阶段回退</view>
       <view class="btn btn-plain" bindtap="onResetDraft">重置选人（重新随机队长顺序）</view>
       <view class="btn btn-danger" bindtap="onDelete">删除比赛</view>
     </view>
   </block>
+
+  <view wx:elif="{{loading}}" class="card">
+    <view class="card-title">正在加载比赛</view>
+    <view class="sub">请稍候…</view>
+  </view>
+
+  <view wx:elif="{{loadError}}" class="card">
+    <view class="card-title">比赛加载失败</view>
+    <view class="sub">{{loadError}}</view>
+    <view class="btn" bindtap="retryLoad">重试</view>
+    <view class="btn btn-plain" bindtap="goBack">返回主页</view>
+  </view>
 
   <view wx:elif="{{t}}" class="card">
     <view class="card-title">当前不在选人阶段</view>
