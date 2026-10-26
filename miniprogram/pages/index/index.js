@@ -372,9 +372,9 @@ Page({
       return;
     }
     wx.showModal({
-      title: '移入回收站',
+      title: '删除确认',
       content: '「' + item.name + '」及其比赛数据会移入回收站，可稍后恢复。确定删除？',
-      confirmText: '移入回收站',
+      confirmText: '确认移入',
       confirmColor: '#e5484d',
       success: (res) => {
         if (!res.confirm) return;
@@ -443,7 +443,7 @@ Page({
     const item = this.data.trash[Number(e.currentTarget.dataset.index)];
     if (!item) return;
     wx.showModal({
-      title: '彻底删除',
+      title: '删除确认',
       content: '彻底删除「' + item.name + '」后将无法恢复，确定删除？',
       confirmText: '彻底删除',
       confirmColor: '#e5484d',
@@ -496,9 +496,9 @@ Page({
     const item = this.data.today[e.currentTarget.dataset.index];
     if (!item) return;
     wx.showModal({
-      title: '移入回收站',
+      title: '删除确认',
       content: '「' + item.name + '」及其报名、选人和赛程数据将移入回收站，可稍后恢复。确定继续？',
-      confirmText: '移入回收站',
+      confirmText: '确认移入',
       confirmColor: '#e5484d',
       success: (res) => {
         if (res.confirm) {
@@ -571,9 +571,9 @@ Page({
       return;
     }
     wx.showModal({
-      title: '移入回收站',
+      title: '删除确认',
       content: '「' + item.name + '」及其报名、选人和赛程数据将移入回收站，可稍后恢复。确定继续？',
-      confirmText: '移入回收站',
+      confirmText: '确认移入',
       confirmColor: '#e5484d',
       success: (res) => {
         if (!res.confirm) return;

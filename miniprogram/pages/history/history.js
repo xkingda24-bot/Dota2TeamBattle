@@ -181,9 +181,9 @@ Page({
       return;
     }
     wx.showModal({
-      title: '移入回收站',
+      title: '删除确认',
       content: '「' + name + '」及其比赛数据会移入回收站，可稍后恢复。确定删除？',
-      confirmText: '移入回收站',
+      confirmText: '确认移入',
       confirmColor: '#e5484d',
       success: (result) => {
         if (!result.confirm) return;
