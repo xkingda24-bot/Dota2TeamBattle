@@ -89,35 +89,24 @@
       <view class="divider"></view>
       <view wx:if="{{t.mode !== 'auto' && activeTab === 'captain'}}">
         <view wx:if="{{captainList.length === 0}}" class="empty">还没有队长报名</view>
-        <view class="reg-row" wx:for="{{captainList}}" wx:key="openid">
+        <view class="reg-row" wx:for="{{captainList}}" wx:key="openid" data-role="captain" data-openid="{{item.openid}}" data-nickname="{{item.nickname}}" bindtap="onMemberTap">
           <view wx:if="{{item.teamIconSrc || item.teamName}}" class="reg-team-line">
             <image wx:if="{{item.teamIconSrc}}" class="captain-team-logo" src="{{item.teamIconSrc}}" mode="aspectFit" />
             <text wx:if="{{item.teamName}}" class="team-tag">{{item.teamName}}</text>
           </view>
           <player-card player="{{item}}" card-style="{{item.cardStyle}}" />
-          <view class="reg-actions" wx:if="{{isAdmin && t.status === 'registration'}}">
-            <view wx:if="{{isAdmin && t.status === 'registration'}}" class="btn-small btn-danger" data-openid="{{item.openid}}" data-nickname="{{item.nickname}}" bindtap="onRemoveReg">移除</view>
-          </view>
         </view>
       </view>
       <view wx:elif="{{activeTab === 'player' || (t.mode === 'auto' && activeTab === 'captain')}}">
         <view wx:if="{{playerList.length === 0}}" class="empty">还没有队员报名</view>
-        <view class="reg-row" wx:for="{{playerList}}" wx:key="openid">
+        <view class="reg-row" wx:for="{{playerList}}" wx:key="openid" data-role="player" data-openid="{{item.openid}}" data-nickname="{{item.nickname}}" bindtap="onMemberTap">
           <player-card player="{{item}}" card-style="{{item.cardStyle}}" />
-          <view class="reg-actions" wx:if="{{isAdmin && t.status === 'registration'}}">
-            <view wx:if="{{isAdmin && t.status === 'registration'}}" class="btn-small btn-plain" data-openid="{{item.openid}}" data-nickname="{{item.nickname}}" data-to="waitlist" bindtap="onMoveReg">移入替补</view>
-            <view wx:if="{{isAdmin && t.status === 'registration'}}" class="btn-small btn-danger" data-openid="{{item.openid}}" data-nickname="{{item.nickname}}" bindtap="onRemoveReg">移除</view>
-          </view>
         </view>
       </view>
       <view wx:else>
         <view wx:if="{{waitlistList.length === 0}}" class="empty">还没有替补报名</view>
-        <view class="reg-row" wx:for="{{waitlistList}}" wx:key="openid">
+        <view class="reg-row" wx:for="{{waitlistList}}" wx:key="openid" data-role="waitlist" data-openid="{{item.openid}}" data-nickname="{{item.nickname}}" bindtap="onMemberTap">
           <player-card player="{{item}}" card-style="{{item.cardStyle}}" />
-          <view class="reg-actions" wx:if="{{isAdmin && t.status === 'registration'}}">
-            <view wx:if="{{isAdmin && t.status === 'registration'}}" class="btn-small btn-plain" data-openid="{{item.openid}}" data-nickname="{{item.nickname}}" data-to="player" bindtap="onMoveReg">移入队员</view>
-            <view wx:if="{{isAdmin && t.status === 'registration'}}" class="btn-small btn-danger" data-openid="{{item.openid}}" data-nickname="{{item.nickname}}" bindtap="onRemoveReg">移除</view>
-          </view>
         </view>
       </view>
     </view>
@@ -181,6 +170,19 @@
     <view class="panel-btns">
       <view class="panel-btn btn-plain" bindtap="onCloseTeamModal">取消</view>
       <view class="panel-btn btn {{teamNameSaving ? 'btn-disabled' : ''}}" bindtap="onSaveTeamName">{{teamNameSaving ? '保存中…' : '保存'}}</view>
+    </view>
+  </view>
+</view>
+<!-- 管理员：点击报名名片弹出的成员操作面板 -->
+<view class="mask" wx:if="{{memberAction.show}}" catchtap="onCloseMemberAction">
+  <view class="panel team-config-panel" catchtap="noop">
+    <view class="panel-title">{{memberAction.nickname}}</view>
+    <view class="panel-sub">{{memberAction.role === 'captain' ? '队长报名' : memberAction.role === 'waitlist' ? '替补报名' : '队员报名'}} · 管理员操作</view>
+    <view class="divider"></view>
+    <view class="panel-btns">
+      <view wx:if="{{memberAction.role === 'player'}}" class="panel-btn btn-plain" data-openid="{{memberAction.openid}}" data-nickname="{{memberAction.nickname}}" data-to="waitlist" bindtap="onMoveReg">移入替补</view>
+      <view wx:if="{{memberAction.role === 'waitlist'}}" class="panel-btn btn-plain" data-openid="{{memberAction.openid}}" data-nickname="{{memberAction.nickname}}" data-to="player" bindtap="onMoveReg">移入队员</view>
+      <view class="panel-btn btn-danger" data-openid="{{memberAction.openid}}" data-nickname="{{memberAction.nickname}}" bindtap="onRemoveReg">移除</view>
     </view>
   </view>
 </view>

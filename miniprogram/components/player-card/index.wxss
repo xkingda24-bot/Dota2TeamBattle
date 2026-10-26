@@ -1,8 +1,8 @@
 .player-card {
   position: relative;
   overflow: hidden;
-  min-height: 194rpx;
-  padding: 26rpx 28rpx;
+  min-height: 100rpx;
+  padding: 16rpx 20rpx;
   border-radius: 18rpx;
   border: 2rpx solid rgba(230, 192, 122, .66);
   box-sizing: border-box;
@@ -19,18 +19,20 @@
   background: radial-gradient(circle, rgba(220, 181, 105, .22), rgba(220, 181, 105, 0) 68%);
   pointer-events: none;
 }
-.player-card-content { position: relative; z-index: 2; }
-.player-card-heading { display: flex; align-items: center; gap: 12rpx; }
-.player-card-role { padding: 4rpx 12rpx; border-radius: 16rpx; color: #201809; background: #e2ba70; font-size: 19rpx; }
+.player-card-content { position: relative; z-index: 2; display: flex; align-items: center; gap: 16rpx; }
+.player-card-heading { display: flex; align-items: center; gap: 12rpx; flex: 1; min-width: 0; }
+.player-card-role { padding: 4rpx 12rpx; border-radius: 16rpx; color: #201809; background: #e2ba70; font-size: 19rpx; flex: none; }
 .player-card-name { flex: 1; min-width: 0; margin-top: 0; color: #f1e6cf; font-size: 38rpx; line-height: 1.2; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.player-card-meta { display: flex; align-items: center; gap: 14rpx; margin-top: 12rpx; color: rgba(223, 208, 177, .83); font-size: 22rpx; }
+.player-card-side { flex: 0 1 auto; min-width: 0; max-width: 62%; }
+.player-card-meta { display: flex; align-items: center; justify-content: flex-end; gap: 14rpx; margin-top: 0; color: rgba(223, 208, 177, .83); font-size: 22rpx; }
 .player-card-dota { flex: 0 1 auto; min-width: 0; margin-top: 0; color: rgba(230, 214, 183, .9); font-size: 21rpx; line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .player-card-location { flex-shrink: 0; white-space: nowrap; }
-.player-card-signature { margin-top: 10rpx; max-width: 92%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: rgba(235, 229, 216, .72); font-size: 21rpx; }
-.player-card-compact { min-height: 138rpx; padding: 18rpx 22rpx; }
+.player-card-signature { margin-top: 3rpx; max-width: 100%; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: rgba(235, 229, 216, .72); font-size: 21rpx; }
+.player-card-compact { min-height: 84rpx; padding: 10rpx 14rpx; }
 .player-card-compact .player-card-name { font-size: 32rpx; }
 .player-card-compact .player-card-dota { font-size: 19rpx; }
-.player-card-compact .player-card-meta { margin-top: 8rpx; font-size: 20rpx; }
+.player-card-compact .player-card-meta { margin-top: 0; font-size: 20rpx; }
+.player-card-compact .player-card-signature { margin-top: 2rpx; }
 
 /* 背景 */
 .card-bg-arena { background: radial-gradient(ellipse at 82% 5%, rgba(213, 159, 76, .25), transparent 43%), linear-gradient(135deg, #283142, #111722 74%); }

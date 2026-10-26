@@ -45,6 +45,8 @@ Page({
     teamNameSaving: false,
     teamNameDirty: false, // 输入框正在编辑中，轮询刷新不要覆盖
     grouping: false,
+    // 管理员点击报名名片弹出的成员操作面板
+    memberAction: { show: false, openid: '', nickname: '', role: '' },
   },
 
   onLoad(options) {
@@ -294,6 +296,24 @@ Page({
     });
   },
 
+  /* 管理员：点击报名名片弹出操作面板（移入替补/移回队员/移除） */
+  onMemberTap(e) {
+    const t = this.data.t;
+    if (!t || this.data.readonly || !this.data.isAdmin || t.status !== 'registration') return;
+    this.setData({
+      memberAction: {
+        show: true,
+        openid: e.currentTarget.dataset.openid,
+        nickname: e.currentTarget.dataset.nickname,
+        role: e.currentTarget.dataset.role,
+      },
+    });
+  },
+
+  onCloseMemberAction() {
+    this.setData({ 'memberAction.show': false });
+  },
+
   onRemoveReg(e) {
     const t = this.data.t;
     if (!t || this.data.readonly || !this.data.isAdmin) return;
@@ -308,6 +328,7 @@ Page({
             .call('removeRegistration', { id: t.id, openid })
             .then(() => {
               wx.showToast({ title: '已移除', icon: 'success' });
+              this.onCloseMemberAction();
               this.load();
             })
             .catch((err) => wx.showToast({ title: err.message, icon: 'none' }));
@@ -333,6 +354,7 @@ Page({
             .call('moveRegistration', { id: t.id, openid, toRole: to })
             .then(() => {
               wx.showToast({ title: '已调整', icon: 'success' });
+              this.onCloseMemberAction();
               this.load();
             })
             .catch((err) => wx.showToast({ title: err.message, icon: 'none' }));

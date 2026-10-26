@@ -570,6 +570,7 @@ function summarize(t, myOpenid) {
   const mode = t.mode === 'auto' ? 'auto' : 'captain';
   const caps = (t.registrations || []).filter((r) => r.role === 'captain').length;
   const players = (t.registrations || []).filter((r) => r.role === 'player').length;
+  const waitlist = (t.registrations || []).filter((r) => r.role === 'waitlist').length;
   return {
     id: t._id,
     name: t.name,
@@ -582,6 +583,8 @@ function summarize(t, myOpenid) {
     captainTotal: mode === 'auto' ? 0 : t.N,
     playerFilled: players,
     playerTotal: t.N * t.K,
+    waitlistFilled: waitlist,
+    waitLimit: t.waitLimit || 0,
     champion: t.champion || null,
     creatorName: t.creatorName || '',
     createdAt: t.createdAt,
@@ -1249,6 +1252,23 @@ const actions = {
     return ok({ role, auto });
   },
 
+  /* 队伍改名后同步对阵快照：晋级图/赛程列表按 match.teamX 的 name/teamIcon 展示，需与新队名一致 */
+  syncMatchNames(t, teamIndex, captain) {
+    const seeding = Array.isArray(t.seeding) ? t.seeding : (t.teams || []).map((_, i) => i);
+    const slot = seeding.indexOf(teamIndex);
+    const slotOpenid = 'T' + (slot >= 0 ? slot : teamIndex);
+    return (t.matches || []).map((m) => {
+      const nm = Object.assign({}, m);
+      ['teamA', 'teamB'].forEach((side) => {
+        const src = nm[side];
+        if (src && src.type === 'team' && src.openid === slotOpenid) {
+          nm[side] = Object.assign({}, src, { name: captain.teamName || '', teamIcon: captain.teamIcon || '' });
+        }
+      });
+      return nm;
+    });
+  },
+
   /* 设置队伍名称（队长本人/组长本人或管理员；队长选人模式报名阶段，系统分组模式分组完成后；最多 10 个字） */
   async setTeamName(event) {
     const openid = getOpenId();
@@ -1277,23 +1297,40 @@ const actions = {
       teams[ti] = Object.assign({}, teams[ti], {
         captain: Object.assign({}, teams[ti].captain, Object.assign({ teamName }, hasTeamIcon ? { teamIcon } : {})),
       });
-      await db.collection('tournaments').doc(t._id).update({ data: { teams } });
+      await db.collection('tournaments').doc(t._id).update({ data: { teams, matches: actions.syncMatchNames(t, ti, teams[ti].captain) } });
       return ok(true);
     }
 
-    // 队长选人模式（原逻辑）：报名阶段队长命名
-    if (t.status !== 'registration') return fail('只有报名阶段可以设置队伍名称');
-    const registrations = (t.registrations || []).map((r) => Object.assign({}, r));
-    const idx = registrations.findIndex((r) => r.openid === targetOpenid && r.role === 'captain');
-    if (idx < 0) return fail('只能为已报名的队长设置队伍名称');
-    if (hasTeamIcon && teamIcon) {
-      const logoState = await getTeamLogoState();
-      const existingIcon = registrations[idx].teamIcon || '';
-      if (logoState.logoIds.indexOf(teamIcon) < 0 && teamIcon !== existingIcon) return fail('请选择当前可用的队标预设');
+    // 队长选人模式：报名阶段命名（更新队长报名记录）；选人/对战阶段命名（更新队伍结构，队伍显示读 teams）
+    if (t.status === 'registration') {
+      const registrations = (t.registrations || []).map((r) => Object.assign({}, r));
+      const idx = registrations.findIndex((r) => r.openid === targetOpenid && r.role === 'captain');
+      if (idx < 0) return fail('只能为已报名的队长设置队伍名称');
+      if (hasTeamIcon && teamIcon) {
+        const logoState = await getTeamLogoState();
+        const existingIcon = registrations[idx].teamIcon || '';
+        if (logoState.logoIds.indexOf(teamIcon) < 0 && teamIcon !== existingIcon) return fail('请选择当前可用的队标预设');
+      }
+      registrations[idx] = Object.assign({}, registrations[idx], Object.assign({ teamName }, hasTeamIcon ? { teamIcon } : {}));
+      await db.collection('tournaments').doc(t._id).update({ data: { registrations } });
+      return ok(true);
     }
-    registrations[idx] = Object.assign({}, registrations[idx], Object.assign({ teamName }, hasTeamIcon ? { teamIcon } : {}));
-    await db.collection('tournaments').doc(t._id).update({ data: { registrations } });
-    return ok(true);
+    if (t.status === 'draft' || t.status === 'battle') {
+      const teams = (t.teams || []).map((tm) => Object.assign({}, tm));
+      const ti = teams.findIndex((tm) => tm.captain && tm.captain.openid === targetOpenid);
+      if (ti < 0) return fail('只能由本队队长或管理员设置队伍名称');
+      if (hasTeamIcon && teamIcon) {
+        const logoState = await getTeamLogoState();
+        const existingIcon = teams[ti].captain.teamIcon || '';
+        if (logoState.logoIds.indexOf(teamIcon) < 0 && teamIcon !== existingIcon) return fail('请选择当前可用的队标预设');
+      }
+      teams[ti] = Object.assign({}, teams[ti], {
+        captain: Object.assign({}, teams[ti].captain, Object.assign({ teamName }, hasTeamIcon ? { teamIcon } : {})),
+      });
+      await db.collection('tournaments').doc(t._id).update({ data: { teams, matches: actions.syncMatchNames(t, ti, teams[ti].captain) } });
+      return ok(true);
+    }
+    return fail('当前阶段不能设置队伍名称');
   },
 
   /* 管理员：报名阶段把队员移入替补 / 替补移回队员 */
@@ -1372,7 +1409,7 @@ const actions = {
       data: {
         status: 'draft',
         captainOrder,
-        draft: { turn: 0, picks: captainOrder.map(() => []) },
+        draft: _.set({ turn: 0, picks: captainOrder.map(() => []) }),
       },
     });
     return ok(true);
@@ -1444,7 +1481,7 @@ const actions = {
     await db.collection('tournaments').doc(t._id).update({
       data: {
         captainOrder,
-        draft: { turn: 0, picks: captainOrder.map(() => []) },
+        draft: _.set({ turn: 0, picks: captainOrder.map(() => []) }),
       },
     });
     return ok(true);

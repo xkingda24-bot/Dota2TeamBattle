@@ -8,8 +8,8 @@
       <view class="btn-small btn-plain" bindtap="retryLoad">重新加载</view>
     </view>
 
-    <!-- 系统分组：我的战队命名（组长，天梯分最高者） -->
-    <view class="card" wx:if="{{myTeam && !readonly && (t.status === 'draft' || stageView === 'draft')}}">
+    <!-- 我的战队命名（auto：组长天梯分最高者；captain：本队队长） -->
+    <view class="card" wx:if="{{myTeam && !readonly && (t.status === 'draft' || t.status === 'battle')}}">
       <view class="card-title">我的战队名称</view>
       <view class="sub">你是本队天梯分最高的组长，可为战队命名（最多 10 字）；不填则用默认「{{myTeam.defaultName}}」</view>
       <view class="row">
@@ -46,7 +46,7 @@
             <view class="group-edit-select {{groupSelection.openid === member.openid ? 'group-edit-member-selected' : ''}}" data-team-index="{{item.teamIndex}}" data-openid="{{member.openid}}" bindtap="onOpenGroupSwap">
               <player-card player="{{member}}" card-style="{{member.cardStyle}}" compact="{{true}}" />
             </view>
-            <view class="group-edit-replace" data-team-index="{{item.teamIndex}}" data-openid="{{member.openid}}" catchtap="onOpenGroupSubstitution">替换为替补队员</view>
+            <view class="group-edit-replace" data-team-index="{{item.teamIndex}}" data-openid="{{member.openid}}" catchtap="onOpenGroupSubstitution">⇄</view>
           </view>
         </view>
       </view>
@@ -106,10 +106,18 @@
             <text class="tn-name tn-name-clickable">{{nd.displayA}}</text>
             <text class="tn-score" wx:if="{{nd.status === 'done'}}">{{nd.scoreA}}</text>
           </view>
+          <view class="tn-actions" wx:if="{{nd.stage === 'UB1'}}">
+            <view wx:if="{{nd.canEditA}}" class="tn-btn tn-btn-config" data-openid="{{nd.teamACaptain.openid}}" data-name="{{nd.teamACaptain.teamName || ''}}" data-icon="{{nd.teamACaptain.teamIcon || ''}}" data-title="{{nd.displayA}}" catchtap="openTeamConfig">设置队名和队标</view>
+            <view class="tn-btn tn-btn-members" data-mid="{{nd.id}}" data-side="A" catchtap="showMembers">人员详情</view>
+          </view>
           <view class="tree-node-team tree-node-team-clickable {{nd.status === 'done' && nd.winner === nd.teamBInfo.openid ? 'win' : ''}}" data-mid="{{nd.id}}" data-side="B" bindtap="showMembers">
             <image wx:if="{{nd.teamBInfo.teamIconSrc}}" class="tree-team-logo" src="{{nd.teamBInfo.teamIconSrc}}" mode="aspectFit" />
             <text class="tn-name tn-name-clickable">{{nd.displayB}}</text>
             <text class="tn-score" wx:if="{{nd.status === 'done'}}">{{nd.scoreB}}</text>
+          </view>
+          <view class="tn-actions" wx:if="{{nd.stage === 'UB1'}}">
+            <view wx:if="{{nd.canEditB}}" class="tn-btn tn-btn-config" data-openid="{{nd.teamBCaptain.openid}}" data-name="{{nd.teamBCaptain.teamName || ''}}" data-icon="{{nd.teamBCaptain.teamIcon || ''}}" data-title="{{nd.displayB}}" catchtap="openTeamConfig">设置队名和队标</view>
+            <view class="tn-btn tn-btn-members" data-mid="{{nd.id}}" data-side="B" catchtap="showMembers">人员详情</view>
           </view>
           <view class="tree-node-admin" wx:if="{{nd.showAdmin && nd.status !== 'done'}}">
             <picker mode="selector" range="{{nd.boRange}}" value="{{nd.boIndex}}" bindchange="onBoChange" data-id="{{nd.id}}">
@@ -403,6 +411,33 @@
         <view class="panel-btns">
           <view class="panel-btn btn-plain" bindtap="onCloseReplacementOptions">取消</view>
         </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 晋级图第一轮：设置队名和队标（队长本人或管理员） -->
+  <view class="mask" wx:if="{{teamConfigPanel.show}}">
+    <view class="panel">
+      <view class="card-title">设置队名和队标</view>
+      <view class="sub">{{teamConfigPanel.title}} · 队名最多 10 个字，留空用默认名</view>
+      <view class="field">
+        <view class="label">队伍名称</view>
+        <input class="input team-name-input" maxlength="10" placeholder="输入战队名（选填）" placeholder-class="ph" value="{{teamConfigPanel.name}}" bindinput="onTeamConfigNameInput" />
+      </view>
+      <view class="field">
+        <view class="label">战队队标</view>
+        <view class="team-logo-options">
+          <view wx:for="{{teamLogos}}" wx:key="id" class="team-logo-option {{teamConfigPanel.icon === item.id ? 'team-logo-option-active' : ''}}" data-id="{{item.id}}" bindtap="onTeamConfigIconSelect">
+            <image class="team-logo-image" src="{{item.src}}" mode="aspectFit" />
+            <text>{{item.name}}</text>
+          </view>
+          <view class="team-logo-clear" bindtap="onTeamConfigIconClear">不使用队标</view>
+        </view>
+      </view>
+      <view class="row">
+        <view class="btn btn-plain panel-btn" bindtap="closeTeamConfig">取消</view>
+        <view class="spacer"></view>
+        <view class="btn panel-btn {{teamConfigSaving ? 'btn-disabled' : ''}}" bindtap="saveTeamConfig">{{teamConfigSaving ? '保存中…' : '保存'}}</view>
       </view>
     </view>
   </view>

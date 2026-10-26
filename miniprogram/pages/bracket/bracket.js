@@ -89,9 +89,12 @@ Page({
     readonly: false, // 只读模式（历史比赛查看），隐藏所有管理操作
     stageView: '',
     pageTitle: '对战赛程',
-    myTeam: null, // 系统分组模式下我的战队（我是组长）
+    myTeam: null, // 我的战队（我是本队组长/队长）
     teamNameInput: '',
     teamIconInput: '',
+    // 晋级图第一轮：队伍队名/队标设置弹窗
+    teamConfigPanel: { show: false, openid: '', name: '', icon: '', title: '' },
+    teamConfigSaving: false,
     replacementTeams: [],
     groupedTeams: [],
     groupSelection: { teamIndex: -1, openid: '', nickname: '' },
@@ -473,6 +476,25 @@ Page({
         }
 
         const tree = this.buildTreeData(matches);
+        // 晋级图节点里的队伍 openid 是落位编号（T0/T1…），反查 teams 得到真实队长信息
+        // 晋级图第一轮（UB1）：标记各队「可设置队名队标」（本队队长或管理员），按钮需携带队长 openid
+        const teamBySlot = {};
+        (t.teams || []).forEach((tm, i) => {
+          const slot = seeding.indexOf(i);
+          if (slot >= 0) teamBySlot['T' + slot] = tm;
+        });
+        tree.nodes.forEach((nd) => {
+          const capOf = (src) => {
+            if (!src || !src.openid) return null;
+            const tm = teamBySlot[src.openid] || null;
+            if (!tm) return null;
+            return tm.captain && typeof tm.captain === 'object' ? tm.captain : (regMap[tm.captain] || null);
+          };
+          nd.teamACaptain = capOf(nd.teamAInfo);
+          nd.teamBCaptain = capOf(nd.teamBInfo);
+          nd.canEditA = !!t.isAdmin || !!(nd.teamACaptain && nd.teamACaptain.openid === t.myOpenid);
+          nd.canEditB = !!t.isAdmin || !!(nd.teamBCaptain && nd.teamBCaptain.openid === t.myOpenid);
+        });
         const canReplacePlayers = !!(
           t.isAdmin && !this.data.readonly && (t.status === 'draft' || t.status === 'battle') &&
           !matches.some((match) => match.status === 'done')
@@ -500,9 +522,9 @@ Page({
             incomingLabel: captainDraft ? '未选队员' : '替补池',
           };
         }).filter((team) => team.outPlayers.length && team.inPlayers.length) : [];
-        // 系统分组模式：我是组长（本队天梯分最高者）→ 可设置战队名；编辑中不被轮询覆盖
+        // 我是本队组长/队长（auto：天梯分最高；captain：选人开始后的队长）→ 可设置战队名；编辑中不被轮询覆盖
         let myTeam = null;
-        if (t.mode === 'auto' && t.teams && t.myOpenid) {
+        if (t.teams && t.myOpenid) {
           const mine = t.teams.find((tm) => tm.captain && tm.captain.openid === t.myOpenid) || null;
           if (mine) {
             myTeam = {
@@ -581,6 +603,53 @@ Page({
   onTeamIconClear() {
     this._teamNameDirty = true;
     this.setData({ teamIconInput: '' });
+  },
+
+  /* ---------- 晋级图第一轮：队伍队名/队标设置（队长本人或管理员） ---------- */
+  openTeamConfig(e) {
+    const d = e.currentTarget.dataset || {};
+    if (!d.openid) return;
+    this.setData({
+      teamConfigPanel: {
+        show: true,
+        openid: d.openid,
+        name: d.name || '',
+        icon: d.icon || '',
+        title: d.title || '设置队名和队标',
+      },
+    });
+  },
+  onTeamConfigNameInput(e) {
+    this.setData({ 'teamConfigPanel.name': e.detail.value });
+  },
+  onTeamConfigIconSelect(e) {
+    this.setData({ 'teamConfigPanel.icon': e.currentTarget.dataset.id });
+  },
+  onTeamConfigIconClear() {
+    this.setData({ 'teamConfigPanel.icon': '' });
+  },
+  closeTeamConfig() {
+    this.setData({ 'teamConfigPanel.show': false });
+  },
+  saveTeamConfig() {
+    const t = this.data.t;
+    const p = this.data.teamConfigPanel;
+    if (!t || !p || !p.show || !p.openid || this.data.teamConfigSaving) return;
+    const teamName = (p.name || '').trim();
+    if (teamName.length > 10) {
+      wx.showToast({ title: '战队名最多 10 个字', icon: 'none' });
+      return;
+    }
+    this.setData({ teamConfigSaving: true });
+    api
+      .call('setTeamName', { id: t.id, openid: p.openid, teamName, teamIcon: p.icon || '' })
+      .then(() => {
+        wx.showToast({ title: teamName ? '队名已保存' : '已恢复默认队名', icon: 'success' });
+        this.setData({ 'teamConfigPanel.show': false });
+        this.load();
+      })
+      .catch((err) => wx.showToast({ title: err.message, icon: 'none' }))
+      .finally(() => this.setData({ teamConfigSaving: false }));
   },
 
   onSaveTeamName() {
@@ -873,7 +942,7 @@ Page({
     const gfMatch = matches.find((m) => m.stage === 'GF') || null;
     const COLS = Math.max(ubStages.length, lbStages.length);
     const NODE_W = 340;
-    const NODE_H = 180;
+    const NODE_H = 230;
     const GAP = 70;
     const ZONE_GAP = 150;
     const PAD = 30;
@@ -1021,6 +1090,7 @@ Page({
       return {
         id: m.id,
         status: m.status,
+        stage: m.stage,
         winner: m.winner,
         teamAInfo: m.teamAInfo,
         displayA: m.displayA,

@@ -102,6 +102,10 @@
           <view class="progress-label"><text>队员</text><text class="progress-value">{{item.playerFilled}}<text class="progress-total"> / {{item.playerTotal}}</text></text></view>
           <view class="progress-track"><view class="progress-fill player-fill" style="width: {{item.playerTotal > 0 ? item.playerFilled / item.playerTotal * 100 : 0}}%;"></view></view>
         </view>
+        <view class="progress-block" wx:if="{{item.waitLimit > 0}}">
+          <view class="progress-label"><text>替补</text><text class="progress-value">{{item.waitlistFilled}}<text class="progress-total"> / {{item.waitLimit}}</text></text></view>
+          <view class="progress-track"><view class="progress-fill substitute-fill" style="width: {{item.waitLimit > 0 ? item.waitlistFilled / item.waitLimit * 100 : 0}}%;"></view></view>
+        </view>
       </view>
 
       <view class="match-footer">
@@ -118,13 +122,9 @@
     <view class="history-heading" bindtap="toggleHistory" aria-expanded="{{historyExpanded}}" hover-class="link-pressed">
       <view class="history-heading-copy">
         <view class="history-kicker">TOURNAMENT HISTORY</view>
-        <view class="history-title">历史赛事</view>
-        <view class="history-subtitle">查看已归档赛事与比赛结果</view>
+        <view class="history-title">历史赛事 <text class="history-count">{{older.length}}</text></view>
       </view>
-      <view class="history-heading-meta">
-        <view class="history-count">{{older.length}}</view>
-        <view class="trash-chevron {{historyExpanded ? 'trash-chevron-open' : ''}}">›</view>
-      </view>
+      <view class="trash-chevron {{historyExpanded ? 'trash-chevron-open' : ''}}">›</view>
     </view>
     <view wx:if="{{historyExpanded}}" class="history-body">
       <view wx:if="{{older.length === 0}}" class="trash-empty">暂无历史赛事</view>
