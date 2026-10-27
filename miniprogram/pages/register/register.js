@@ -1,6 +1,7 @@
 // pages/register/register.js - 报名（按比赛 id，需暗号；支持替补与队长队名）
 const api = require('../../utils/api');
 const tournamentPolling = require('../../utils/tournament-polling');
+const { TEAM_LOGO_PRESETS } = require('../../utils/team-logos');
 
 const ROLE_LABELS = ['', '1号位', '2号位', '3号位', '4号位', '5号位'];
 
@@ -57,22 +58,63 @@ Page({
   },
 
   onShow() {
-    this.load();
     this.loadTeamLogos();
+    tournamentPolling.refreshIfChanged(this);
     this.startPoll();
   },
 
   loadTeamLogos() {
-    return api.call('teamLogoList').then((d) => {
-      const logos = d.logos || [];
-      const allLogos = d.presets || logos;
-      this.setData({
-        teamLogos: logos,
-        allTeamLogos: allLogos,
-        teamLogoLoadFailed: false,
-      });
-      this.refreshRegistrationIcons(allLogos);
-    }).catch(() => this.setData({ teamLogoLoadFailed: true }));
+    this.setData({
+      teamLogos: TEAM_LOGO_PRESETS,
+      allTeamLogos: TEAM_LOGO_PRESETS,
+      teamLogoLoadFailed: false,
+    });
+    this.refreshRegistrationIcons(TEAM_LOGO_PRESETS);
+  },
+
+  applyRegistrationSnapshot(snapshot) {
+    const current = this.data.t || {};
+    const registrations = Array.isArray(snapshot && snapshot.registrations) ? snapshot.registrations : [];
+    const previousByOpenid = {};
+    (current.registrations || []).forEach((registration) => {
+      if (registration && registration.openid) previousByOpenid[registration.openid] = registration;
+    });
+    const emojiById = {};
+    TEAM_LOGO_PRESETS.forEach((logo) => (emojiById[logo.id] = logo.emoji));
+    const regs = registrations.map((registration) => {
+      const merged = Object.assign({}, previousByOpenid[registration.openid] || {}, registration);
+      return Object.assign(fmtReg(merged), { teamIconEmoji: emojiById[registration.teamIcon] || '' });
+    });
+    const myReg = snapshot.myReg
+      ? Object.assign(fmtReg(Object.assign({}, previousByOpenid[snapshot.myReg.openid] || {}, snapshot.myReg)), {
+          teamIconEmoji: emojiById[snapshot.myReg.teamIcon] || '',
+        })
+      : null;
+    const t = Object.assign({}, current, snapshot, { id: snapshot.id || current.id });
+    const activeTab = t.mode === 'auto' && this.data.activeTab === 'captain' ? 'player' : this.data.activeTab;
+    this.setData({
+      t,
+      myReg,
+      activeTab,
+      captainList: regs.filter((r) => r.role === 'captain'),
+      playerList: regs.filter((r) => r.role === 'player'),
+      waitlistList: regs.filter((r) => r.role === 'waitlist'),
+      teamNameInput: this.data.teamNameDirty || !(myReg && myReg.role === 'captain') ? this.data.teamNameInput : myReg.teamName || '',
+      teamIconInput: this.data.teamNameDirty || !(myReg && myReg.role === 'captain') ? this.data.teamIconInput : myReg.teamIcon || '',
+    });
+  },
+
+  refreshTournamentSnapshot(version) {
+    if (!this.id) return this.load(true);
+    if (version && version.deletedAt) return this.load(true);
+    return api.call('tournamentRegistrationSnapshot', { id: this.id }).then((snapshot) => {
+      const previous = this.data.t;
+      if (!snapshot || !previous || snapshot.status !== previous.status || snapshot.status !== 'registration') {
+        return this.load(true);
+      }
+      this.applyRegistrationSnapshot(snapshot);
+      this._lastTournamentVersion = tournamentPolling.versionToken(version || snapshot);
+    });
   },
 
   refreshRegistrationIcons(logos) {
@@ -116,8 +158,9 @@ Page({
     const data = this.id ? { id: this.id } : {};
     const now = new Date();
     data.todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const action = this.id && !this.data.readonly ? 'registrationDetail' : 'tournament';
     return api
-      .call('tournament', data)
+      .call(action, data)
       .then((t) => {
         if (!t) {
           this.setData(hadData
@@ -234,7 +277,24 @@ Page({
           title: d.auto ? '队员已满，已加入替补' : d.role === 'captain' ? '队长报名成功' : d.role === 'waitlist' ? '替补报名成功' : '报名成功',
           icon: 'success',
         });
-        return this.load();
+        const current = this.data.t || {};
+        const registration = d && d.registration;
+        if (registration && current.id === t.id) {
+          const registrations = (current.registrations || []).filter((item) => item.openid !== registration.openid).concat([registration]);
+          this.applyRegistrationSnapshot(Object.assign({}, d, {
+            id: t.id,
+            status: current.status,
+            mode: current.mode,
+            N: current.N,
+            K: current.K,
+            waitLimit: current.waitLimit,
+            registrations,
+            myReg: registration,
+          }));
+          this._lastTournamentVersion = tournamentPolling.versionToken(this.data.t);
+        } else {
+          return this.load(true);
+        }
       })
       .catch((err) => {
         if (err.message === '报名暗号错误') {

@@ -17,6 +17,7 @@ Page({
     historyBusyId: '',
     trash: [],
     trashExpanded: false,
+    trashLoaded: false,
     trashBusyId: '',
     trashLoading: false,
     trashError: '',
@@ -98,7 +99,7 @@ Page({
           loading: false,
           loadError: '',
         });
-        this.loadTrash();
+        if (this.data.trashExpanded) this.loadTrash();
         // 登录后未设置昵称 → 自动弹窗
         if (!d.user && !this._nickPrompted) {
           this._nickPrompted = true;
@@ -392,10 +393,13 @@ Page({
   },
 
   toggleTrash() {
-    this.setData({ trashExpanded: !this.data.trashExpanded });
+    const trashExpanded = !this.data.trashExpanded;
+    this.setData({ trashExpanded });
+    if (trashExpanded && (!this.data.trashLoaded || this.data.trashError)) this.loadTrash();
   },
 
   loadTrash() {
+    if (this.data.trashLoading) return Promise.resolve();
     this.setData({ trashLoading: true, trashError: '' });
     return api.call('listTrash')
       .then((result) => {
@@ -405,7 +409,7 @@ Page({
             deletedAtText: this.formatTrashDate(item.deletedAt),
           })
         );
-        this.setData({ trash, trashLoading: false, trashError: '' });
+        this.setData({ trash, trashLoading: false, trashLoaded: true, trashError: '' });
       })
       .catch((err) => {
         this.setData({ trashLoading: false, trashError: err.message || '回收站暂时无法加载' });

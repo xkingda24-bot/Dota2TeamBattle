@@ -2,6 +2,7 @@
 const api = require('../../utils/api');
 const { hasCurrentRankVerification, dotaRankLabel } = require('../../utils/dota-rank');
 const tournamentPolling = require('../../utils/tournament-polling');
+const { TEAM_LOGO_PRESETS } = require('../../utils/team-logos');
 
 const BO_LIST = ['BO1', 'BO3', 'BO5'];
 
@@ -231,15 +232,16 @@ Page({
   },
 
   onShow() {
-    this.loadTeamLogos().finally(() => this.load());
+    this.loadTeamLogos();
+    tournamentPolling.refreshIfChanged(this);
     this.startPoll();
   },
 
   loadTeamLogos() {
-    return api.call('teamLogoList').then((d) => this.setData({
-      teamLogos: d.logos || [],
-      allTeamLogos: d.presets || d.logos || [],
-    })).catch(() => {});
+    this.setData({
+      teamLogos: TEAM_LOGO_PRESETS,
+      allTeamLogos: TEAM_LOGO_PRESETS,
+    });
   },
   onHide() {
     this.stopPoll();

@@ -23,6 +23,8 @@ const { dotaRankLabel, isRankVerified, publicDotaCardFields } = require('./card-
 const { selectUserRecord, buildUserMap } = require('./user-records');
 const { ADMIN_USER_SORT_FIELDS, buildAdminUsers } = require('./admin-users');
 const { buildTestRegistrationAdditions } = require('./test-registration');
+const { buildRegistration } = require('./registration');
+const { mutateTournament, buildRegistrationSummary } = require('./tournament-transaction');
 const { ADMIN_USER_LIST_FIELDS } = require('./query-projections');
 const { TOURNAMENT_SUMMARY_FIELDS, summarize } = require('./tournament-summary');
 const { TEAM_LOGO_PRESETS, TEAM_LOGO_IDS } = require('./team-logos');
@@ -36,6 +38,24 @@ const DOTA_CACHE_TTL = 5 * 60 * 1000;
 const DOTA_CACHE_MAX = 500;
 const DOTA_LOOKUP_LIMIT = 5;
 const DOTA_LOOKUP_WINDOW = 60 * 1000;
+const REGISTRATION_PROFILE_FIELDS = {
+  _id: true,
+  _openid: true,
+  openid: true,
+  nickname: true,
+  mmr: true,
+  roles: true,
+  signature: true,
+  cardStyle: true,
+  dota2Id: true,
+  dota2RankVerified: true,
+  dota2RankTier: true,
+  dota2RankVerifiedAt: true,
+  dota2VerifiedAt: true,
+  dota2LeaderboardRank: true,
+  updatedAt: true,
+  createdAt: true,
+};
 const dotaProfileCache = new Map();
 const dotaLookupHits = new Map();
 const DEFAULT_CARD_STYLE = {
@@ -279,7 +299,7 @@ function canPostComment(tournament, openid, adminFlag) {
 }
 
 /* 按 openid 批量读取用户档案；兼容旧记录只保存 _openid 的用户。 */
-async function getUsersByOpenids(openids) {
+async function getUsersByOpenids(openids, fields) {
   const ids = Array.from(new Set((openids || []).filter((id) => typeof id === 'string' && id)));
   if (!ids.length) return {};
   const chunks = [];
@@ -287,18 +307,19 @@ async function getUsersByOpenids(openids) {
   // Current profile records carry both fields, so one indexed lookup normally
   // supplies the owner identity too. Query _openid only for IDs found solely in
   // legacy owner-only records (or not found at all).
-  const explicitResults = await Promise.all(chunks.map((chunk) =>
-    db.collection('users').where({ openid: _.in(chunk) }).limit(100).get().catch(() => ({ data: [] }))
-  ));
+  const queryUsers = (filter) => {
+    let query = db.collection('users').where(filter).limit(100);
+    if (fields) query = query.field(fields);
+    return query.get().catch(() => ({ data: [] }));
+  };
+  const explicitResults = await Promise.all(chunks.map((chunk) => queryUsers({ openid: _.in(chunk) })));
   const explicitRecords = explicitResults.reduce((all, result) => all.concat(result.data || []), []);
   const ownedRecords = explicitRecords.filter((record) => record && typeof record._openid === 'string' && record._openid);
   const ownerIds = new Set(ownedRecords.map((record) => record._openid));
   const fallbackIds = ids.filter((id) => !ownerIds.has(id));
   const fallbackChunks = [];
   for (let index = 0; index < fallbackIds.length; index += 100) fallbackChunks.push(fallbackIds.slice(index, index + 100));
-  const ownerResults = await Promise.all(fallbackChunks.map((chunk) =>
-    db.collection('users').where({ _openid: _.in(chunk) }).limit(100).get().catch(() => ({ data: [] }))
-  ));
+  const ownerResults = await Promise.all(fallbackChunks.map((chunk) => queryUsers({ _openid: _.in(chunk) })));
   const ownerRecords = ownerResults.reduce((all, result) => all.concat(result.data || []), []);
   return buildUserMap(ids, ownerRecords.concat(ownedRecords), explicitRecords);
 }
@@ -343,6 +364,134 @@ async function getTournamentVersion(id) {
   }
 }
 
+async function getTournamentRegistrationSnapshot(id, openid) {
+  if (!id) return null;
+  try {
+    const result = await db.collection('tournaments').where({ _id: id })
+      .field({
+        _id: true,
+        name: true,
+        time: true,
+        creatorName: true,
+        status: true,
+        updatedAt: true,
+        createdAt: true,
+        deletedAt: true,
+        champion: true,
+        mode: true,
+        N: true,
+        K: true,
+        waitLimit: true,
+        registrations: true,
+      })
+      .limit(1)
+      .get();
+    const tournament = result.data && result.data.length ? result.data[0] : null;
+    if (!tournament || tournament.deletedAt) return null;
+    const registrations = Array.isArray(tournament.registrations) ? tournament.registrations : [];
+    const count = (role) => registrations.filter((registration) => registration && registration.role === role).length;
+    return {
+      id: tournament._id,
+      name: tournament.name || '',
+      time: tournament.time || '',
+      creatorName: tournament.creatorName || '',
+      status: tournament.status || '',
+      updatedAt: Number(tournament.updatedAt || tournament.createdAt || 0),
+      champion: tournament.champion || null,
+      mode: tournament.mode === 'auto' ? 'auto' : 'captain',
+      N: tournament.N,
+      K: tournament.K,
+      waitLimit: Number(tournament.waitLimit) || 0,
+      registrations,
+      myReg: openid ? registrations.find((registration) => registration && registration.openid === openid) || null : null,
+      captainFilled: count('captain'),
+      playerFilled: count('player'),
+      waitlistFilled: count('waitlist'),
+      captainTotal: tournament.mode === 'auto' ? 0 : tournament.N,
+      playerTotal: Number(tournament.N) * Number(tournament.K),
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
+async function decorateRegistrationSnapshot(snapshot) {
+  if (!snapshot) return null;
+  const registrations = Array.isArray(snapshot.registrations) ? snapshot.registrations : [];
+  const profiles = await getUsersByOpenids(
+    registrations.map((registration) => registration && registration.openid),
+    REGISTRATION_PROFILE_FIELDS
+  );
+  const decorated = registrations.map((registration) => {
+    const member = registration || {};
+    const profile = profiles[member.openid];
+    const cardPlayer = Object.assign({}, member);
+    if (profile) {
+      ['nickname', 'mmr', 'roles', 'signature'].forEach((field) => {
+        if (Object.prototype.hasOwnProperty.call(profile, field)) cardPlayer[field] = profile[field];
+      });
+    }
+    return Object.assign(cardPlayer, publicDotaCardFields(cardPlayer.mmr, profile || cardPlayer, null), {
+      cardStyle: profile ? normalizeCardStyle(profile.cardStyle) : normalizeCardStyle(cardPlayer.cardStyle),
+    });
+  });
+  const myReg = snapshot.myReg
+    ? decorated.find((registration) => registration.openid === snapshot.myReg.openid) || snapshot.myReg
+    : null;
+  return Object.assign({}, snapshot, { registrations: decorated, myReg });
+}
+
+async function hydrateLegacyRegistrationSummaries(tournaments) {
+  const source = Array.isArray(tournaments) ? tournaments : [];
+  const legacy = source.filter((tournament) =>
+    !tournament || !tournament.registrationCounts || !Array.isArray(tournament.registeredOpenids)
+  );
+  if (!legacy.length) return source;
+  const ids = Array.from(new Set(legacy.map((tournament) => tournament && tournament._id).filter(Boolean)));
+  const detailResults = [];
+  for (let index = 0; index < ids.length; index += 100) {
+    const chunk = ids.slice(index, index + 100);
+    try {
+      const result = await db.collection('tournaments').where({ _id: _.in(chunk) })
+        .field({ registrations: true, updatedAt: true, createdAt: true })
+        .limit(100)
+        .get();
+      detailResults.push(...((result && result.data) || []));
+    } catch (e) {
+      throw e;
+    }
+  }
+  const detailsById = {};
+  detailResults.forEach((detail) => {
+    if (detail && detail._id) detailsById[detail._id] = detail;
+  });
+  const hydrated = await Promise.all(legacy.map(async (tournament) => {
+    if (!tournament || !tournament._id) return tournament;
+    const detail = detailsById[tournament._id];
+    if (!detail) throw new Error('读取旧赛事报名摘要失败');
+    const summary = buildRegistrationSummary(detail.registrations);
+    const versionField = detail.updatedAt ? 'updatedAt' : 'createdAt';
+    const versionValue = detail[versionField];
+    if (versionValue) {
+      const update = await db.collection('tournaments').where({ _id: tournament._id, [versionField]: versionValue }).update({
+        data: summary,
+      });
+      if (!update.stats || update.stats.updated !== 1) {
+        const latestResult = await db.collection('tournaments').doc(tournament._id).get();
+        const latest = latestResult && latestResult.data;
+        if (!latest) throw new Error('读取旧赛事报名摘要失败');
+        return Object.assign({}, tournament, latest, buildRegistrationSummary(latest.registrations));
+      }
+    }
+    return Object.assign({}, tournament, detail, summary);
+  }));
+  const byId = {};
+  hydrated.forEach((tournament) => {
+    if (tournament && tournament._id) byId[tournament._id] = tournament;
+  });
+  return source.map((tournament) => byId[tournament._id] || tournament);
+}
+
 async function getRecentTournamentSummaries(filter, limit, openid, archived) {
   const summaries = [];
   let offset = 0;
@@ -356,8 +505,10 @@ async function getRecentTournamentSummaries(filter, limit, openid, archived) {
       .get();
     const batch = result.data || [];
     const matching = batch.filter((tournament) => !tournament.deletedAt &&
-      (archived == null || !!tournament.archivedAt === archived));
-    summaries.push(...matching.map((tournament) => summarize(tournament, openid)));
+      (archived == null || !!tournament.archivedAt === archived))
+      .slice(0, Math.max(0, limit - summaries.length));
+    const hydrated = await hydrateLegacyRegistrationSummaries(matching);
+    summaries.push(...hydrated.map((tournament) => summarize(tournament, openid)));
     offset += batch.length;
     if (batch.length < 100) break;
   }
@@ -1109,6 +1260,7 @@ const actions = {
         waitLimit: Math.round(waitLimit),
         status: 'registration',
         registrations: [],
+        ...buildRegistrationSummary([]),
         captainOrder: [],
         draft: null,
         teams: [],
@@ -1128,9 +1280,6 @@ const actions = {
   /* 管理员：修改报名阶段的比赛配置（名称/时间/暗号/模式/队伍数/每队人数或队友数/替补数） */
   async updateConfig(event) {
     if (!(await isAdminUser())) return fail('只有管理员可以修改配置');
-    const t = await getTournamentById(event.id);
-    if (!t) return fail('比赛不存在');
-    if (t.status !== 'registration') return fail('只有报名阶段可以修改配置');
     const name = String(event.name || '').trim();
     const time = String(event.time || '').trim();
     const secret = String(event.secret || '').trim();
@@ -1144,23 +1293,26 @@ const actions = {
     if (N < 2 || N > MAX_N) return fail('队伍数量需在 2-' + MAX_N + ' 之间');
     if (K < 1 || K > MAX_K) return fail(mode === 'auto' ? '每组人数需在 1-' + MAX_K + ' 之间' : '每个队长选队友数量需在 1-' + MAX_K + ' 之间');
     if (!isFinite(waitLimit) || waitLimit < 0 || waitLimit > 20) return fail('替补数量需在 0-20 之间');
-    // 名额不能小于已报名人数
-    const captains = (t.registrations || []).filter((r) => r.role === 'captain').length;
-    const players = (t.registrations || []).filter((r) => r.role === 'player').length;
-    const waitlist = (t.registrations || []).filter((r) => r.role === 'waitlist').length;
-    // 系统分组模式无队长名额
-    if (mode === 'auto') {
-      if (captains > 0) return fail('已有队长报名，不能切换为系统分组模式（请先移除队长报名）');
-      if (N * K < players) return fail('队员名额不能小于已报名人数（当前已报 ' + players + ' 人）');
-    } else {
-      if (N < captains) return fail('已有 ' + captains + ' 位队长报名，队长数不能小于 ' + captains);
-      if (N * K < players) return fail('队员名额不能小于已报名人数（当前已报 ' + players + ' 人）');
-    }
-    if (waitLimit < waitlist) return fail('替补名额不能小于已报名替补人数（当前 ' + waitlist + ' 人）');
-    await updateTournamentDoc(t._id, {
-      data: { name, time, secret, mode, N, K, waitLimit: Math.round(waitLimit), updatedAt: Date.now() },
+    const result = await mutateTournament(db, event.id, (t) => {
+      if (t.status !== 'registration') return { error: '只有报名阶段可以修改配置' };
+      const registrations = Array.isArray(t.registrations) ? t.registrations : [];
+      const captains = registrations.filter((r) => r.role === 'captain').length;
+      const players = registrations.filter((r) => r.role === 'player').length;
+      const waitlist = registrations.filter((r) => r.role === 'waitlist').length;
+      if (mode === 'auto') {
+        if (captains > 0) return { error: '已有队长报名，不能切换为系统分组模式（请先移除队长报名）' };
+        if (N * K < players) return { error: '队员名额不能小于已报名人数（当前已报 ' + players + ' 人）' };
+      } else {
+        if (N < captains) return { error: '已有 ' + captains + ' 位队长报名，队长数不能小于 ' + captains };
+        if (N * K < players) return { error: '队员名额不能小于已报名人数（当前已报 ' + players + ' 人）' };
+      }
+      if (waitLimit < waitlist) return { error: '替补名额不能小于已报名替补人数（当前 ' + waitlist + ' 人）' };
+      return {
+        data: { name, time, secret, mode, N, K, waitLimit: Math.round(waitLimit) },
+        result: {},
+      };
     });
-    return ok({});
+    return result.error ? fail(result.error) : ok({});
   },
 
   /* 报名暗号校验 */
@@ -1174,22 +1326,18 @@ const actions = {
   async fillTestRegistrations(event) {
     const openid = getOpenId();
     if (!(await isSuper(openid))) return fail('只有最高管理员可以补充测试报名数据');
-    const t = await getTournamentById(event.id);
-    if (!t) return fail('比赛不存在');
-    if (t.status !== 'registration') return fail('只有报名阶段可以补充测试数据');
-
-    const result = buildTestRegistrationAdditions(t, Date.now());
-    if (!result.additions.length) {
-      return ok({ added: 0, counts: result.counts, targets: result.targets });
-    }
-    const update = await db.collection('tournaments').where({ _id: t._id, status: 'registration' }).update({
-      data: {
-        registrations: (t.registrations || []).concat(result.additions),
-        updatedAt: Date.now(),
-      },
+    const result = await mutateTournament(db, event.id, (t) => {
+      if (t.status !== 'registration') return { error: '只有报名阶段可以补充测试数据' };
+      const additions = buildTestRegistrationAdditions(t, Date.now());
+      if (!additions.additions.length) {
+        return { result: { added: 0, counts: additions.counts, targets: additions.targets } };
+      }
+      return {
+        data: { registrations: (t.registrations || []).concat(additions.additions) },
+        result: { added: additions.additions.length, counts: additions.counts, targets: additions.targets },
+      };
     });
-    if (!update.stats || update.stats.updated !== 1) return fail('比赛阶段已变化，请刷新后重试');
-    return ok({ added: result.additions.length, counts: result.counts, targets: result.targets });
+    return result.error ? fail(result.error) : ok(result.result);
   },
 
   /* 报名（需暗号）：队长/队员/替补；队员满时自动进入替补；资料（昵称/天梯分/常玩位置）必填才可报名 */
@@ -1199,51 +1347,14 @@ const actions = {
     if (!me || !me.nickname) return fail('请先设置昵称');
     if (me.mmr == null) return fail('请先在「我的-编辑资料」填写天梯分后再报名');
     if (!Array.isArray(me.roles) || me.roles.length === 0) return fail('请先在「我的-编辑资料」选择常玩位置后再报名');
-    const t = await getTournamentById(event.id);
-    if (!t) return fail('比赛不存在');
-    if (t.status !== 'registration') return fail('当前不在报名阶段');
-    if (String(event.secret || '') !== String(t.secret || '')) return fail('报名暗号错误');
-    if ((t.registrations || []).some((r) => r.openid === openid)) return fail('你已经报名过了');
-    const waitLimit = t.waitLimit || 0;
-    const captains = (t.registrations || []).filter((r) => r.role === 'captain');
-    const players = (t.registrations || []).filter((r) => r.role === 'player');
-    const waitlist = (t.registrations || []).filter((r) => r.role === 'waitlist');
-    let role = 'player';
-    let auto = false;
-    if (event.role === 'captain') {
-      if (t.mode === 'auto') return fail('本场比赛为系统分组模式，请报名队员或替补');
-      role = 'captain';
-      if (captains.length >= t.N) return fail('队长名额已满');
-    } else if (event.role === 'waitlist') {
-      role = 'waitlist';
-      if (waitLimit <= 0) return fail('本场比赛未设置替补');
-      if (waitlist.length >= waitLimit) return fail('替补名额已满');
-    } else {
-      if (players.length >= t.N * t.K) {
-        // 队员名额已满 → 自动加入替补
-        if (waitLimit <= 0) return fail('队员名额已满');
-        if (waitlist.length >= waitLimit) return fail('队员名额已满，替补也已满');
-        role = 'waitlist';
-        auto = true;
-      }
-    }
-    const reg = {
-      openid,
-      nickname: me.nickname,
-      role,
-      ts: Date.now(),
-      mmr: me.mmr || null,
-      ...registrationDotaFields(me),
-      roles: me.roles || [],
-      signature: me.signature || '',
-    };
-    if (role === 'captain') {
-      reg.teamName = '';
-      reg.teamIcon = '';
-    }
-    const registrations = (t.registrations || []).concat([reg]);
-    await updateTournamentDoc(t._id, { data: { registrations } });
-    return ok({ role, auto });
+    const result = await mutateTournament(db, event.id, (t) => {
+      const registration = buildRegistration(
+        t, openid, me, event.role, event.secret, registrationDotaFields(me), Date.now()
+      );
+      if (registration.error) return registration;
+      return { data: { registrations: registration.registrations }, result: registration.result };
+    });
+    return result.error ? fail(result.error) : ok(Object.assign({}, result.result, { updatedAt: result.updatedAt }));
   },
 
   /* 队伍改名后同步对阵快照：晋级图/赛程列表按 match.teamX 的 name/teamIcon 展示，需与新队名一致 */
@@ -1266,8 +1377,6 @@ const actions = {
   /* 设置队伍名称（队长本人/组长本人或管理员；队长选人模式报名阶段，系统分组模式分组完成后；最多 10 个字） */
   async setTeamName(event) {
     const openid = getOpenId();
-    const t = await getTournamentById(event.id);
-    if (!t) return fail('比赛不存在');
     const teamName = String(event.teamName || '').trim();
     if (teamName.length > 10) return fail('队伍名称最多 10 个字');
     const hasTeamIcon = Object.prototype.hasOwnProperty.call(event, 'teamIcon');
@@ -1276,122 +1385,120 @@ const actions = {
     const targetOpenid = String(event.openid || '') || openid;
     const isAdminFlag = await isAdmin(openid);
     if (targetOpenid !== openid && !isAdminFlag) return fail('只有队长本人或管理员可以设置队伍名称');
-
-    // 系统分组模式：组长（本队天梯分最高者）在分组完成后命名
-    if (t.mode === 'auto') {
-      if (t.status !== 'draft' && t.status !== 'battle') return fail('只有分组完成后可以设置队伍名称');
-      const teams = (t.teams || []).map((tm) => Object.assign({}, tm));
-      const ti = teams.findIndex((tm) => tm.captain && tm.captain.openid === targetOpenid);
-      if (ti < 0) return fail('只能由组长（本队天梯分最高者）或管理员设置队伍名称');
-      teams[ti] = Object.assign({}, teams[ti], {
-        captain: Object.assign({}, teams[ti].captain, Object.assign({ teamName }, hasTeamIcon ? { teamIcon } : {})),
-      });
-      await updateTournamentDoc(t._id, { data: { teams, matches: actions.syncMatchNames(t, ti, teams[ti].captain) } });
-      return ok(true);
-    }
-
-    // 队长选人模式：报名阶段命名（更新队长报名记录）；选人/对战阶段命名（更新队伍结构，队伍显示读 teams）
-    if (t.status === 'registration') {
-      const registrations = (t.registrations || []).map((r) => Object.assign({}, r));
-      const idx = registrations.findIndex((r) => r.openid === targetOpenid && r.role === 'captain');
-      if (idx < 0) return fail('只能为已报名的队长设置队伍名称');
-      registrations[idx] = Object.assign({}, registrations[idx], Object.assign({ teamName }, hasTeamIcon ? { teamIcon } : {}));
-      await updateTournamentDoc(t._id, { data: { registrations } });
-      return ok(true);
-    }
-    if (t.status === 'draft' || t.status === 'battle') {
-      const teams = (t.teams || []).map((tm) => Object.assign({}, tm));
-      const ti = teams.findIndex((tm) => tm.captain && tm.captain.openid === targetOpenid);
-      if (ti < 0) return fail('只能由本队队长或管理员设置队伍名称');
-      teams[ti] = Object.assign({}, teams[ti], {
-        captain: Object.assign({}, teams[ti].captain, Object.assign({ teamName }, hasTeamIcon ? { teamIcon } : {})),
-      });
-      await updateTournamentDoc(t._id, { data: { teams, matches: actions.syncMatchNames(t, ti, teams[ti].captain) } });
-      return ok(true);
-    }
-    return fail('当前阶段不能设置队伍名称');
+    const result = await mutateTournament(db, event.id, (t) => {
+      if (t.mode === 'auto') {
+        if (t.status !== 'draft' && t.status !== 'battle') return { error: '只有分组完成后可以设置队伍名称' };
+        const teams = (t.teams || []).map((tm) => Object.assign({}, tm));
+        const ti = teams.findIndex((tm) => tm.captain && tm.captain.openid === targetOpenid);
+        if (ti < 0) return { error: '只能由组长（本队天梯分最高者）或管理员设置队伍名称' };
+        teams[ti] = Object.assign({}, teams[ti], {
+          captain: Object.assign({}, teams[ti].captain, Object.assign({ teamName }, hasTeamIcon ? { teamIcon } : {})),
+        });
+        return { data: { teams, matches: actions.syncMatchNames(t, ti, teams[ti].captain) }, result: true };
+      }
+      if (t.status === 'registration') {
+        const registrations = (t.registrations || []).map((r) => Object.assign({}, r));
+        const idx = registrations.findIndex((r) => r.openid === targetOpenid && r.role === 'captain');
+        if (idx < 0) return { error: '只能为已报名的队长设置队伍名称' };
+        registrations[idx] = Object.assign({}, registrations[idx], Object.assign({ teamName }, hasTeamIcon ? { teamIcon } : {}));
+        return { data: { registrations }, result: true };
+      }
+      if (t.status === 'draft' || t.status === 'battle') {
+        const teams = (t.teams || []).map((tm) => Object.assign({}, tm));
+        const ti = teams.findIndex((tm) => tm.captain && tm.captain.openid === targetOpenid);
+        if (ti < 0) return { error: '只能由本队队长或管理员设置队伍名称' };
+        teams[ti] = Object.assign({}, teams[ti], {
+          captain: Object.assign({}, teams[ti].captain, Object.assign({ teamName }, hasTeamIcon ? { teamIcon } : {})),
+        });
+        return { data: { teams, matches: actions.syncMatchNames(t, ti, teams[ti].captain) }, result: true };
+      }
+      return { error: '当前阶段不能设置队伍名称' };
+    });
+    return result.error ? fail(result.error) : ok(true);
   },
 
   /* 管理员：报名阶段把队员移入替补 / 替补移回队员 */
   async moveRegistration(event) {
     if (!(await isAdminUser())) return fail('需要管理员权限');
-    const t = await getTournamentById(event.id);
-    if (!t) return fail('比赛不存在');
-    if (t.status !== 'registration') return fail('只有报名阶段可以调整名单');
     const toRole = event.toRole === 'player' ? 'player' : 'waitlist';
-    const registrations = (t.registrations || []).map((r) => Object.assign({}, r));
-    const idx = registrations.findIndex((r) => r.openid === event.openid);
-    if (idx < 0) return fail('未找到该报名');
-    const cur = registrations[idx];
-    if (cur.role !== 'player' && cur.role !== 'waitlist') return fail('只能调整队员/替补');
-    if (cur.role === toRole) return fail('该用户已在目标名单中');
-    if (toRole === 'player') {
-      const players = registrations.filter((r) => r.role === 'player').length;
-      if (players >= t.N * t.K) return fail('队员名额已满，无法移入');
-    } else {
-      const waitLimit = t.waitLimit || 0;
-      if (waitLimit <= 0) return fail('本场比赛未设置替补');
-      const waitlist = registrations.filter((r) => r.role === 'waitlist').length;
-      if (waitlist >= waitLimit) return fail('替补名额已满');
-    }
-    registrations[idx] = Object.assign({}, cur, { role: toRole });
-    await updateTournamentDoc(t._id, { data: { registrations } });
-    return ok(true);
+    const result = await mutateTournament(db, event.id, (t) => {
+      if (t.status !== 'registration') return { error: '只有报名阶段可以调整名单' };
+      const registrations = (t.registrations || []).map((r) => Object.assign({}, r));
+      const idx = registrations.findIndex((r) => r.openid === event.openid);
+      if (idx < 0) return { error: '未找到该报名' };
+      const cur = registrations[idx];
+      if (cur.role !== 'player' && cur.role !== 'waitlist') return { error: '只能调整队员/替补' };
+      if (cur.role === toRole) return { error: '该用户已在目标名单中' };
+      if (toRole === 'player') {
+        const players = registrations.filter((r) => r.role === 'player').length;
+        if (players >= t.N * t.K) return { error: '队员名额已满，无法移入' };
+      } else {
+        const waitLimit = t.waitLimit || 0;
+        if (waitLimit <= 0) return { error: '本场比赛未设置替补' };
+        const waitlist = registrations.filter((r) => r.role === 'waitlist').length;
+        if (waitlist >= waitLimit) return { error: '替补名额已满' };
+      }
+      registrations[idx] = Object.assign({}, cur, { role: toRole });
+      return { data: { registrations }, result: true };
+    });
+    return result.error ? fail(result.error) : ok(true);
   },
 
   /* 退报（报名阶段自己取消） */
   async cancelRegister(event) {
     const openid = getOpenId();
-    const t = await getTournamentById(event.id);
-    if (!t) return fail('比赛不存在');
-    if (t.status !== 'registration') return fail('报名已锁定，请联系管理员');
-    const registrations = (t.registrations || []).filter((r) => r.openid !== openid);
-    if (registrations.length === (t.registrations || []).length) return fail('你尚未报名');
-    await updateTournamentDoc(t._id, { data: { registrations } });
-    return ok(true);
+    const result = await mutateTournament(db, event.id, (t) => {
+      if (t.status !== 'registration') return { error: '报名已锁定，请联系管理员' };
+      const current = Array.isArray(t.registrations) ? t.registrations : [];
+      const registrations = current.filter((r) => r.openid !== openid);
+      if (registrations.length === current.length) return { error: '你尚未报名' };
+      return { data: { registrations }, result: true };
+    });
+    return result.error ? fail(result.error) : ok(true);
   },
 
   /* 移除报名（管理员） */
   async removeRegistration(event) {
     if (!(await isAdminUser())) return fail('需要管理员权限');
-    const t = await getTournamentById(event.id);
-    if (!t) return fail('比赛不存在');
-    const registrations = (t.registrations || []).filter((r) => r.openid !== event.openid);
-    if (registrations.length === (t.registrations || []).length) return fail('未找到该报名');
-    await updateTournamentDoc(t._id, { data: { registrations } });
-    return ok(true);
+    const result = await mutateTournament(db, event.id, (t) => {
+      const current = Array.isArray(t.registrations) ? t.registrations : [];
+      const registrations = current.filter((r) => r.openid !== event.openid);
+      if (registrations.length === current.length) return { error: '未找到该报名' };
+      return { data: { registrations }, result: true };
+    });
+    return result.error ? fail(result.error) : ok(true);
   },
 
   /* 开始选人（管理员）：随机排序队长，初始化蛇形轮次 */
   async startDraft(event) {
     if (!(await isAdminUser())) return fail('需要管理员权限');
-    const t = await getTournamentById(event.id);
-    if (!t) return fail('比赛不存在');
-    if (t.status !== 'registration') return fail('当前不在报名阶段');
-    const captains = (t.registrations || []).filter((r) => r.role === 'captain');
-    const players = (t.registrations || []).filter((r) => r.role === 'player');
-    if (captains.length < t.N) return fail('队长尚未报满（' + captains.length + '/' + t.N + '）');
-    if (players.length < t.N * t.K) {
-      return fail('队员尚未报满（' + players.length + '/' + t.N * t.K + '）');
-    }
-    const captainOrder = shuffle(captains).map((c) => ({
-      openid: c.openid,
-      nickname: c.nickname,
-      teamName: c.teamName || '',
-      teamIcon: c.teamIcon || '',
-      mmr: c.mmr || null,
-      ...registrationDotaFields(c),
-      roles: c.roles || [],
-      signature: c.signature || '',
-    }));
-    await updateTournamentDoc(t._id, {
-      data: {
-        status: 'draft',
-        captainOrder,
-        draft: _.set({ turn: 0, picks: captainOrder.map(() => []) }),
-      },
+    const result = await mutateTournament(db, event.id, (t) => {
+      if (t.status !== 'registration') return { error: '当前不在报名阶段' };
+      const registrations = Array.isArray(t.registrations) ? t.registrations : [];
+      const captains = registrations.filter((r) => r.role === 'captain');
+      const players = registrations.filter((r) => r.role === 'player');
+      if (captains.length < t.N) return { error: '队长尚未报满（' + captains.length + '/' + t.N + '）' };
+      if (players.length < t.N * t.K) return { error: '队员尚未报满（' + players.length + '/' + t.N * t.K + '）' };
+      const captainOrder = shuffle(captains).map((c) => ({
+        openid: c.openid,
+        nickname: c.nickname,
+        teamName: c.teamName || '',
+        teamIcon: c.teamIcon || '',
+        mmr: c.mmr || null,
+        ...registrationDotaFields(c),
+        roles: c.roles || [],
+        signature: c.signature || '',
+      }));
+      return {
+        data: {
+          status: 'draft',
+          captainOrder,
+          draft: _.set({ turn: 0, picks: captainOrder.map(() => []) }),
+        },
+        result: true,
+      };
     });
-    return ok(true);
+    return result.error ? fail(result.error) : ok(true);
   },
 
   /* 队长选人 / 管理员代选 */
@@ -1729,49 +1836,69 @@ const actions = {
   /* 管理员在选人或对战阶段替换队员；已记录任何赛果后锁定名单。 */
   async replacePlayer(event) {
     if (!(await isAdminUser())) return fail('需要管理员权限');
-    const t = await getTournamentById(event.id);
-    if (!t) return fail('比赛不存在');
-    if (t.status !== 'draft' && t.status !== 'battle') return fail('仅选人/分组或对战阶段可以替换队员');
-    if ((t.matches || []).some((match) => match.status === 'done')) return fail('已有比赛记录比分，不能再替换队员');
     const teamIndex = Number(event.teamIndex);
     const outOpenid = String(event.outOpenid || '').trim();
     const inOpenid = String(event.inOpenid || '').trim();
     if (!Number.isInteger(teamIndex) || teamIndex < 0 || !outOpenid || !inOpenid || outOpenid === inOpenid) {
       return fail('替换队员参数无效');
     }
+    const result = await mutateTournament(db, event.id, (t) => {
+      if (t.status !== 'draft' && t.status !== 'battle') return { error: '仅选人/分组或对战阶段可以替换队员' };
+      if ((t.matches || []).some((match) => match.status === 'done')) return { error: '已有比赛记录比分，不能再替换队员' };
 
-    const captainDraft = t.status === 'draft' && t.mode !== 'auto';
-    if (captainDraft) {
-      const picks = (t.draft && Array.isArray(t.draft.picks) ? t.draft.picks : []).map((team) => Array.isArray(team) ? team.slice() : []);
-      if (teamIndex >= picks.length) return fail('队伍索引无效');
-      const outIndex = picks[teamIndex].indexOf(outOpenid);
-      if (outIndex < 0) return fail('该队员不在此队伍');
-      if (picks.some((team) => team.indexOf(inOpenid) >= 0)) return fail('该队员已被其他队伍选中');
-      const registrations = t.registrations || [];
-      if (!registrations.some((registration) => registration.openid === inOpenid && registration.role === 'player')) {
-        return fail('换入队员不在未选队员池');
+      const captainDraft = t.status === 'draft' && t.mode !== 'auto';
+      if (captainDraft) {
+        const picks = (t.draft && Array.isArray(t.draft.picks) ? t.draft.picks : []).map((team) => Array.isArray(team) ? team.slice() : []);
+        if (teamIndex >= picks.length) return { error: '队伍索引无效' };
+        const outIndex = picks[teamIndex].indexOf(outOpenid);
+        if (outIndex < 0) return { error: '该队员不在此队伍' };
+        if (picks.some((team) => team.indexOf(inOpenid) >= 0)) return { error: '该队员已被其他队伍选中' };
+        const registrations = t.registrations || [];
+        if (!registrations.some((registration) => registration.openid === inOpenid && registration.role === 'player')) {
+          return { error: '换入队员不在未选队员池' };
+        }
+        picks[teamIndex][outIndex] = inOpenid;
+        return {
+          data: { draft: Object.assign({}, t.draft, { picks }) },
+          result: { outOpenid, inOpenid },
+        };
       }
-      picks[teamIndex][outIndex] = inOpenid;
-      await updateTournamentDoc(t._id, {
-        data: { draft: Object.assign({}, t.draft, { picks }), updatedAt: Date.now() },
-      });
-      return ok({ outOpenid, inOpenid });
-    }
 
-    const teams = (t.teams || []).map((team) => Object.assign({}, team, { players: (team.players || []).slice() }));
-    if (teamIndex >= teams.length) return fail('队伍索引无效');
-    const team = teams[teamIndex];
-    const captain = team.captain;
-    const captainOpenid = typeof captain === 'string' ? captain : captain && captain.openid;
-    const memberOpenid = (member) => typeof member === 'string' ? member : member && member.openid;
-    const registrations = (t.registrations || []).map((registration) => Object.assign({}, registration));
-    const outRegistration = registrations.find((registration) => registration.openid === outOpenid && registration.role === 'player');
-    const inRegistration = registrations.find((registration) => registration.openid === inOpenid && registration.role === 'waitlist');
-    if (!outRegistration) return fail('换下队员资料已失效');
-    if (!inRegistration) return fail('换入用户不在替补池');
+      const teams = (t.teams || []).map((team) => Object.assign({}, team, { players: (team.players || []).slice() }));
+      if (teamIndex >= teams.length) return { error: '队伍索引无效' };
+      const team = teams[teamIndex];
+      const captain = team.captain;
+      const captainOpenid = typeof captain === 'string' ? captain : captain && captain.openid;
+      const memberOpenid = (member) => typeof member === 'string' ? member : member && member.openid;
+      const registrations = (t.registrations || []).map((registration) => Object.assign({}, registration));
+      const outRegistration = registrations.find((registration) => registration.openid === outOpenid && registration.role === 'player');
+      const inRegistration = registrations.find((registration) => registration.openid === inOpenid && registration.role === 'waitlist');
+      if (!outRegistration) return { error: '换下队员资料已失效' };
+      if (!inRegistration) return { error: '换入用户不在替补池' };
 
-    if (t.mode === 'auto') {
-      const result = replaceAutoGroupMember(team, registrations, outOpenid, inOpenid, {
+      if (t.mode === 'auto') {
+        const replaced = replaceAutoGroupMember(team, registrations, outOpenid, inOpenid, {
+          openid: inRegistration.openid,
+          nickname: inRegistration.nickname,
+          mmr: inRegistration.mmr,
+          ...registrationDotaFields(inRegistration),
+          roles: inRegistration.roles || [],
+          signature: inRegistration.signature || '',
+        });
+        if (replaced.error) return { error: replaced.error };
+        teams[teamIndex] = replaced.team;
+        return {
+          data: { teams, registrations: replaced.registrations },
+          result: { outOpenid, inOpenid, outNickname: replaced.outNickname, inNickname: replaced.inNickname, captainOpenid: replaced.captainOpenid },
+        };
+      }
+
+      if (captainOpenid === outOpenid) return { error: '队长不能被替换' };
+      const outIndex = team.players.findIndex((member) => memberOpenid(member) === outOpenid);
+      if (outIndex < 0) return { error: '该队员不在此队伍' };
+
+      const outNickname = outRegistration.nickname;
+      team.players.splice(outIndex, 1, {
         openid: inRegistration.openid,
         nickname: inRegistration.nickname,
         mmr: inRegistration.mmr,
@@ -1779,29 +1906,14 @@ const actions = {
         roles: inRegistration.roles || [],
         signature: inRegistration.signature || '',
       });
-      if (result.error) return fail(result.error);
-      teams[teamIndex] = result.team;
-      await updateTournamentDoc(t._id, { data: { teams, registrations: result.registrations, updatedAt: Date.now() } });
-      return ok({ outOpenid, inOpenid, outNickname: result.outNickname, inNickname: result.inNickname, captainOpenid: result.captainOpenid });
-    }
-
-    if (captainOpenid === outOpenid) return fail('队长不能被替换');
-    const outIndex = team.players.findIndex((member) => memberOpenid(member) === outOpenid);
-    if (outIndex < 0) return fail('该队员不在此队伍');
-
-    const outNickname = outRegistration.nickname;
-    team.players.splice(outIndex, 1, {
-      openid: inRegistration.openid,
-      nickname: inRegistration.nickname,
-      mmr: inRegistration.mmr,
-      ...registrationDotaFields(inRegistration),
-      roles: inRegistration.roles || [],
-      signature: inRegistration.signature || '',
+      outRegistration.role = 'waitlist';
+      inRegistration.role = 'player';
+      return {
+        data: { teams, registrations },
+        result: { outOpenid, inOpenid, outNickname, inNickname: inRegistration.nickname },
+      };
     });
-    outRegistration.role = 'waitlist';
-    inRegistration.role = 'player';
-    await updateTournamentDoc(t._id, { data: { teams, registrations, updatedAt: Date.now() } });
-    return ok({ outOpenid, inOpenid, outNickname, inNickname: inRegistration.nickname });
+    return result.error ? fail(result.error) : ok(result.result);
   },
 
   /* 结束并归档（管理员）：手动把已结束的比赛归档到历史（要求已有冠军，未结束不能归档） */
@@ -1863,7 +1975,8 @@ const actions = {
       .orderBy('deletedAt', 'desc')
       .limit(10)
       .get();
-    return ok({ trash: (result.data || []).map((t) => Object.assign(summarize(t, openid), { deletedAt: t.deletedAt })) });
+    const hydrated = await hydrateLegacyRegistrationSummaries(result.data || []);
+    return ok({ trash: hydrated.map((t) => Object.assign(summarize(t, openid), { deletedAt: t.deletedAt })) });
   },
 
   /* 管理员恢复回收站中的比赛。 */
@@ -1936,52 +2049,50 @@ const actions = {
   /* 系统分组：确认分组并写入队伍（服务端重算，不信任客户端数据） */
   async confirmGroup(event) {
     if (!(await isAdminUser())) return fail('需要管理员权限');
-    const t = await getTournamentById(event.id);
-    if (!t) return fail('比赛不存在');
-    if (t.mode !== 'auto') return fail('本场比赛不是系统分组模式');
-    if (t.status !== 'registration') return fail('当前不在报名阶段');
-    const players = (t.registrations || []).filter((r) => r.role === 'player');
-    const need = t.N * t.K;
-    if (players.length < need) return fail('队员尚未报满（' + players.length + '/' + need + '），报满后才能分组');
-    // 支持管理员在预览中手动微调：传入最终分组（每组 openid 列表），服务端校验合法性后写入
-    const playerById = {};
-    players.forEach((p) => (playerById[p.openid] = p));
-    let groups;
-    if (Array.isArray(event.groups)) {
-      if (event.groups.length !== t.N) return fail('分组数据不正确（组数不符）');
-      const seen = {};
-      let total = 0;
-      groups = event.groups.map((arr, gi) => {
-        if (!Array.isArray(arr) || arr.length !== t.K || arr.length < 1) return fail('第 ' + (gi + 1) + ' 组人数不正确（需恰好 ' + t.K + ' 人）');
-        return arr.map((oid) => {
-          if (typeof oid !== 'string' || seen[oid] || !playerById[oid]) return fail('分组数据不正确（重复或非报名队员）');
-          seen[oid] = true;
-          total++;
-          return playerById[oid];
+    const result = await mutateTournament(db, event.id, (t) => {
+      if (t.mode !== 'auto') return { error: '本场比赛不是系统分组模式' };
+      if (t.status !== 'registration') return { error: '当前不在报名阶段' };
+      const players = (t.registrations || []).filter((r) => r.role === 'player');
+      const need = t.N * t.K;
+      if (players.length < need) return { error: '队员尚未报满（' + players.length + '/' + need + '），报满后才能分组' };
+      const playerById = {};
+      players.forEach((p) => (playerById[p.openid] = p));
+      let groups;
+      if (Array.isArray(event.groups)) {
+        if (event.groups.length !== t.N) return { error: '分组数据不正确（组数不符）' };
+        const seen = {};
+        let total = 0;
+        groups = event.groups.map((arr, gi) => {
+          if (!Array.isArray(arr) || arr.length !== t.K || arr.length < 1) return { error: '第 ' + (gi + 1) + ' 组人数不正确（需恰好 ' + t.K + ' 人）' };
+          return arr.map((oid) => {
+            if (typeof oid !== 'string' || seen[oid] || !playerById[oid]) return { error: '分组数据不正确（重复或非报名队员）' };
+            seen[oid] = true;
+            total++;
+            return playerById[oid];
+          });
         });
-      });
-      if (total !== players.length) return fail('还有队员未分组');
-      // 组长 = 组内天梯分最高者（排序仅用于稳定展示）
-      groups = groups.map((members) => members.slice().sort((a, b) => (b.mmr || 0) - (a.mmr || 0)));
-    } else {
-      groups = runAutoGroup(players, t.N, t.K).groups.map((g) => g.members);
-    }
-    const teams = groups.map((members) => {
-      const captain = members[0];
-      return {
-        captain: {
-          openid: captain.openid,
-          nickname: captain.nickname,
-          teamName: '',
-          teamIcon: '',
-          mmr: captain.mmr,
-          ...registrationDotaFields(captain),
-          roles: captain.roles || [],
-          signature: captain.signature || '',
-        },
-        players: members
-          .slice(1)
-          .map((m) => ({
+        const invalid = groups.find((group) => group && group.error) ||
+          groups.reduce((found, group) => found || (Array.isArray(group) && group.find((member) => member && member.error)), null);
+        if (invalid) return invalid;
+        if (total !== players.length) return { error: '还有队员未分组' };
+        groups = groups.map((members) => members.slice().sort((a, b) => (b.mmr || 0) - (a.mmr || 0)));
+      } else {
+        groups = runAutoGroup(players, t.N, t.K).groups.map((g) => g.members);
+      }
+      const teams = groups.map((members) => {
+        const captain = members[0];
+        return {
+          captain: {
+            openid: captain.openid,
+            nickname: captain.nickname,
+            teamName: '',
+            teamIcon: '',
+            mmr: captain.mmr,
+            ...registrationDotaFields(captain),
+            roles: captain.roles || [],
+            signature: captain.signature || '',
+          },
+          players: members.slice(1).map((m) => ({
             openid: m.openid,
             nickname: m.nickname,
             mmr: m.mmr,
@@ -1989,12 +2100,11 @@ const actions = {
             roles: m.roles || [],
             signature: m.signature || '',
           })),
-      };
+        };
+      });
+      return { data: { status: 'draft', teams, captainOrder: [], draft: null, seeding: null }, result: {} };
     });
-    await updateTournamentDoc(t._id, {
-      data: { status: 'draft', teams, captainOrder: [], draft: null, seeding: null, updatedAt: Date.now() },
-    });
-    return ok({});
+    return result.error ? fail(result.error) : ok({});
   },
 
   /* 系统分组：在分组阶段保存管理员调整后的队员名单。 */
@@ -2154,25 +2264,50 @@ const actions = {
           )
         );
       }
-      const regs = toAdd.map((u) => ({
-        openid: u.openid,
-        nickname: u.nickname,
-        role: u.role,
-        ts: Date.now(),
-        mmr: u.mmr,
-        roles: u.roles,
-        signature: u.signature,
-      }));
-      const registrations = (t.registrations || []).concat(regs);
-      await updateTournamentDoc(t._id, { data: { registrations } });
-      return ok({
-        added: regs.length,
-        playerFilled: registrations.filter((r) => r.role === 'player').length,
-        playerTotal: need,
-        waitlistFilled: registrations.filter((r) => r.role === 'waitlist').length,
-        waitLimit,
-        auto: true,
+      const commit = await mutateTournament(db, t._id, (current) => {
+        if (current.status !== 'registration') return { error: '当前不在报名阶段（测试数据只能在报名阶段注入）' };
+        if (current.mode !== 'auto') return { error: '比赛模式已变化，请刷新后重试' };
+        const existingIds = new Set((current.registrations || []).map((registration) => registration.openid));
+        const currentNeed = current.N * current.K;
+        const currentWaitLimit = current.waitLimit || 0;
+        let playerSlots = Math.max(0, currentNeed - (current.registrations || []).filter((registration) => registration.role === 'player').length);
+        let waitSlots = Math.max(0, currentWaitLimit - (current.registrations || []).filter((registration) => registration.role === 'waitlist').length);
+        const additions = toAdd.filter((user) => {
+          if (existingIds.has(user.openid)) return false;
+          if (user.role === 'player' && playerSlots > 0) {
+            playerSlots -= 1;
+            return true;
+          }
+          if (user.role === 'waitlist' && waitSlots > 0) {
+            waitSlots -= 1;
+            return true;
+          }
+          return false;
+        });
+        if (!additions.length) return { error: '当前比赛没有可注入的测试名额' };
+        const regs = additions.map((u) => ({
+          openid: u.openid,
+          nickname: u.nickname,
+          role: u.role,
+          ts: Date.now(),
+          mmr: u.mmr,
+          roles: u.roles,
+          signature: u.signature,
+        }));
+        const registrations = (current.registrations || []).concat(regs);
+        return {
+          data: { registrations },
+          result: {
+            added: regs.length,
+            playerFilled: registrations.filter((r) => r.role === 'player').length,
+            playerTotal: currentNeed,
+            waitlistFilled: registrations.filter((r) => r.role === 'waitlist').length,
+            waitLimit: currentWaitLimit,
+            auto: true,
+          },
+        };
       });
+      return commit.error ? fail(commit.error) : ok(commit.result);
     }
 
     const vcaps = VCAPS.map((c, i) => ({
@@ -2211,25 +2346,58 @@ const actions = {
         )
       );
     }
-    const regs = toAdd.map((u) => {
-      const r = {
-        openid: u.openid,
-        nickname: u.nickname,
-        role: u.openid.indexOf('vcap') === 0 ? 'captain' : 'player',
-        ts: Date.now(),
-        mmr: u.mmr,
-        roles: u.roles,
-        signature: u.signature,
+    const commit = await mutateTournament(db, t._id, (current) => {
+      if (current.status !== 'registration') return { error: '当前不在报名阶段（测试数据只能在报名阶段注入）' };
+      if (current.mode === 'auto') return { error: '比赛模式已变化，请刷新后重试' };
+      const existingIds = new Set((current.registrations || []).map((registration) => registration.openid));
+      let captainSlots = Math.max(0, current.N - (current.registrations || []).filter((registration) => registration.role === 'captain').length);
+      let playerSlots = Math.max(0, current.N * current.K - (current.registrations || []).filter((registration) => registration.role === 'player').length);
+      let waitSlots = Math.max(0, (current.waitLimit || 0) - (current.registrations || []).filter((registration) => registration.role === 'waitlist').length);
+      const additions = toAdd.filter((user) => {
+        if (existingIds.has(user.openid)) return false;
+        const role = user.openid.indexOf('vcap') === 0 ? 'captain' : 'player';
+        if (role === 'captain' && captainSlots > 0) {
+          captainSlots -= 1;
+          return true;
+        }
+        if (role === 'player' && playerSlots > 0) {
+          playerSlots -= 1;
+          return true;
+        }
+        if (role === 'waitlist' && waitSlots > 0) {
+          waitSlots -= 1;
+          return true;
+        }
+        return false;
+      });
+      if (!additions.length) return { error: '当前比赛没有可注入的测试名额' };
+      const regs = additions.map((u) => {
+        const registration = {
+          openid: u.openid,
+          nickname: u.nickname,
+          role: u.openid.indexOf('vcap') === 0 ? 'captain' : 'player',
+          ts: Date.now(),
+          mmr: u.mmr,
+          roles: u.roles,
+          signature: u.signature,
+        };
+        if (registration.role === 'captain') {
+          registration.teamName = '';
+          registration.teamIcon = '';
+        }
+        return registration;
+      });
+      const registrations = (current.registrations || []).concat(regs);
+      return {
+        data: { registrations },
+        result: {
+          added: regs.length,
+          captainFilled: registrations.filter((r) => r.role === 'captain').length,
+          playerFilled: registrations.filter((r) => r.role === 'player').length,
+        },
       };
-      if (r.role === 'captain') {
-        r.teamName = '';
-        r.teamIcon = '';
-      }
-      return r;
     });
-    const registrations = (t.registrations || []).concat(regs);
-    await updateTournamentDoc(t._id, { data: { registrations } });
-    return ok({ added: regs.length, captainFilled: registrations.filter((r) => r.role === 'captain').length, playerFilled: registrations.filter((r) => r.role === 'player').length });
+    return commit.error ? fail(commit.error) : ok(commit.result);
   },
 
   /* 读取赛后感言（公开内容；发布权限仍由 addComment 校验） */
@@ -2315,6 +2483,29 @@ const actions = {
     const version = await getTournamentVersion(event.id);
     if (!version) return fail('比赛不存在');
     return ok(version);
+  },
+
+  /* 报名页变化轮询：只读取报名名单与名额统计，不装配赛程、评论和卡片资料。 */
+  async tournamentRegistrationSnapshot(event) {
+    const snapshot = await getTournamentRegistrationSnapshot(event.id, getOpenId());
+    if (!snapshot) return fail('比赛不存在');
+    return ok(snapshot);
+  },
+
+  /* 报名页首屏数据：只返回赛事基础信息、报名名单和管理员权限，避免组装赛程/积分/评论。 */
+  async registrationDetail(event) {
+    const openid = getOpenId();
+    const [snapshot, adminConfig] = await Promise.all([
+      getTournamentRegistrationSnapshot(event.id, openid).then(decorateRegistrationSnapshot),
+      getAdminsConfig(),
+    ]);
+    if (!snapshot) return fail('比赛不存在');
+    const isAdminFlag = openid === adminConfig.superAdmin || (adminConfig.admins || []).indexOf(openid) >= 0;
+    return ok(Object.assign({}, snapshot, {
+      isAdmin: isAdminFlag,
+      isSuper: openid === adminConfig.superAdmin,
+      settlementReady: snapshot.status === 'finished' && !!snapshot.champion,
+    }));
   },
 
   /* 比赛详情（按 id；不传 id 时取今天最新创建的一场） */

@@ -1,6 +1,6 @@
 <!--pages/register/register.wxml - 报名-->
 <nav-bar title="报名" />
-<tournament-flow wx:if="{{t}}" tournament="{{t}}" readonly="{{readonly}}" display-stage="{{stageView}}" settlement-ready="{{t.standings && t.standings.complete}}" />
+<tournament-flow wx:if="{{t}}" tournament="{{t}}" readonly="{{readonly}}" display-stage="{{stageView}}" settlement-ready="{{t.settlementReady || (t.standings && t.standings.complete)}}" />
 <view class="container">
   <block wx:if="{{t}}">
     <view wx:if="{{refreshError}}" class="card register-refresh-error">

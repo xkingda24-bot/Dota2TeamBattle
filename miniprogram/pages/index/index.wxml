@@ -147,7 +147,7 @@
     <view class="trash-heading" bindtap="toggleTrash" aria-expanded="{{trashExpanded}}">
       <view class="trash-heading-copy">
         <view class="trash-kicker">RECENTLY DELETED</view>
-        <view class="trash-title">回收站 <text class="trash-count">{{trash.length}}</text></view>
+        <view class="trash-title">回收站 <text wx:if="{{trashLoaded}}" class="trash-count">{{trash.length}}</text></view>
       </view>
       <view class="trash-chevron {{trashExpanded ? 'trash-chevron-open' : ''}}">›</view>
     </view>

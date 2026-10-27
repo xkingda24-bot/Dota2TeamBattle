@@ -3,9 +3,18 @@ const { TOURNAMENT_SUMMARY_FIELDS } = require('./query-projections');
 function summarize(t, myOpenid) {
   const mode = t.mode === 'auto' ? 'auto' : 'captain';
   const registrations = Array.isArray(t.registrations) ? t.registrations : [];
-  const caps = registrations.filter((r) => r.role === 'captain').length;
-  const players = registrations.filter((r) => r.role === 'player').length;
-  const waitlist = registrations.filter((r) => r.role === 'waitlist').length;
+  const cachedCounts = t.registrationCounts || {};
+  const legacyCounts = () => {
+    const counts = { captain: 0, player: 0, waitlist: 0 };
+    registrations.forEach((registration) => {
+      if (registration && Object.prototype.hasOwnProperty.call(counts, registration.role)) counts[registration.role] += 1;
+    });
+    return counts;
+  };
+  const counts = t.registrationCounts ? cachedCounts : legacyCounts();
+  const caps = Number(counts.captain) || 0;
+  const players = Number(counts.player) || 0;
+  const waitlist = Number(counts.waitlist) || 0;
   return {
     id: t._id,
     name: t.name,
@@ -25,7 +34,11 @@ function summarize(t, myOpenid) {
     createdAt: t.createdAt,
     archivedAt: t.archivedAt || null,
     deletedAt: t.deletedAt || null,
-    meRegistered: myOpenid ? registrations.some((r) => r.openid === myOpenid) : false,
+    meRegistered: myOpenid
+      ? (Array.isArray(t.registeredOpenids)
+        ? t.registeredOpenids.indexOf(myOpenid) >= 0
+        : registrations.some((r) => r.openid === myOpenid))
+      : false,
   };
 }
 

@@ -38,7 +38,7 @@ Page({
   },
 
   onShow() {
-    this.load();
+    tournamentPolling.refreshIfChanged(this);
     this.startPoll();
   },
   onHide() {
