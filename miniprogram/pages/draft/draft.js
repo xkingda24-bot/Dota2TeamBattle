@@ -1,5 +1,6 @@
 // pages/draft/draft.js - 队长选人（蛇形，按比赛 id）
 const api = require('../../utils/api');
+const tournamentPolling = require('../../utils/tournament-polling');
 
 const ROLE_LABELS = ['', '1号位', '2号位', '3号位', '4号位', '5号位'];
 
@@ -51,14 +52,10 @@ Page({
   },
 
   startPoll() {
-    this.stopPoll();
-    this._timer = setInterval(() => this.load(true), 8000);
+    tournamentPolling.start(this);
   },
   stopPoll() {
-    if (this._timer) {
-      clearInterval(this._timer);
-      this._timer = null;
-    }
+    tournamentPolling.stop(this);
   },
 
   load(silent) {
@@ -84,6 +81,8 @@ Page({
             );
           }
         }
+        this._lastTournamentVersion = tournamentPolling.versionToken(t);
+        this._lastFullSyncAt = Date.now();
         this.setData({ t, isAdmin: !!t.isAdmin && !this.data.readonly, loading: false, loadError: '', refreshError: false });
         this.computeDraft();
       })

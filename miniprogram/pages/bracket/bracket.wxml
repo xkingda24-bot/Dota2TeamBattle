@@ -19,7 +19,7 @@
       <view class="team-logo-label">战队队标</view>
       <view class="team-logo-options">
         <view wx:for="{{teamLogos}}" wx:key="id" class="team-logo-option {{teamIconInput === item.id ? 'team-logo-option-active' : ''}}" data-id="{{item.id}}" bindtap="onTeamIconSelect">
-          <image class="team-logo-image" src="{{item.src}}" mode="aspectFit" />
+          <text class="team-logo-emoji">{{item.emoji}}</text>
           <text>{{item.name}}</text>
         </view>
         <view class="team-logo-clear" bindtap="onTeamIconClear">不使用队标</view>
@@ -57,7 +57,7 @@
       <view class="card-title">{{t.mode === 'auto' ? '系统分组结果' : '参赛队伍'}}</view>
       <view class="flow-team {{index === 0 ? 'flow-team-first' : ''}}" wx:for="{{groupedTeams}}" wx:key="teamIndex">
         <view class="flow-team-head">
-          <image wx:if="{{item.teamIconSrc}}" class="team-logo-image" src="{{item.teamIconSrc}}" mode="aspectFit" />
+          <text wx:if="{{item.teamIconEmoji}}" class="team-logo-mark">{{item.teamIconEmoji}}</text>
           <view class="flow-team-name">{{item.name}}</view>
         </view>
         <view class="flow-team-members">
@@ -102,7 +102,7 @@
             <text class="tree-node-status {{nd.status === 'done' ? 'done' : ''}}">{{nd.status === 'done' ? '已结束' : '待打'}}</text>
           </view>
           <view class="tree-node-team tree-node-team-clickable {{nd.status === 'done' && nd.winner === nd.teamAInfo.openid ? 'win' : ''}}" data-mid="{{nd.id}}" data-side="A" bindtap="showMembers">
-            <image wx:if="{{nd.teamAInfo.teamIconSrc}}" class="tree-team-logo" src="{{nd.teamAInfo.teamIconSrc}}" mode="aspectFit" />
+            <text wx:if="{{nd.teamAInfo.teamIconEmoji}}" class="team-logo-mark tree-team-logo">{{nd.teamAInfo.teamIconEmoji}}</text>
             <text class="tn-name tn-name-clickable">{{nd.displayA}}</text>
             <text class="tn-score" wx:if="{{nd.status === 'done'}}">{{nd.scoreA}}</text>
           </view>
@@ -111,7 +111,7 @@
             <view class="tn-btn tn-btn-members" data-mid="{{nd.id}}" data-side="A" catchtap="showMembers">人员详情</view>
           </view>
           <view class="tree-node-team tree-node-team-clickable {{nd.status === 'done' && nd.winner === nd.teamBInfo.openid ? 'win' : ''}}" data-mid="{{nd.id}}" data-side="B" bindtap="showMembers">
-            <image wx:if="{{nd.teamBInfo.teamIconSrc}}" class="tree-team-logo" src="{{nd.teamBInfo.teamIconSrc}}" mode="aspectFit" />
+            <text wx:if="{{nd.teamBInfo.teamIconEmoji}}" class="team-logo-mark tree-team-logo">{{nd.teamBInfo.teamIconEmoji}}</text>
             <text class="tn-name tn-name-clickable">{{nd.displayB}}</text>
             <text class="tn-score" wx:if="{{nd.status === 'done'}}">{{nd.scoreB}}</text>
           </view>
@@ -160,7 +160,7 @@
           <view class="podium-main">
             <view class="podium-line">
               <view class="podium-rank">{{entry.label}}</view>
-              <image wx:if="{{entry.teamIconSrc}}" class="standing-logo" src="{{entry.teamIconSrc}}" mode="aspectFit" />
+              <text wx:if="{{entry.teamIconEmoji}}" class="team-logo-mark standing-logo">{{entry.teamIconEmoji}}</text>
               <view class="podium-team">{{entry.teamName}}</view>
               <view class="spacer"></view>
               <view wx:if="{{!settlementEditing}}" class="btn-small btn-plain podium-toggle" data-team-id="{{entry.teamId}}" bindtap="toggleSettlementMembers">{{entry.showMembers ? '收起成员' : '查看成员'}}</view>
@@ -192,7 +192,7 @@
         class="standing-row"
       >
         <view class="standing-rank">{{entry.label}}</view>
-        <image wx:if="{{entry.teamIconSrc}}" class="standing-logo" src="{{entry.teamIconSrc}}" mode="aspectFit" />
+        <text wx:if="{{entry.teamIconEmoji}}" class="team-logo-mark standing-logo">{{entry.teamIconEmoji}}</text>
         <view class="standing-team">{{entry.teamName}}</view>
         <view class="spacer"></view>
         <view wx:if="{{!settlementEditing}}" class="btn-small btn-plain standing-toggle" data-team-id="{{entry.teamId}}" bindtap="toggleSettlementMembers">{{entry.showMembers ? '收起' : '成员'}}</view>
@@ -428,7 +428,7 @@
         <view class="label">战队队标</view>
         <view class="team-logo-options">
           <view wx:for="{{teamLogos}}" wx:key="id" class="team-logo-option {{teamConfigPanel.icon === item.id ? 'team-logo-option-active' : ''}}" data-id="{{item.id}}" bindtap="onTeamConfigIconSelect">
-            <image class="team-logo-image" src="{{item.src}}" mode="aspectFit" />
+            <text class="team-logo-emoji">{{item.emoji}}</text>
             <text>{{item.name}}</text>
           </view>
           <view class="team-logo-clear" bindtap="onTeamConfigIconClear">不使用队标</view>
@@ -453,7 +453,7 @@
     </view>
     <view class="vs-row">
       <view class="team-col">
-        <view class="team team-clickable {{status === 'done' && winner === teamAInfo.openid ? 'team-win' : ''}}" data-id="{{id}}" data-side="A" bindtap="showMembers"><image wx:if="{{teamAInfo.teamIconSrc}}" class="match-team-logo" src="{{teamAInfo.teamIconSrc}}" mode="aspectFit" /><text>{{displayA}}</text></view>
+        <view class="team team-clickable {{status === 'done' && winner === teamAInfo.openid ? 'team-win' : ''}}" data-id="{{id}}" data-side="A" bindtap="showMembers"><text wx:if="{{teamAInfo.teamIconEmoji}}" class="team-logo-mark match-team-logo">{{teamAInfo.teamIconEmoji}}</text><text>{{displayA}}</text></view>
         <view class="team-info-btn" wx:if="{{membersA}}" bindtap="toggleTeam" data-id="{{id}}" data-side="A">队员信息 {{expandedA ? '收起' : '展开'}}</view>
       </view>
       <view class="vs-center">
@@ -461,7 +461,7 @@
         <view class="vs-text" wx:else>VS</view>
       </view>
       <view class="team-col">
-        <view class="team team-clickable {{status === 'done' && winner === teamBInfo.openid ? 'team-win' : ''}}" data-id="{{id}}" data-side="B" bindtap="showMembers"><image wx:if="{{teamBInfo.teamIconSrc}}" class="match-team-logo" src="{{teamBInfo.teamIconSrc}}" mode="aspectFit" /><text>{{displayB}}</text></view>
+        <view class="team team-clickable {{status === 'done' && winner === teamBInfo.openid ? 'team-win' : ''}}" data-id="{{id}}" data-side="B" bindtap="showMembers"><text wx:if="{{teamBInfo.teamIconEmoji}}" class="team-logo-mark match-team-logo">{{teamBInfo.teamIconEmoji}}</text><text>{{displayB}}</text></view>
         <view class="team-info-btn" wx:if="{{membersB}}" bindtap="toggleTeam" data-id="{{id}}" data-side="B">队员信息 {{expandedB ? '收起' : '展开'}}</view>
       </view>
     </view>

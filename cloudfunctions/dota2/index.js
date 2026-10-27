@@ -5,7 +5,7 @@
  * 身份取自微信 openid（wxContext.OPENID），天然免登录；
  * 管理员为"名单制"：环境变量指定的账号初始化超管（superAdmin）+ 超管可添加多个管理员（admins）。
  *
- * 集合：users / tournaments / config（首次调用自动创建）
+ * 集合：users / tournaments / config（部署后通过 initializeDatabase 一次性创建）
  *  config 中存：{ key:'admins', superAdmin: openid, admins: [openid...] }
  */
 const cloud = require('wx-server-sdk');
@@ -23,6 +23,9 @@ const { dotaRankLabel, isRankVerified, publicDotaCardFields } = require('./card-
 const { selectUserRecord, buildUserMap } = require('./user-records');
 const { ADMIN_USER_SORT_FIELDS, buildAdminUsers } = require('./admin-users');
 const { buildTestRegistrationAdditions } = require('./test-registration');
+const { ADMIN_USER_LIST_FIELDS } = require('./query-projections');
+const { TOURNAMENT_SUMMARY_FIELDS, summarize } = require('./tournament-summary');
+const { TEAM_LOGO_PRESETS, TEAM_LOGO_IDS } = require('./team-logos');
 
 const COLLECTIONS = ['users', 'tournaments', 'config'];
 const BO_LIST = ['BO1', 'BO3', 'BO5'];
@@ -49,28 +52,6 @@ const CARD_STYLE_OPTIONS = {
   color: ['gold', 'arcane', 'frost', 'toxic', 'ember'],
   animation: ['none', 'blink', 'bkb', 'ward', 'illusion', 'roshan', 'arcane'],
 };
-// Bundled presets avoid upload/storage permissions and keep team marks available offline.
-const TEAM_LOGO_CONFIG_KEY = 'teamLogos';
-const TEAM_LOGO_PRESETS = [
-  { id: 'swords', name: '双刃', src: '/images/team-logos/swords.png' },
-  { id: 'emblem', name: '徽记', src: '/images/team-logos/emblem.png' },
-  { id: 'dragon', name: '巨龙', src: '/images/team-logos/dragon.png' },
-  { id: 'wolf', name: '战狼', src: '/images/team-logos/wolf.png' },
-  { id: 'bat', name: '夜蝠', src: '/images/team-logos/bat.png' },
-  { id: 'phoenix', name: '凤凰', src: '/images/team-logos/phoenix.png' },
-  { id: 'skull', name: '骷髅', src: '/images/team-logos/skull.png' },
-  { id: 'eagle', name: '雄鹰', src: '/images/team-logos/eagle.png' },
-  { id: 'snake', name: '毒蛇', src: '/images/team-logos/snake.png' },
-  { id: 'tiger', name: '猛虎', src: '/images/team-logos/tiger.png' },
-  { id: 'bear', name: '巨熊', src: '/images/team-logos/bear.png' },
-  { id: 'scorpion', name: '蝎子', src: '/images/team-logos/scorpion.png' },
-  { id: 'lion', name: '雄狮', src: '/images/team-logos/lion.png' },
-  { id: 'horse', name: '战马', src: '/images/team-logos/horse.png' },
-  { id: 'wings', name: '羽翼', src: '/images/team-logos/wings.png' },
-  { id: 'bolt', name: '闪电', src: '/images/team-logos/bolt.png' },
-];
-const TEAM_LOGO_IDS = TEAM_LOGO_PRESETS.map((item) => item.id);
-
 // 赛后感言以比赛文档内嵌数组保存：每位用户一条，可重复提交更新；
 // 上限和长度限制避免把比赛文档无限增大，也与 Web 版的交互保持一致。
 const MAX_COMMENT_LENGTH = 100;
@@ -96,9 +77,18 @@ async function ensureCollections() {
     try {
       await db.createCollection(c);
     } catch (e) {
-      /* 已存在则忽略 */
+      const code = String(e && (e.code || e.errCode) || '').toUpperCase();
+      const message = String(e && e.message || '');
+      if (!/ALREADY_EXIST|COLLECTION_EXIST/.test(code) && !/already exists|集合已存在/i.test(message)) throw e;
     }
   }
+}
+
+async function updateTournamentDoc(id, update) {
+  const patch = update && update.data ? update.data : update;
+  return db.collection('tournaments').doc(id).update({
+    data: Object.assign({}, patch || {}, { updatedAt: Date.now() }),
+  });
 }
 
 function shuffle(arr) {
@@ -112,15 +102,19 @@ function shuffle(arr) {
 
 async function getUser(openid) {
   if (!openid) return null;
-  // 与批量队员档案读取使用相同的稳定选择规则，避免重复用户记录让“我的”
-  // 和赛事名片取到不同版本的资料。
-  const res = await db.collection('users').where({ _openid: openid }).limit(100).get();
-  const owned = selectUserRecord(res.data);
+  // 当前用户记录都有显式 openid；先用该索引命中常见路径，旧 owner-only
+  // 数据仅在未命中时回退读取 _openid。
+  const explicitResult = await db.collection('users').where({ openid }).limit(100).get();
+  const explicitRecords = explicitResult.data || [];
+  const owned = selectUserRecord(explicitRecords.filter((record) => record && record._openid === openid));
   if (owned) return owned;
-  const res2 = await db.collection('users').where({ openid }).limit(100).get();
-  return selectUserRecord((res2.data || []).filter((record) =>
-    !(record && typeof record._openid === 'string' && record._openid)
+  const ownerResult = await db.collection('users').where({ _openid: openid }).limit(100).get();
+  const ownedFallback = selectUserRecord(ownerResult.data);
+  if (ownedFallback) return ownedFallback;
+  const legacyExplicit = selectUserRecord(explicitRecords.filter((record) =>
+    record && !(typeof record._openid === 'string' && record._openid)
   ));
+  return legacyExplicit;
 }
 
 function cleanDotaCache(now) {
@@ -237,29 +231,6 @@ function registrationDotaFields(member) {
   return publicDotaCardFields(member && member.mmr, member, null);
 }
 
-async function getTeamLogoState() {
-  const res = await db.collection('config').where({ key: TEAM_LOGO_CONFIG_KEY }).limit(1).get();
-  const record = res.data && res.data.length ? res.data[0] : null;
-  const configured = record && Array.isArray(record.logoIds) ? record.logoIds : TEAM_LOGO_IDS;
-  const seen = {};
-  const logoIds = configured.filter((id) => {
-    if (TEAM_LOGO_IDS.indexOf(id) < 0 || seen[id]) return false;
-    seen[id] = true;
-    return true;
-  });
-  // Recover to defaults if an old/partial config leaves no usable presets.
-  return { record, logoIds: logoIds.length ? logoIds : TEAM_LOGO_IDS.slice() };
-}
-
-async function saveTeamLogoState(state, logoIds) {
-  const data = { key: TEAM_LOGO_CONFIG_KEY, logoIds, updatedAt: Date.now() };
-  if (state.record) {
-    await db.collection('config').doc(state.record._id).update({ data });
-  } else {
-    await db.collection('config').add({ data });
-  }
-}
-
 function commentOwner(comment) {
   if (!comment || typeof comment !== 'object') return '';
   return String(comment.openid || comment.userOpenid || '').trim();
@@ -313,13 +284,23 @@ async function getUsersByOpenids(openids) {
   if (!ids.length) return {};
   const chunks = [];
   for (let index = 0; index < ids.length; index += 100) chunks.push(ids.slice(index, index + 100));
-  const [explicitResults, ownerResults] = await Promise.all([
-    Promise.all(chunks.map((chunk) => db.collection('users').where({ openid: _.in(chunk) }).limit(100).get().catch(() => ({ data: [] })))),
-    Promise.all(chunks.map((chunk) => db.collection('users').where({ _openid: _.in(chunk) }).limit(100).get().catch(() => ({ data: [] })))),
-  ]);
-  const ownerRecords = ownerResults.reduce((all, result) => all.concat(result.data || []), []);
+  // Current profile records carry both fields, so one indexed lookup normally
+  // supplies the owner identity too. Query _openid only for IDs found solely in
+  // legacy owner-only records (or not found at all).
+  const explicitResults = await Promise.all(chunks.map((chunk) =>
+    db.collection('users').where({ openid: _.in(chunk) }).limit(100).get().catch(() => ({ data: [] }))
+  ));
   const explicitRecords = explicitResults.reduce((all, result) => all.concat(result.data || []), []);
-  return buildUserMap(ids, ownerRecords, explicitRecords);
+  const ownedRecords = explicitRecords.filter((record) => record && typeof record._openid === 'string' && record._openid);
+  const ownerIds = new Set(ownedRecords.map((record) => record._openid));
+  const fallbackIds = ids.filter((id) => !ownerIds.has(id));
+  const fallbackChunks = [];
+  for (let index = 0; index < fallbackIds.length; index += 100) fallbackChunks.push(fallbackIds.slice(index, index + 100));
+  const ownerResults = await Promise.all(fallbackChunks.map((chunk) =>
+    db.collection('users').where({ _openid: _.in(chunk) }).limit(100).get().catch(() => ({ data: [] }))
+  ));
+  const ownerRecords = ownerResults.reduce((all, result) => all.concat(result.data || []), []);
+  return buildUserMap(ids, ownerRecords.concat(ownedRecords), explicitRecords);
 }
 
 /* 按 openid 批量读取公开名片样式；兼容旧记录只保存 _openid 的用户。 */
@@ -342,12 +323,33 @@ async function getTournamentById(id, includeDeleted) {
   }
 }
 
+async function getTournamentVersion(id) {
+  if (!id) return null;
+  try {
+    const result = await db.collection('tournaments').where({ _id: id })
+      .field({ updatedAt: true, createdAt: true, status: true, deletedAt: true })
+      .limit(1)
+      .get();
+    const tournament = result.data && result.data.length ? result.data[0] : null;
+    if (!tournament) return null;
+    return {
+      id,
+      updatedAt: Number(tournament.updatedAt || tournament.createdAt || 0),
+      status: tournament.status || '',
+      deletedAt: tournament.deletedAt || null,
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
 async function getRecentTournamentSummaries(filter, limit, openid, archived) {
   const summaries = [];
   let offset = 0;
   while (summaries.length < limit) {
     const result = await db.collection('tournaments')
       .where(filter)
+      .field(TOURNAMENT_SUMMARY_FIELDS)
       .orderBy('createdAt', 'desc')
       .skip(offset)
       .limit(100)
@@ -432,7 +434,10 @@ async function composeTournament(t, myOpenid) {
   });
   (t.captainOrder || []).forEach(addMemberOpenid);
   ((t.draft && t.draft.picks) || []).forEach((team) => (team || []).forEach(addMemberOpenid));
-  const userProfiles = await getUsersByOpenids(profileOpenids);
+  const [userProfiles, adminConfig] = await Promise.all([
+    getUsersByOpenids(profileOpenids),
+    getAdminsConfig(),
+  ]);
   const cardStyles = {};
   Object.keys(userProfiles).forEach((openid) => {
     cardStyles[openid] = normalizeCardStyle(userProfiles[openid].cardStyle);
@@ -475,8 +480,8 @@ async function composeTournament(t, myOpenid) {
       : Object.assign({}, registration || {}, member);
     return decorateCardPlayer(source);
   };
-  const admin = await isAdmin(myOpenid);
-  const superFlag = await isSuper(myOpenid);
+  const admin = myOpenid === adminConfig.superAdmin || (adminConfig.admins || []).indexOf(myOpenid) >= 0;
+  const superFlag = myOpenid === adminConfig.superAdmin;
 
   // 选人信息（仅队长选人模式）
   let draftInfo = null;
@@ -561,36 +566,8 @@ async function composeTournament(t, myOpenid) {
     canComment: canPostComment(t, myOpenid, admin),
     myComment: comments.find((comment) => comment.isMine) || null,
     createdAt: t.createdAt,
+    updatedAt: t.updatedAt || t.createdAt || 0,
     archivedAt: t.archivedAt || null,
-  };
-}
-
-/* 比赛列表摘要 */
-function summarize(t, myOpenid) {
-  const mode = t.mode === 'auto' ? 'auto' : 'captain';
-  const caps = (t.registrations || []).filter((r) => r.role === 'captain').length;
-  const players = (t.registrations || []).filter((r) => r.role === 'player').length;
-  const waitlist = (t.registrations || []).filter((r) => r.role === 'waitlist').length;
-  return {
-    id: t._id,
-    name: t.name,
-    time: t.time,
-    mode,
-    N: t.N,
-    K: t.K,
-    status: t.status,
-    captainFilled: caps,
-    captainTotal: mode === 'auto' ? 0 : t.N,
-    playerFilled: players,
-    playerTotal: t.N * t.K,
-    waitlistFilled: waitlist,
-    waitLimit: t.waitLimit || 0,
-    champion: t.champion || null,
-    creatorName: t.creatorName || '',
-    createdAt: t.createdAt,
-    archivedAt: t.archivedAt || null,
-    deletedAt: t.deletedAt || null,
-    meRegistered: myOpenid ? (t.registrations || []).some((r) => r.openid === myOpenid) : false,
   };
 }
 
@@ -709,6 +686,17 @@ function runAutoGroup(players, N, K) {
 }
 
 const actions = {
+  /* 部署后一次性创建所需集合；普通业务请求不再执行集合初始化。 */
+  async initializeDatabase() {
+    const openid = getOpenId();
+    const initialSuperAdminOpenid = String(process.env.INITIAL_SUPER_ADMIN_OPENID || '').trim();
+    if (!canInitializeSuperAdmin(openid, '', initialSuperAdminOpenid)) {
+      return fail('只有已配置的初始最高管理员可以初始化数据库');
+    }
+    await ensureCollections();
+    return ok({ initialized: COLLECTIONS.slice() });
+  },
+
   /* 主页数据：今天的比赛 + 之前的比赛 + 我的身份 */
   async home(event) {
     const openid = getOpenId();
@@ -1008,7 +996,12 @@ const actions = {
     const records = [];
     let offset = 0;
     while (true) {
-      const result = await db.collection('users').orderBy('_id', 'asc').skip(offset).limit(100).get();
+      const result = await db.collection('users')
+        .field(ADMIN_USER_LIST_FIELDS)
+        .orderBy('_id', 'asc')
+        .skip(offset)
+        .limit(100)
+        .get();
       const batch = result.data || [];
       records.push(...batch);
       offset += batch.length;
@@ -1124,6 +1117,7 @@ const actions = {
         champion: null,
         comments: [],
         createdAt: Date.now(),
+        updatedAt: Date.now(),
         createdBy: openid,
         creatorName: me ? me.nickname : '',
       },
@@ -1163,7 +1157,7 @@ const actions = {
       if (N * K < players) return fail('队员名额不能小于已报名人数（当前已报 ' + players + ' 人）');
     }
     if (waitLimit < waitlist) return fail('替补名额不能小于已报名替补人数（当前 ' + waitlist + ' 人）');
-    await db.collection('tournaments').doc(t._id).update({
+    await updateTournamentDoc(t._id, {
       data: { name, time, secret, mode, N, K, waitLimit: Math.round(waitLimit), updatedAt: Date.now() },
     });
     return ok({});
@@ -1248,7 +1242,7 @@ const actions = {
       reg.teamIcon = '';
     }
     const registrations = (t.registrations || []).concat([reg]);
-    await db.collection('tournaments').doc(t._id).update({ data: { registrations } });
+    await updateTournamentDoc(t._id, { data: { registrations } });
     return ok({ role, auto });
   },
 
@@ -1278,7 +1272,7 @@ const actions = {
     if (teamName.length > 10) return fail('队伍名称最多 10 个字');
     const hasTeamIcon = Object.prototype.hasOwnProperty.call(event, 'teamIcon');
     const teamIcon = hasTeamIcon ? String(event.teamIcon || '').trim() : null;
-    if (hasTeamIcon && teamIcon && TEAM_LOGO_IDS.indexOf(teamIcon) < 0) return fail('请选择队标库中的预设队标');
+    if (hasTeamIcon && teamIcon && TEAM_LOGO_IDS.indexOf(teamIcon) < 0) return fail('请选择内置队标');
     const targetOpenid = String(event.openid || '') || openid;
     const isAdminFlag = await isAdmin(openid);
     if (targetOpenid !== openid && !isAdminFlag) return fail('只有队长本人或管理员可以设置队伍名称');
@@ -1289,15 +1283,10 @@ const actions = {
       const teams = (t.teams || []).map((tm) => Object.assign({}, tm));
       const ti = teams.findIndex((tm) => tm.captain && tm.captain.openid === targetOpenid);
       if (ti < 0) return fail('只能由组长（本队天梯分最高者）或管理员设置队伍名称');
-      if (hasTeamIcon && teamIcon) {
-        const logoState = await getTeamLogoState();
-        const existingIcon = teams[ti].captain.teamIcon || '';
-        if (logoState.logoIds.indexOf(teamIcon) < 0 && teamIcon !== existingIcon) return fail('请选择当前可用的队标预设');
-      }
       teams[ti] = Object.assign({}, teams[ti], {
         captain: Object.assign({}, teams[ti].captain, Object.assign({ teamName }, hasTeamIcon ? { teamIcon } : {})),
       });
-      await db.collection('tournaments').doc(t._id).update({ data: { teams, matches: actions.syncMatchNames(t, ti, teams[ti].captain) } });
+      await updateTournamentDoc(t._id, { data: { teams, matches: actions.syncMatchNames(t, ti, teams[ti].captain) } });
       return ok(true);
     }
 
@@ -1306,28 +1295,18 @@ const actions = {
       const registrations = (t.registrations || []).map((r) => Object.assign({}, r));
       const idx = registrations.findIndex((r) => r.openid === targetOpenid && r.role === 'captain');
       if (idx < 0) return fail('只能为已报名的队长设置队伍名称');
-      if (hasTeamIcon && teamIcon) {
-        const logoState = await getTeamLogoState();
-        const existingIcon = registrations[idx].teamIcon || '';
-        if (logoState.logoIds.indexOf(teamIcon) < 0 && teamIcon !== existingIcon) return fail('请选择当前可用的队标预设');
-      }
       registrations[idx] = Object.assign({}, registrations[idx], Object.assign({ teamName }, hasTeamIcon ? { teamIcon } : {}));
-      await db.collection('tournaments').doc(t._id).update({ data: { registrations } });
+      await updateTournamentDoc(t._id, { data: { registrations } });
       return ok(true);
     }
     if (t.status === 'draft' || t.status === 'battle') {
       const teams = (t.teams || []).map((tm) => Object.assign({}, tm));
       const ti = teams.findIndex((tm) => tm.captain && tm.captain.openid === targetOpenid);
       if (ti < 0) return fail('只能由本队队长或管理员设置队伍名称');
-      if (hasTeamIcon && teamIcon) {
-        const logoState = await getTeamLogoState();
-        const existingIcon = teams[ti].captain.teamIcon || '';
-        if (logoState.logoIds.indexOf(teamIcon) < 0 && teamIcon !== existingIcon) return fail('请选择当前可用的队标预设');
-      }
       teams[ti] = Object.assign({}, teams[ti], {
         captain: Object.assign({}, teams[ti].captain, Object.assign({ teamName }, hasTeamIcon ? { teamIcon } : {})),
       });
-      await db.collection('tournaments').doc(t._id).update({ data: { teams, matches: actions.syncMatchNames(t, ti, teams[ti].captain) } });
+      await updateTournamentDoc(t._id, { data: { teams, matches: actions.syncMatchNames(t, ti, teams[ti].captain) } });
       return ok(true);
     }
     return fail('当前阶段不能设置队伍名称');
@@ -1356,7 +1335,7 @@ const actions = {
       if (waitlist >= waitLimit) return fail('替补名额已满');
     }
     registrations[idx] = Object.assign({}, cur, { role: toRole });
-    await db.collection('tournaments').doc(t._id).update({ data: { registrations } });
+    await updateTournamentDoc(t._id, { data: { registrations } });
     return ok(true);
   },
 
@@ -1368,7 +1347,7 @@ const actions = {
     if (t.status !== 'registration') return fail('报名已锁定，请联系管理员');
     const registrations = (t.registrations || []).filter((r) => r.openid !== openid);
     if (registrations.length === (t.registrations || []).length) return fail('你尚未报名');
-    await db.collection('tournaments').doc(t._id).update({ data: { registrations } });
+    await updateTournamentDoc(t._id, { data: { registrations } });
     return ok(true);
   },
 
@@ -1379,7 +1358,7 @@ const actions = {
     if (!t) return fail('比赛不存在');
     const registrations = (t.registrations || []).filter((r) => r.openid !== event.openid);
     if (registrations.length === (t.registrations || []).length) return fail('未找到该报名');
-    await db.collection('tournaments').doc(t._id).update({ data: { registrations } });
+    await updateTournamentDoc(t._id, { data: { registrations } });
     return ok(true);
   },
 
@@ -1405,7 +1384,7 @@ const actions = {
       roles: c.roles || [],
       signature: c.signature || '',
     }));
-    await db.collection('tournaments').doc(t._id).update({
+    await updateTournamentDoc(t._id, {
       data: {
         status: 'draft',
         captainOrder,
@@ -1452,6 +1431,7 @@ const actions = {
         data: {
           'draft.turn': turn + 1,
           ['draft.picks.' + capIdx]: nextPicks[capIdx],
+          updatedAt: Date.now(),
         },
       });
     if (!upd.stats || upd.stats.updated !== 1) {
@@ -1478,7 +1458,7 @@ const actions = {
       roles: c.roles || [],
       signature: c.signature || '',
     }));
-    await db.collection('tournaments').doc(t._id).update({
+    await updateTournamentDoc(t._id, {
       data: {
         captainOrder,
         draft: _.set({ turn: 0, picks: captainOrder.map(() => []) }),
@@ -1504,7 +1484,7 @@ const actions = {
       if (typeof v !== 'number' || v < 0 || v >= t.N || seen[v]) return fail('对阵落位数据不正确');
       seen[v] = true;
     }
-    await db.collection('tournaments').doc(t._id).update({ data: { seeding } });
+    await updateTournamentDoc(t._id, { data: { seeding } });
     return ok(true);
   },
 
@@ -1516,7 +1496,7 @@ const actions = {
     if (t.status !== 'draft') return fail('当前不在生成对阵阶段');
     const base = [];
     for (let i = 0; i < t.N; i++) base.push(i);
-    await db.collection('tournaments').doc(t._id).update({ data: { seeding: shuffle(base) } });
+    await updateTournamentDoc(t._id, { data: { seeding: shuffle(base) } });
     return ok(true);
   },
 
@@ -1559,7 +1539,7 @@ const actions = {
     } catch (e) {
       return fail('生成对阵失败：' + e.message);
     }
-    await db.collection('tournaments').doc(t._id).update({
+    await updateTournamentDoc(t._id, {
       data: {
         status: 'battle',
         teams,
@@ -1584,7 +1564,7 @@ const actions = {
     if (t.matches[idx].status === 'done') return fail('比赛已结束，不能修改赛制');
     const matches = (t.matches || []).slice();
     matches[idx] = Object.assign({}, matches[idx], { bo });
-    await db.collection('tournaments').doc(t._id).update({ data: { matches } });
+    await updateTournamentDoc(t._id, { data: { matches } });
     return ok(true);
   },
 
@@ -1644,7 +1624,7 @@ const actions = {
     // 用 _.set 整体替换 champion 字段：TCB 的 update 会把嵌套对象展开成点路径（champion.name）
     // 而库里 champion 字段可能是 null（此前非冠军赛写入过 null），点路径更新会报
     // "Cannot create field 'name' in element {champion: null}"
-    await db.collection('tournaments').doc(t._id).update({
+    await updateTournamentDoc(t._id, {
       data: {
         matches,
         champion: _.set(champion),
@@ -1696,7 +1676,7 @@ const actions = {
     if (champion && Array.from(resetIds).some((id) => (matches.find((x) => x.id === id) || {}).isChampionMatch)) {
       status = 'battle';
     }
-    await db.collection('tournaments').doc(t._id).update({
+    await updateTournamentDoc(t._id, {
       data: {
         matches,
         champion: _.set(status === 'battle' ? null : champion),
@@ -1742,7 +1722,7 @@ const actions = {
       });
       if (t.mode !== 'auto') data.teams = _.set(null);
     }
-    await db.collection('tournaments').doc(t._id).update({ data });
+    await updateTournamentDoc(t._id, { data });
     return ok({ status: target });
   },
 
@@ -1772,7 +1752,7 @@ const actions = {
         return fail('换入队员不在未选队员池');
       }
       picks[teamIndex][outIndex] = inOpenid;
-      await db.collection('tournaments').doc(t._id).update({
+      await updateTournamentDoc(t._id, {
         data: { draft: Object.assign({}, t.draft, { picks }), updatedAt: Date.now() },
       });
       return ok({ outOpenid, inOpenid });
@@ -1801,7 +1781,7 @@ const actions = {
       });
       if (result.error) return fail(result.error);
       teams[teamIndex] = result.team;
-      await db.collection('tournaments').doc(t._id).update({ data: { teams, registrations: result.registrations, updatedAt: Date.now() } });
+      await updateTournamentDoc(t._id, { data: { teams, registrations: result.registrations, updatedAt: Date.now() } });
       return ok({ outOpenid, inOpenid, outNickname: result.outNickname, inNickname: result.inNickname, captainOpenid: result.captainOpenid });
     }
 
@@ -1820,7 +1800,7 @@ const actions = {
     });
     outRegistration.role = 'waitlist';
     inRegistration.role = 'player';
-    await db.collection('tournaments').doc(t._id).update({ data: { teams, registrations, updatedAt: Date.now() } });
+    await updateTournamentDoc(t._id, { data: { teams, registrations, updatedAt: Date.now() } });
     return ok({ outOpenid, inOpenid, outNickname, inNickname: inRegistration.nickname });
   },
 
@@ -1831,7 +1811,7 @@ const actions = {
     if (!t) return fail('比赛不存在');
     if (t.archivedAt) return fail('比赛已归档');
     if (!t.champion) return fail('比赛还未结束（未产生冠军），不能归档');
-    await db.collection('tournaments').doc(t._id).update({
+    await updateTournamentDoc(t._id, {
       data: { status: 'finished', archivedAt: Date.now() },
     });
     return ok(true);
@@ -1860,7 +1840,7 @@ const actions = {
       }
       if (order.length !== valid.size) return fail('名次列表必须包含本场所有队伍');
     }
-    await db.collection('tournaments').doc(t._id).update({ data: { standingsOrder: order, updatedAt: Date.now() } });
+    await updateTournamentDoc(t._id, { data: { standingsOrder: order, updatedAt: Date.now() } });
     return ok({ standingsOrder: order });
   },
 
@@ -1870,7 +1850,7 @@ const actions = {
     const t = await getTournamentById(event.id, true);
     if (!t) return fail('比赛不存在');
     if (t.deletedAt) return fail('比赛已在回收站中');
-    await db.collection('tournaments').doc(t._id).update({ data: { deletedAt: Date.now(), updatedAt: Date.now() } });
+    await updateTournamentDoc(t._id, { data: { deletedAt: Date.now(), updatedAt: Date.now() } });
     return ok(true);
   },
 
@@ -1879,6 +1859,7 @@ const actions = {
     const openid = getOpenId();
     const result = await db.collection('tournaments')
       .where({ deletedAt: _.gt(0) })
+      .field(TOURNAMENT_SUMMARY_FIELDS)
       .orderBy('deletedAt', 'desc')
       .limit(10)
       .get();
@@ -1891,7 +1872,7 @@ const actions = {
     const t = await getTournamentById(event.id, true);
     if (!t) return fail('比赛不存在');
     if (!t.deletedAt) return fail('比赛不在回收站中');
-    await db.collection('tournaments').doc(t._id).update({ data: { deletedAt: null, updatedAt: Date.now() } });
+    await updateTournamentDoc(t._id, { data: { deletedAt: null, updatedAt: Date.now() } });
     return ok(true);
   },
 
@@ -1905,78 +1886,13 @@ const actions = {
     return ok(true);
   },
 
-  /* 队标库：内置 Dota 风格预设，无需云存储；所有用户可读取。 */
+  /* 固定的内置队标列表：只读，不再由超管维护。 */
   async teamLogoList() {
-    const state = await getTeamLogoState();
-    const logos = state.logoIds
-      .map((id) => TEAM_LOGO_PRESETS.find((item) => item.id === id))
-      .filter(Boolean)
-      .map((item, index) => Object.assign({}, item, { order: index }));
-    const enabled = {};
-    state.logoIds.forEach((id) => (enabled[id] = true));
-    const openid = getOpenId();
     return ok({
-      logos,
-      presets: TEAM_LOGO_PRESETS.map((item) => Object.assign({}, item, { enabled: !!enabled[item.id] })),
-      // 保留 icons 字段便于旧页面按字符串读取；新的页面使用 logos 的 id/name/src。
-      icons: logos.map((item) => item.id),
-      isSuper: await isSuper(openid),
+      logos: TEAM_LOGO_PRESETS,
+      presets: TEAM_LOGO_PRESETS,
+      icons: TEAM_LOGO_IDS,
     });
-  },
-
-  /* 超管保存队标库顺序（传完整 id 列表）；仅允许内置预设，避免任意外链图片。 */
-  async teamLogoSave(event) {
-    if (!(await isSuper(getOpenId()))) return fail('仅最高管理员可管理队标库');
-    const state = await getTeamLogoState();
-    const restoreId = String(event.logoId || '').trim();
-    let ids;
-    if (restoreId) {
-      if (TEAM_LOGO_IDS.indexOf(restoreId) < 0) return fail('队标不存在');
-      if (state.logoIds.indexOf(restoreId) >= 0) return fail('该队标已在队标库中');
-      ids = state.logoIds.concat([restoreId]);
-    } else {
-      ids = Array.isArray(event.logoIds) ? event.logoIds.map((id) => String(id || '')) : [];
-      if (!ids.length) return fail('至少保留一个队标');
-      const seen = {};
-      for (const id of ids) {
-        if (TEAM_LOGO_IDS.indexOf(id) < 0 || seen[id]) return fail('队标列表包含未知或重复项目');
-        seen[id] = true;
-      }
-      // 此分支只负责保存顺序；增删必须走对应的单项接口。
-      const currentSet = {};
-      state.logoIds.forEach((id) => (currentSet[id] = true));
-      if (ids.length !== state.logoIds.length || ids.some((id) => !currentSet[id])) {
-        return fail('队标列表已变化，请刷新后重试');
-      }
-    }
-    await saveTeamLogoState(state, ids);
-    return ok({ logos: ids.map((id) => TEAM_LOGO_PRESETS.find((item) => item.id === id)).filter(Boolean) });
-  },
-
-  /* 队标库删除：软删除内置预设，保留比赛历史中的既有 id。 */
-  async teamLogoDelete(event) {
-    if (!(await isSuper(getOpenId()))) return fail('仅最高管理员可管理队标库');
-    const id = String(event.id || event.logoId || '').trim();
-    if (!id || TEAM_LOGO_IDS.indexOf(id) < 0) return fail('队标不存在');
-    const state = await getTeamLogoState();
-    if (state.logoIds.indexOf(id) < 0) return fail('该队标已移除');
-    if (state.logoIds.length <= 1) return fail('至少保留一个队标');
-    const ids = state.logoIds.filter((value) => value !== id);
-    await saveTeamLogoState(state, ids);
-    return ok({ removed: id, logos: ids.map((value) => TEAM_LOGO_PRESETS.find((item) => item.id === value)).filter(Boolean) });
-  },
-
-  /* 调整队标顺序：与 teamLogoSave 分开命名，便于客户端按 Web 版语义调用。 */
-  async teamLogoReorder(event) {
-    if (!(await isSuper(getOpenId()))) return fail('仅最高管理员可管理队标库');
-    const ids = Array.isArray(event.logoIds) ? event.logoIds.map((id) => String(id || '')) : [];
-    const state = await getTeamLogoState();
-    const expected = state.logoIds.slice().sort();
-    const received = ids.slice().sort();
-    if (received.length !== expected.length || received.some((id, index) => id !== expected[index])) {
-      return fail('队标列表已变化，请刷新后重试');
-    }
-    return actions.teamLogoSave(event);
   },
 
   /* 系统分组：预览分组结果（不落库）。约束：每组 K 人；尽量覆盖 1-5 号位；组间均分差尽量 ≤300 */
@@ -2075,7 +1991,7 @@ const actions = {
           })),
       };
     });
-    await db.collection('tournaments').doc(t._id).update({
+    await updateTournamentDoc(t._id, {
       data: { status: 'draft', teams, captainOrder: [], draft: null, seeding: null, updatedAt: Date.now() },
     });
     return ok({});
@@ -2117,7 +2033,7 @@ const actions = {
         })),
       };
     });
-    await db.collection('tournaments').doc(t._id).update({ data: { teams, updatedAt: Date.now() } });
+    await updateTournamentDoc(t._id, { data: { teams, updatedAt: Date.now() } });
     return ok(true);
   },
 
@@ -2128,7 +2044,7 @@ const actions = {
     if (!t) return fail('比赛不存在');
     if (t.mode !== 'auto') return fail('仅系统分组模式支持重新分组');
     if (t.status !== 'draft') return fail('只有分组完成后（未生成对阵前）可以重新分组');
-    await db.collection('tournaments').doc(t._id).update({
+    await updateTournamentDoc(t._id, {
       data: { status: 'registration', teams: [], seeding: null, matches: [], champion: null, updatedAt: Date.now() },
     });
     return ok(true);
@@ -2248,7 +2164,7 @@ const actions = {
         signature: u.signature,
       }));
       const registrations = (t.registrations || []).concat(regs);
-      await db.collection('tournaments').doc(t._id).update({ data: { registrations } });
+      await updateTournamentDoc(t._id, { data: { registrations } });
       return ok({
         added: regs.length,
         playerFilled: registrations.filter((r) => r.role === 'player').length,
@@ -2312,7 +2228,7 @@ const actions = {
       return r;
     });
     const registrations = (t.registrations || []).concat(regs);
-    await db.collection('tournaments').doc(t._id).update({ data: { registrations } });
+    await updateTournamentDoc(t._id, { data: { registrations } });
     return ok({ added: regs.length, captainFilled: registrations.filter((r) => r.role === 'captain').length, playerFilled: registrations.filter((r) => r.role === 'player').length });
   },
 
@@ -2394,6 +2310,13 @@ const actions = {
     });
   },
 
+  /* 比赛变化轮询：只返回小型版本信息，不组装完整名册和名片。 */
+  async tournamentVersion(event) {
+    const version = await getTournamentVersion(event.id);
+    if (!version) return fail('比赛不存在');
+    return ok(version);
+  },
+
   /* 比赛详情（按 id；不传 id 时取今天最新创建的一场） */
   async tournament(event) {
     const openid = getOpenId();
@@ -2419,7 +2342,6 @@ const actions = {
 
 exports.main = async (event) => {
   try {
-    await ensureCollections();
     const action = event.action || event.type;
     const fn = actions[action];
     if (!fn) return fail('未知操作：' + action);

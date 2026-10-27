@@ -83,13 +83,6 @@
     <view class="btn" bindtap="onOpenUserList">管理员管理</view>
   </view>
 
-  <!-- 超管：队标库管理 -->
-  <view class="card" wx:if="{{isSuper}}">
-    <view class="card-title">队标库管理</view>
-    <view class="sub">增加、隐藏和调整内置队标顺序；已用于历史赛事的队标不会消失。</view>
-    <view class="btn" bindtap="goTeamLogos">打开队标库管理</view>
-  </view>
-
   <!-- 说明 -->
   <view class="card">
     <view class="card-title">权限说明</view>

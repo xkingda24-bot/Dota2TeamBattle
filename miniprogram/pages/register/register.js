@@ -1,5 +1,6 @@
 // pages/register/register.js - 报名（按比赛 id，需暗号；支持替补与队长队名）
 const api = require('../../utils/api');
+const tournamentPolling = require('../../utils/tournament-polling');
 
 const ROLE_LABELS = ['', '1号位', '2号位', '3号位', '4号位', '5号位'];
 
@@ -76,10 +77,10 @@ Page({
 
   refreshRegistrationIcons(logos) {
     if (!this.data.t) return;
-    const iconSource = {};
-    (logos || []).forEach((logo) => (iconSource[logo.id] = logo.src));
+    const emojiById = {};
+    (logos || []).forEach((logo) => (emojiById[logo.id] = logo.emoji));
     const addIcon = (registration) => Object.assign({}, registration, {
-      teamIconSrc: iconSource[registration.teamIcon] || '',
+      teamIconEmoji: emojiById[registration.teamIcon] || '',
     });
     this.setData({
       myReg: this.data.myReg ? addIcon(this.data.myReg) : null,
@@ -99,14 +100,10 @@ Page({
   },
 
   startPoll() {
-    this.stopPoll();
-    this._timer = setInterval(() => this.load(true), 8000);
+    tournamentPolling.start(this);
   },
   stopPoll() {
-    if (this._timer) {
-      clearInterval(this._timer);
-      this._timer = null;
-    }
+    tournamentPolling.stop(this);
   },
 
   load(silent) {
@@ -128,14 +125,16 @@ Page({
             : { loading: false, t: null, notFound: true, loadError: '', refreshError: false });
           return;
         }
-        const iconSource = {};
-        (this.data.allTeamLogos || []).forEach((logo) => (iconSource[logo.id] = logo.src));
+        const emojiById = {};
+        (this.data.allTeamLogos || []).forEach((logo) => (emojiById[logo.id] = logo.emoji));
         const regs = (t.registrations || []).map((registration) => Object.assign(fmtReg(registration), {
-          teamIconSrc: iconSource[registration.teamIcon] || '',
+          teamIconEmoji: emojiById[registration.teamIcon] || '',
         }));
         const secretOk = !!this.getStoredSecret() || !!t.myReg;
-        const myReg = t.myReg ? Object.assign(fmtReg(t.myReg), { teamIconSrc: iconSource[t.myReg.teamIcon] || '' }) : null;
+        const myReg = t.myReg ? Object.assign(fmtReg(t.myReg), { teamIconEmoji: emojiById[t.myReg.teamIcon] || '' }) : null;
         const activeTab = t.mode === 'auto' && this.data.activeTab === 'captain' ? 'player' : this.data.activeTab;
+        this._lastTournamentVersion = tournamentPolling.versionToken(t);
+        this._lastFullSyncAt = Date.now();
         this.setData({
           t,
           myReg,

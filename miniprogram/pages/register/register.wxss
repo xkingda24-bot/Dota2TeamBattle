@@ -115,12 +115,12 @@
 }
 .team-logo-label { margin-top:18rpx; color:#9aa4b2; font-size:22rpx; }
 .team-logo-options { display:flex; flex-wrap:wrap; margin:2rpx 0 0 -10rpx; }
-.team-logo-option { display:flex; flex:0 0 calc(25% - 10rpx); flex-direction:column; align-items:center; justify-content:center; min-width:0; min-height:106rpx; margin:10rpx 0 0 10rpx; padding:8rpx 4rpx; border:1rpx solid rgba(224,181,111,.12); border-radius:9rpx; color:#aeb7c2; background:rgba(255,255,255,.025); font-size:19rpx; box-sizing:border-box; }
+.team-logo-option { display:flex; flex:0 0 calc(20% - 10rpx); flex-direction:column; align-items:center; justify-content:center; min-width:0; min-height:92rpx; margin:10rpx 0 0 10rpx; padding:6rpx 3rpx; border:1rpx solid rgba(224,181,111,.12); border-radius:9rpx; color:#aeb7c2; background:rgba(255,255,255,.025); font-size:18rpx; box-sizing:border-box; }
 .team-logo-option-active { border-color:rgba(224,181,111,.62); color:#e8c27c; background:rgba(224,181,111,.09); }
-.team-logo-image { width:58rpx; height:58rpx; }
-.team-logo-clear { display:flex; flex:0 0 calc(25% - 10rpx); align-items:center; justify-content:center; min-height:74rpx; margin:10rpx 0 0 10rpx; color:#9aa4b2; font-size:20rpx; box-sizing:border-box; }
+.team-logo-emoji { margin-bottom:4rpx; font-size:40rpx; line-height:1; }
+.team-logo-clear { display:flex; flex:0 0 calc(20% - 10rpx); align-items:center; justify-content:center; min-height:74rpx; margin:10rpx 0 0 10rpx; color:#9aa4b2; font-size:18rpx; box-sizing:border-box; }
 .team-logo-load-error { margin:8rpx 0; color:#d5a47e; font-size:22rpx; line-height:1.5; }
-.captain-team-logo { flex:none; width:44rpx; height:44rpx; margin-right:10rpx; }
+.captain-team-logo { display:inline-flex; flex:none; align-items:center; justify-content:center; width:44rpx; height:44rpx; margin-right:10rpx; font-size:36rpx; line-height:1; }
 .team-tag {
   display: inline-block;
   margin-left: 12rpx;

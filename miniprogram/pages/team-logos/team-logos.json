@@ -1,7 +1,0 @@
-{
-  "navigationBarTitleText": "队标库管理",
-  "backgroundColor": "#131821",
-  "usingComponents": {
-    "nav-bar": "/components/nav-bar/index"
-  }
-}

@@ -84,7 +84,8 @@
 }
 .tree-node-team-clickable { border-radius: 6rpx; }
 .tn-name-clickable { text-decoration: underline; text-decoration-color: rgba(155, 222, 248, .7); text-underline-offset: 4rpx; }
-.tree-team-logo { flex:none; width:34rpx; height:34rpx; margin-right:8rpx; }
+.team-logo-mark { display:inline-flex; flex:none; align-items:center; justify-content:center; line-height:1; }
+.tree-team-logo { width:34rpx; height:34rpx; margin-right:8rpx; font-size:29rpx; }
 .tree-node-team.win {
   color: #e8c27c;
   font-weight: 600;
@@ -210,7 +211,7 @@
 .podium-line, .standing-row { display: flex; align-items: center; min-width: 0; }
 .podium-rank, .standing-rank { flex-shrink: 0; color: #e8c27c; font-size: 24rpx; font-weight: 600; }
 .podium-team, .standing-team { min-width: 0; margin-left: 14rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #e8e4da; font-size: 28rpx; font-weight: 600; }
-.standing-logo { flex:none; width:40rpx; height:40rpx; margin-left:12rpx; }
+.standing-logo { width:40rpx; height:40rpx; margin-left:12rpx; font-size:34rpx; }
 .podium-toggle, .standing-toggle { flex-shrink: 0; margin: 0 0 0 12rpx; padding: 6rpx 12rpx; font-size: 21rpx; }
 .settlement-members { margin-top: 14rpx; }
 .settlement-members .player-card, .standing-members .player-card { margin-top: 12rpx; }
@@ -218,7 +219,7 @@
 .flow-anchor { height: 1rpx; }
 .flow-team-first { padding-top: 0; border-top: 0; }
 .flow-team-head { display: flex; align-items: center; min-height: 54rpx; margin-bottom: 10rpx; }
-.flow-team-head .team-logo-image { flex: none; width: 48rpx; height: 48rpx; margin-right: 10rpx; }
+.flow-team-head .team-logo-mark { width: 48rpx; height: 48rpx; margin-right: 10rpx; font-size: 40rpx; }
 .flow-team-name { color: #e8c27c; font-size: 27rpx; font-weight: 600; }
 .flow-team-members { display: flex; flex-direction: column; gap: 10rpx; }
 .flow-team-members .player-card { width: 100%; }
@@ -289,7 +290,7 @@
   white-space: nowrap;
 }
 .team-clickable { text-decoration: underline; text-decoration-color: rgba(155, 222, 248, .7); text-underline-offset: 4rpx; }
-.match-team-logo { flex:none; width:38rpx; height:38rpx; margin-right:8rpx; }
+.match-team-logo { width:38rpx; height:38rpx; margin-right:8rpx; font-size:32rpx; }
 .team-win {
   color: #e8c27c;
   font-weight: 600;
@@ -427,10 +428,10 @@
 }
 .team-logo-label { margin-top:18rpx; color:#9aa4b2; font-size:22rpx; }
 .team-logo-options { display:flex; flex-wrap:wrap; margin:2rpx 0 0 -10rpx; }
-.team-logo-option { display:flex; flex:0 0 calc(25% - 10rpx); flex-direction:column; align-items:center; justify-content:center; min-width:0; min-height:106rpx; margin:10rpx 0 0 10rpx; padding:8rpx 4rpx; border:1rpx solid rgba(224,181,111,.12); border-radius:9rpx; color:#aeb7c2; background:rgba(255,255,255,.025); font-size:19rpx; box-sizing:border-box; }
+.team-logo-option { display:flex; flex:0 0 calc(20% - 10rpx); flex-direction:column; align-items:center; justify-content:center; min-width:0; min-height:92rpx; margin:10rpx 0 0 10rpx; padding:6rpx 3rpx; border:1rpx solid rgba(224,181,111,.12); border-radius:9rpx; color:#aeb7c2; background:rgba(255,255,255,.025); font-size:18rpx; box-sizing:border-box; }
 .team-logo-option-active { border-color:rgba(224,181,111,.62); color:#e8c27c; background:rgba(224,181,111,.09); }
-.team-logo-image { width:58rpx; height:58rpx; }
-.team-logo-clear { display:flex; flex:0 0 calc(25% - 10rpx); align-items:center; justify-content:center; min-height:74rpx; margin:10rpx 0 0 10rpx; color:#9aa4b2; font-size:20rpx; box-sizing:border-box; }
+.team-logo-emoji { margin-bottom:4rpx; font-size:40rpx; line-height:1; }
+.team-logo-clear { display:flex; flex:0 0 calc(20% - 10rpx); align-items:center; justify-content:center; min-height:74rpx; margin:10rpx 0 0 10rpx; color:#9aa4b2; font-size:18rpx; box-sizing:border-box; }
 
 /* 记录结果弹层 */
 .mask {

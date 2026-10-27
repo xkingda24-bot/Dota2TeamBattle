@@ -90,8 +90,8 @@
       <view wx:if="{{t.mode !== 'auto' && activeTab === 'captain'}}">
         <view wx:if="{{captainList.length === 0}}" class="empty">还没有队长报名</view>
         <view class="reg-row" wx:for="{{captainList}}" wx:key="openid" data-role="captain" data-openid="{{item.openid}}" data-nickname="{{item.nickname}}" bindtap="onMemberTap">
-          <view wx:if="{{item.teamIconSrc || item.teamName}}" class="reg-team-line">
-            <image wx:if="{{item.teamIconSrc}}" class="captain-team-logo" src="{{item.teamIconSrc}}" mode="aspectFit" />
+          <view wx:if="{{item.teamIconEmoji || item.teamName}}" class="reg-team-line">
+            <text wx:if="{{item.teamIconEmoji}}" class="captain-team-logo">{{item.teamIconEmoji}}</text>
             <text wx:if="{{item.teamName}}" class="team-tag">{{item.teamName}}</text>
           </view>
           <player-card player="{{item}}" card-style="{{item.cardStyle}}" />
@@ -162,7 +162,7 @@
     <view wx:if="{{teamLogoLoadFailed}}" class="team-logo-load-error">队标列表暂不可用，请稍后重试。队名仍可单独保存。</view>
     <view class="team-logo-options">
       <view wx:for="{{teamLogos}}" wx:key="id" class="team-logo-option {{teamIconInput === item.id ? 'team-logo-option-active' : ''}}" data-id="{{item.id}}" bindtap="onTeamIconSelect">
-        <image class="team-logo-image" src="{{item.src}}" mode="aspectFit" />
+        <text class="team-logo-emoji">{{item.emoji}}</text>
         <text>{{item.name}}</text>
       </view>
       <view class="team-logo-clear" bindtap="onTeamIconClear">不使用队标</view>

@@ -101,17 +101,29 @@ Page({
         });
       })
       .catch((e) => {
-        const hasData = this.data.hasLoaded;
-        this.setData({
-          loading: false,
-          loadError: hasData ? '' : (e.message || '加载失败，请重试'),
-          refreshError: hasData,
-        });
-        if (!hasData) wx.showToast({ title: e.message, icon: 'none' });
+        // A fresh CloudBase environment has no collections yet. Only an
+        // INITIAL_SUPER_ADMIN_OPENID-matched caller can create them, and this
+        // one-time bootstrap is attempted only after the normal request fails.
+        if (!this._databaseInitAttempted) {
+          this._databaseInitAttempted = true;
+          return api.call('initializeDatabase').then(() => this.load()).catch(() => this.showLoadError(e));
+        }
+        this.showLoadError(e);
       });
   },
 
+  showLoadError(e) {
+    const hasData = this.data.hasLoaded;
+    this.setData({
+      loading: false,
+      loadError: hasData ? '' : (e.message || '加载失败，请重试'),
+      refreshError: hasData,
+    });
+    if (!hasData) wx.showToast({ title: e.message, icon: 'none' });
+  },
+
   retryLoad() {
+    this._databaseInitAttempted = false;
     this.load();
   },
 
@@ -501,14 +513,6 @@ Page({
       return;
     }
     wx.navigateTo({ url: '/pages/card-style/card-style' });
-  },
-
-  goTeamLogos() {
-    if (!this.data.isSuper) {
-      wx.showToast({ title: '仅最高管理员可以管理队标库', icon: 'none' });
-      return;
-    }
-    wx.navigateTo({ url: '/pages/team-logos/team-logos' });
   },
 
   noop() {},

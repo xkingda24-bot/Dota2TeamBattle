@@ -1,6 +1,7 @@
 // pages/bracket/bracket.js - 对战赛程（TI 双败，按比赛 id）
 const api = require('../../utils/api');
 const { hasCurrentRankVerification, dotaRankLabel } = require('../../utils/dota-rank');
+const tournamentPolling = require('../../utils/tournament-polling');
 
 const BO_LIST = ['BO1', 'BO3', 'BO5'];
 
@@ -251,14 +252,10 @@ Page({
   },
 
   startPoll() {
-    this.stopPoll();
-    this._timer = setInterval(() => this.load(true), 8000);
+    tournamentPolling.start(this);
   },
   stopPoll() {
-    if (this._timer) {
-      clearInterval(this._timer);
-      this._timer = null;
-    }
+    tournamentPolling.stop(this);
   },
 
   load(silent) {
@@ -269,8 +266,10 @@ Page({
     return api
       .call('tournament', data)
       .then((t) => {
-        const iconSource = {};
-        (this.data.allTeamLogos || []).forEach((logo) => (iconSource[logo.id] = logo.src));
+        this._lastTournamentVersion = tournamentPolling.versionToken(t);
+        this._lastFullSyncAt = Date.now();
+        const emojiById = {};
+        (this.data.allTeamLogos || []).forEach((logo) => (emojiById[logo.id] = logo.emoji));
         // 队伍 openid 形如 'T0'、'T1'…（按 seeding 排序后的落位），反查回 teams 拿队员信息
         const teamMap = {};
         const seeding = Array.isArray(t.seeding) && t.seeding.length === t.N ? t.seeding : (t.teams || []).map((_, i) => i);
@@ -344,8 +343,8 @@ Page({
         const matches = (t.matches || []).map((m) => {
           const a = teamMap[m.teamAInfo ? m.teamAInfo.openid : ''];
           const b = teamMap[m.teamBInfo ? m.teamBInfo.openid : ''];
-          const teamAInfo = m.teamAInfo ? Object.assign({}, m.teamAInfo, { teamIconSrc: iconSource[m.teamAInfo.teamIcon] || '' }) : null;
-          const teamBInfo = m.teamBInfo ? Object.assign({}, m.teamBInfo, { teamIconSrc: iconSource[m.teamBInfo.teamIcon] || '' }) : null;
+          const teamAInfo = m.teamAInfo ? Object.assign({}, m.teamAInfo, { teamIconEmoji: emojiById[m.teamAInfo.teamIcon] || '' }) : null;
+          const teamBInfo = m.teamBInfo ? Object.assign({}, m.teamBInfo, { teamIconEmoji: emojiById[m.teamBInfo.teamIcon] || '' }) : null;
           return Object.assign({}, m, {
             boRange: BO_LIST,
             boIndex: Math.max(0, BO_LIST.indexOf(m.bo)),
@@ -381,7 +380,7 @@ Page({
               teamIndex,
               slot: teamIndex,
               name,
-              teamIconSrc: captain ? (iconSource[captain.teamIcon] || '') : '',
+              teamIconEmoji: captain ? (emojiById[captain.teamIcon] || '') : '',
               members,
             };
           })
@@ -416,7 +415,7 @@ Page({
           })) : [];
           return Object.assign({}, entry, {
             members,
-            teamIconSrc: iconSource[entry.teamIcon] || '',
+            teamIconEmoji: emojiById[entry.teamIcon] || '',
             showMembers: Object.prototype.hasOwnProperty.call(previousMemberVisibility, entry.teamId)
               ? previousMemberVisibility[entry.teamId]
               : Number(entry.rank) <= 3,
@@ -530,7 +529,7 @@ Page({
             myTeam = {
               captain: mine.captain,
               defaultName: mine.captain.nickname + '战队',
-              teamIconSrc: iconSource[mine.captain.teamIcon] || '',
+              teamIconEmoji: emojiById[mine.captain.teamIcon] || '',
             };
           }
         }

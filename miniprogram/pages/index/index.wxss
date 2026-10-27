@@ -43,7 +43,7 @@
 .history-item-top .phase-tag { flex:none; }
 .history-item-meta { margin-top:7rpx; color:#7f8997; font-size:20rpx; line-height:1.5; }
 .history-champion { color:#d6b36c; }
-.history-delete-action { flex:none; }
+.history-delete-action { flex:none; width:112rpx; min-width:112rpx; max-width:112rpx; min-height:54rpx; margin:0; padding:0; box-sizing:border-box; }
 
 .swipe-item { position:relative; margin-bottom:18rpx; overflow:hidden; border-radius:18rpx; }
 .swipe-actions { position:absolute; top:0; right:0; bottom:0; display:flex; width:140rpx; }
