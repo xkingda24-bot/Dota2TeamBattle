@@ -112,8 +112,6 @@ Page({
     stageView: '',
     pageTitle: '对战赛程',
     myTeam: null, // 我的战队（我是本队组长/队长）
-    teamNameInput: '',
-    teamIconInput: '',
     // 晋级图第一轮：队伍队名/队标设置弹窗
     teamConfigPanel: { show: false, openid: '', name: '', icon: '', title: '' },
     teamConfigSaving: false,
@@ -582,9 +580,6 @@ Page({
           replacementTeams,
           groupedTeams,
           groupAverageStats: groupAverages,
-          teamIconInput: this._teamNameDirty ? this.data.teamIconInput : (myTeam ? myTeam.captain.teamIcon || '' : ''),
-          // 正在编辑队名时不覆盖输入框内容
-          teamNameInput: this._teamNameDirty ? this.data.teamNameInput : (myTeam ? myTeam.captain.teamName || '' : ''),
           // 赛程未生成时（落位调整阶段）不显示晋级图
           showTree: (t.matches || []).length > 0
             ? (this._treePreferenceSet ? this.data.showTree : true)
@@ -615,19 +610,18 @@ Page({
   },
 
   /* ---------- 系统分组：我的战队命名（组长） ---------- */
-  onTeamNameInput(e) {
-    this._teamNameDirty = true;
-    this.setData({ teamNameInput: e.detail.value });
-  },
-
-  onTeamIconSelect(e) {
-    this._teamNameDirty = true;
-    this.setData({ teamIconInput: e.currentTarget.dataset.id });
-  },
-
-  onTeamIconClear() {
-    this._teamNameDirty = true;
-    this.setData({ teamIconInput: '' });
+  openMyTeamConfig() {
+    const myTeam = this.data.myTeam;
+    if (!myTeam || !myTeam.captain || !myTeam.captain.openid) return;
+    this.setData({
+      teamConfigPanel: {
+        show: true,
+        openid: myTeam.captain.openid,
+        name: myTeam.captain.teamName || '',
+        icon: myTeam.captain.teamIcon || '',
+        title: myTeam.captain.teamName || myTeam.defaultName || '我的战队',
+      },
+    });
   },
 
   /* ---------- 晋级图第一轮：队伍队名/队标设置（队长本人或管理员） ---------- */
@@ -675,24 +669,6 @@ Page({
       })
       .catch((err) => wx.showToast({ title: err.message, icon: 'none' }))
       .finally(() => this.setData({ teamConfigSaving: false }));
-  },
-
-  onSaveTeamName() {
-    const t = this.data.t;
-    if (!t || !this.data.myTeam) return;
-    const teamName = (this.data.teamNameInput || '').trim();
-    if (teamName.length > 10) {
-      wx.showToast({ title: '战队名最多 10 个字', icon: 'none' });
-      return;
-    }
-    api
-      .call('setTeamName', { id: t.id, teamName, teamIcon: this.data.teamIconInput || '' })
-      .then(() => {
-        wx.showToast({ title: teamName ? '队名已保存' : '已恢复默认队名', icon: 'success' });
-        this._teamNameDirty = false;
-        this.load();
-      })
-      .catch((err) => wx.showToast({ title: err.message, icon: 'none' }));
   },
 
   /* ---------- 对阵调整 ---------- */

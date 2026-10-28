@@ -8,22 +8,15 @@
       <view class="btn-small btn-plain" bindtap="retryLoad">重新加载</view>
     </view>
 
-    <!-- 我的战队命名（auto：组长天梯分最高者；captain：本队队长） -->
+    <!-- 我的战队资料（分组页/对战页均使用弹窗表单编辑） -->
     <view class="card" wx:if="{{myTeam && !readonly && (t.status === 'draft' || t.status === 'battle')}}">
-      <view class="card-title">我的战队名称</view>
-      <view class="sub">你是本队天梯分最高的组长，可为战队命名（最多 10 字）；不填则用默认「{{myTeam.defaultName}}」</view>
-      <view class="row">
-        <input class="input team-name-input" maxlength="10" placeholder="输入战队名，留空用默认" placeholder-class="ph" value="{{teamNameInput}}" bindinput="onTeamNameInput" />
-        <view class="btn-small" bindtap="onSaveTeamName">保存队伍资料</view>
+      <view class="card-title">我的战队资料</view>
+      <view class="sub">你是本队天梯分最高的组长，可设置队名和队标；队名最多 10 个字，留空使用默认名称。</view>
+      <view class="my-team-summary">
+        <text wx:if="{{myTeam.teamIconEmoji}}" class="team-logo-mark my-team-logo">{{myTeam.teamIconEmoji}}</text>
+        <text class="my-team-name">{{myTeam.captain.teamName || myTeam.defaultName}}</text>
       </view>
-      <view class="team-logo-label">战队队标</view>
-      <view class="team-logo-options">
-        <view wx:for="{{teamLogos}}" wx:key="id" class="team-logo-option {{teamIconInput === item.id ? 'team-logo-option-active' : ''}}" data-id="{{item.id}}" bindtap="onTeamIconSelect">
-          <text class="team-logo-emoji">{{item.emoji}}</text>
-          <text>{{item.name}}</text>
-        </view>
-        <view class="team-logo-clear" bindtap="onTeamIconClear">不使用队标</view>
-      </view>
+      <view class="btn btn-plain team-config-trigger" bindtap="openMyTeamConfig">设置队名和队标</view>
     </view>
 
     <!-- 队伍名单，供参赛者从流程栏返回查看 -->

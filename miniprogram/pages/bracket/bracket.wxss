@@ -428,6 +428,10 @@
   flex: 1;
   margin-right: 16rpx;
 }
+.my-team-summary { display:flex; align-items:center; min-height:56rpx; margin:10rpx 0 14rpx; color:#e8e4da; }
+.my-team-logo { width:48rpx; height:48rpx; margin-right:10rpx; font-size:40rpx; }
+.my-team-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#e8c27c; font-size:28rpx; font-weight:600; }
+.team-config-trigger { margin-top:0; }
 .team-logo-label { margin-top:18rpx; color:#9aa4b2; font-size:22rpx; }
 .team-logo-options { display:flex; flex-wrap:wrap; margin:2rpx 0 0 -10rpx; }
 .team-logo-option { display:flex; flex:0 0 calc(20% - 10rpx); flex-direction:column; align-items:center; justify-content:center; min-width:0; min-height:92rpx; margin:10rpx 0 0 10rpx; padding:6rpx 3rpx; border:1rpx solid rgba(224,181,111,.12); border-radius:9rpx; color:#aeb7c2; background:rgba(255,255,255,.025); font-size:18rpx; box-sizing:border-box; }
