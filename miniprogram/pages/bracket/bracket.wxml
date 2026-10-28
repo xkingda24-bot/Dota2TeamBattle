@@ -48,7 +48,7 @@
             <view class="group-edit-select {{groupSelection.openid === member.openid ? 'group-edit-member-selected' : ''}}" data-team-index="{{item.teamIndex}}" data-openid="{{member.openid}}" bindtap="onOpenGroupSwap">
               <player-card player="{{member}}" card-style="{{member.cardStyle}}" compact="{{true}}" />
             </view>
-            <view class="group-edit-replace" data-team-index="{{item.teamIndex}}" data-openid="{{member.openid}}" catchtap="onOpenGroupSubstitution">⇄</view>
+            <view class="group-edit-replace" data-team-index="{{item.teamIndex}}" data-openid="{{member.openid}}" catchtap="onOpenGroupSubstitution">替换</view>
           </view>
         </view>
       </view>
