@@ -1,8 +1,0 @@
-.brand-footer {
-  padding: 28rpx 24rpx calc(36rpx + env(safe-area-inset-bottom));
-  color: #aab4c2;
-  font-size: 23rpx;
-  line-height: 1.8;
-  letter-spacing: 0;
-  text-align: center;
-}

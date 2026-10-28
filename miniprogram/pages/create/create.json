@@ -2,7 +2,6 @@
   "navigationBarTitleText": "创建比赛",
   "backgroundColor": "#131821",
   "usingComponents": {
-    "nav-bar": "/components/nav-bar/index",
-    "brand-footer": "/components/brand-footer/index"
+    "nav-bar": "/components/nav-bar/index"
   }
 }

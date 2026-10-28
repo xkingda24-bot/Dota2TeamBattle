@@ -91,8 +91,6 @@
   </block>
 </view>
 
-<brand-footer />
-
 <!-- 管理员管理：分页用户列表 -->
 <view class="mask" wx:if="{{userListModal}}" bindtap="onCloseUserList">
   <view class="panel admin-panel" catchtap="noop">

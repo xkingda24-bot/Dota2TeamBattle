@@ -99,5 +99,3 @@
     <view class="btn btn-plain" bindtap="goBack">返回主页</view>
   </view>
 </view>
-
-<brand-footer />
