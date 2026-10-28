@@ -464,7 +464,9 @@ Page({
           canManageOrder: canManageSettlementOrder,
         }) : null;
         const keepRequestedView = this._requestedView && (
-          this.data.readonly || this._requestedView !== 'battle' || t.status === 'battle'
+          this.data.readonly ||
+          (this._requestedView === 'draft' ? t.status === 'draft' :
+            this._requestedView === 'battle' ? t.status === 'battle' : t.status === 'finished')
         );
         const stageView = keepRequestedView ? this._requestedView : (
           t.status === 'finished' ? (settlement ? 'settlement' : 'battle') : t.status
