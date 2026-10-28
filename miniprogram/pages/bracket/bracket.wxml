@@ -8,8 +8,8 @@
       <view class="btn-small btn-plain" bindtap="retryLoad">重新加载</view>
     </view>
 
-    <!-- 我的战队资料（分组页/对战页均使用弹窗表单编辑） -->
-    <view class="card" wx:if="{{myTeam && !readonly && (t.status === 'draft' || t.status === 'battle')}}">
+    <!-- 分组页：我的战队资料（对战阶段通过晋级图设置） -->
+    <view class="card" wx:if="{{myTeam && !readonly && t.status === 'draft'}}">
       <view class="card-title">我的战队资料</view>
       <view class="sub">你是本队天梯分最高的组长，可设置队名和队标；队名最多 10 个字，留空使用默认名称。</view>
       <view class="my-team-summary">
