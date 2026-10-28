@@ -23,7 +23,7 @@ const { dotaRankLabel, isRankVerified, publicDotaCardFields } = require('./card-
 const { selectUserRecord, buildUserMap } = require('./user-records');
 const { ADMIN_USER_SORT_FIELDS, buildAdminUsers } = require('./admin-users');
 const { buildTestRegistrationAdditions } = require('./test-registration');
-const { buildRegistration } = require('./registration');
+const { buildRegistration, syncRegistrationProfiles } = require('./registration');
 const { mutateTournament, buildRegistrationSummary } = require('./tournament-transaction');
 const { ADMIN_USER_LIST_FIELDS } = require('./query-projections');
 const { TOURNAMENT_SUMMARY_FIELDS, summarize } = require('./tournament-summary');
@@ -322,6 +322,15 @@ async function getUsersByOpenids(openids, fields) {
   const ownerResults = await Promise.all(fallbackChunks.map((chunk) => queryUsers({ _openid: _.in(chunk) })));
   const ownerRecords = ownerResults.reduce((all, result) => all.concat(result.data || []), []);
   return buildUserMap(ids, ownerRecords.concat(ownedRecords), explicitRecords);
+}
+
+async function syncTournamentRegistrations(tournament) {
+  const registrations = Array.isArray(tournament && tournament.registrations)
+    ? tournament.registrations
+    : [];
+  const profiles = await getUsersByOpenids(registrations.map((registration) => registration && registration.openid));
+  const synced = syncRegistrationProfiles(registrations, profiles);
+  return Object.assign({}, synced, { profiles });
 }
 
 /* 按 openid 批量读取公开名片样式；兼容旧记录只保存 _openid 的用户。 */
@@ -2017,11 +2026,12 @@ const actions = {
     if (!t) return fail('比赛不存在');
     if (t.mode !== 'auto') return fail('本场比赛不是系统分组模式');
     if (t.status !== 'registration') return fail('当前不在报名阶段');
-    const players = (t.registrations || []).filter((r) => r.role === 'player');
+    const synced = await syncTournamentRegistrations(t);
+    const players = synced.registrations.filter((r) => r.role === 'player');
     const need = t.N * t.K;
     if (players.length < need) return fail('队员尚未报满（' + players.length + '/' + need + '），报满后才能分组');
     const result = runAutoGroup(players, t.N, t.K);
-    const profiles = await getUsersByOpenids(players.map((player) => player.openid));
+    const profiles = synced.profiles;
     result.groups = result.groups.map((group) => {
       const members = group.members.map((member) => {
         const profile = profiles[member.openid];
@@ -2051,10 +2061,15 @@ const actions = {
   /* 系统分组：确认分组并写入队伍（服务端重算，不信任客户端数据） */
   async confirmGroup(event) {
     if (!(await isAdminUser())) return fail('需要管理员权限');
+    const current = await getTournamentById(event.id);
+    if (!current) return fail('比赛不存在');
+    const latestProfiles = await syncTournamentRegistrations(current);
     const result = await mutateTournament(db, event.id, (t) => {
       if (t.mode !== 'auto') return { error: '本场比赛不是系统分组模式' };
       if (t.status !== 'registration') return { error: '当前不在报名阶段' };
-      const players = (t.registrations || []).filter((r) => r.role === 'player');
+      const synced = syncRegistrationProfiles(t.registrations, latestProfiles.profiles);
+      const registrations = synced.registrations;
+      const players = registrations.filter((r) => r.role === 'player');
       const need = t.N * t.K;
       if (players.length < need) return { error: '队员尚未报满（' + players.length + '/' + need + '），报满后才能分组' };
       const playerById = {};
@@ -2106,7 +2121,7 @@ const actions = {
           })),
         };
       });
-      return { data: { status: 'draft', teams, captainOrder: [], draft: null, seeding: null }, result: {} };
+      return { data: { status: 'draft', registrations, teams, captainOrder: [], draft: null, seeding: null }, result: {} };
     });
     return result.error ? fail(result.error) : ok({});
   },

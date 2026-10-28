@@ -1,3 +1,5 @@
+const { publicDotaCardFields } = require('./card-profile');
+
 function buildRegistration(tournament, openid, member, requestedRole, secret, dotaFields, now) {
   if (!tournament || tournament.status !== 'registration') return { error: '当前不在报名阶段' };
   if (String(secret || '') !== String(tournament.secret || '')) return { error: '报名暗号错误' };
@@ -59,4 +61,32 @@ function buildRegistration(tournament, openid, member, requestedRole, secret, do
   };
 }
 
-module.exports = { buildRegistration };
+function syncRegistrationProfiles(registrations, profiles) {
+  const source = Array.isArray(registrations) ? registrations : [];
+  const byOpenid = profiles || {};
+  let changed = false;
+  const synced = source.map((registration) => {
+    if (!registration || !registration.openid || !byOpenid[registration.openid]) return registration;
+    const profile = byOpenid[registration.openid];
+    const next = Object.assign({}, registration);
+    ['nickname', 'mmr', 'roles', 'signature'].forEach((field) => {
+      if (!Object.prototype.hasOwnProperty.call(profile, field)) return;
+      const value = profile[field];
+      if (Array.isArray(value)) {
+        if (JSON.stringify(next[field] || []) !== JSON.stringify(value)) changed = true;
+      } else if (next[field] !== value) {
+        changed = true;
+      }
+      next[field] = value;
+    });
+    const dotaFields = publicDotaCardFields(profile.mmr, profile, null);
+    Object.keys(dotaFields).forEach((field) => {
+      if (next[field] !== dotaFields[field]) changed = true;
+      next[field] = dotaFields[field];
+    });
+    return next;
+  });
+  return { registrations: synced, changed };
+}
+
+module.exports = { buildRegistration, syncRegistrationProfiles };
