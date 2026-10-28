@@ -58,6 +58,20 @@ Page({
     tournamentPolling.stop(this);
   },
 
+  redirectToBattle(tournament) {
+    if (this.data.readonly || this._battleRedirecting || !tournament || tournament.status !== 'battle') return;
+    this._battleRedirecting = true;
+    this.stopPoll();
+    const id = encodeURIComponent(tournament.id || this.id || '');
+    wx.redirectTo({
+      url: '/pages/bracket/bracket?id=' + id + '&view=battle',
+      fail: () => {
+        this._battleRedirecting = false;
+        this.startPoll();
+      },
+    });
+  },
+
   load(silent) {
     const hadData = !!this.data.t;
     if (!silent && !hadData) this.setData({ loading: true, loadError: '' });
@@ -83,7 +97,9 @@ Page({
         }
         this._lastTournamentVersion = tournamentPolling.versionToken(t);
         this._lastFullSyncAt = Date.now();
-        this.setData({ t, isAdmin: !!t.isAdmin && !this.data.readonly, loading: false, loadError: '', refreshError: false });
+        this.setData({ t, isAdmin: !!t.isAdmin && !this.data.readonly, loading: false, loadError: '', refreshError: false }, () => {
+          this.redirectToBattle(t);
+        });
         this.computeDraft();
       })
       .catch((e) => {

@@ -279,6 +279,27 @@ Page({
     tournamentPolling.stop(this);
   },
 
+  redirectToBattle(tournament) {
+    if (
+      this.data.readonly ||
+      this._battleRedirecting ||
+      !this._requestedView ||
+      this._requestedView === 'battle' ||
+      !tournament ||
+      tournament.status !== 'battle'
+    ) return;
+    this._battleRedirecting = true;
+    this.stopPoll();
+    const id = encodeURIComponent(tournament.id || this.id || '');
+    wx.redirectTo({
+      url: '/pages/bracket/bracket?id=' + id + '&view=battle',
+      fail: () => {
+        this._battleRedirecting = false;
+        this.startPoll();
+      },
+    });
+  },
+
   load(silent) {
     if (!silent) this.setData({ loading: true, loadError: '', notFound: false, refreshError: false });
     const data = this.id ? { id: this.id } : {};
@@ -591,7 +612,10 @@ Page({
           treeW: tree.w,
           treeH: tree.h,
           loading: false,
-        }, () => this.scrollToFlowAnchor());
+        }, () => {
+          this.scrollToFlowAnchor();
+          this.redirectToBattle(t);
+        });
         // 注意：这里不再调用 closePanel()——否则 8 秒轮询会把正在填写的"记录结果"弹层关掉
       })
       .catch((e) => {

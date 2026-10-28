@@ -148,22 +148,27 @@ Page({
     tournamentPolling.stop(this);
   },
 
-  redirectToAutoGrouping(tournament) {
+  redirectToTournamentStage(tournament) {
     if (
       this.data.readonly ||
-      this._groupRedirecting ||
-      !tournament ||
-      tournament.mode !== 'auto' ||
-      tournament.status !== 'draft'
+      this._stageRedirecting ||
+      !tournament
     ) return;
 
-    this._groupRedirecting = true;
+    let url = '';
+    if (tournament.mode === 'auto' && tournament.status === 'draft') {
+      url = '/pages/bracket/bracket?id=' + encodeURIComponent(tournament.id || this.id || '') + '&view=draft';
+    } else if (tournament.status === 'battle') {
+      url = '/pages/bracket/bracket?id=' + encodeURIComponent(tournament.id || this.id || '') + '&view=battle';
+    }
+    if (!url) return;
+
+    this._stageRedirecting = true;
     this.stopPoll();
-    const id = encodeURIComponent(tournament.id || this.id || '');
     wx.redirectTo({
-      url: '/pages/bracket/bracket?id=' + id + '&view=draft',
+      url,
       fail: () => {
-        this._groupRedirecting = false;
+        this._stageRedirecting = false;
         this.startPoll();
       },
     });
@@ -215,7 +220,7 @@ Page({
           // 正在编辑队名时保留输入框内容，不被轮询刷新覆盖；否则（队长）用云端已保存的队名初始化
           teamNameInput: this.data.teamNameDirty || !(myReg && myReg.role === 'captain') ? this.data.teamNameInput : myReg.teamName || '',
           teamIconInput: this.data.teamNameDirty || !(myReg && myReg.role === 'captain') ? this.data.teamIconInput : myReg.teamIcon || '',
-        }, () => this.redirectToAutoGrouping(t));
+        }, () => this.redirectToTournamentStage(t));
       })
       .catch((e) => {
         const hasData = !!this.data.t;
