@@ -36,6 +36,7 @@
       <view class="flow-team group-edit-team" wx:for="{{groupedTeams}}" wx:key="teamIndex">
         <view class="flow-team-head group-edit-head">
           <view class="flow-team-name">第 {{item.slot + 1}} 组 · {{item.name}}</view>
+          <view class="flow-team-average">平均分 {{item.avgMmr}}</view>
           <view class="group-order-tools">
             <view class="group-order-btn {{item.slot === 0 || groupOrderSaving ? 'group-order-disabled' : ''}}" data-slot="{{item.slot}}" data-dir="-1" catchtap="onGroupMove">↑</view>
             <view class="group-order-btn {{item.slot === groupedTeams.length - 1 || groupOrderSaving ? 'group-order-disabled' : ''}}" data-slot="{{item.slot}}" data-dir="1" catchtap="onGroupMove">↓</view>
@@ -59,6 +60,7 @@
         <view class="flow-team-head">
           <text wx:if="{{item.teamIconEmoji}}" class="team-logo-mark">{{item.teamIconEmoji}}</text>
           <view class="flow-team-name">{{item.name}}</view>
+          <view class="flow-team-average">平均分 {{item.avgMmr}}</view>
         </view>
         <view class="flow-team-members">
           <player-card

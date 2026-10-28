@@ -220,7 +220,8 @@
 .flow-team-first { padding-top: 0; border-top: 0; }
 .flow-team-head { display: flex; align-items: center; min-height: 54rpx; margin-bottom: 10rpx; }
 .flow-team-head .team-logo-mark { width: 48rpx; height: 48rpx; margin-right: 10rpx; font-size: 40rpx; }
-.flow-team-name { color: #e8c27c; font-size: 27rpx; font-weight: 600; }
+.flow-team-name { min-width: 0; color: #e8c27c; font-size: 27rpx; font-weight: 600; }
+.flow-team-average { flex: none; margin-left: auto; color: #9bdef8; font-size: 23rpx; font-weight: 600; white-space: nowrap; }
 .flow-team-members { display: flex; flex-direction: column; gap: 10rpx; }
 .flow-team-members .player-card { width: 100%; }
 .group-edit-team { padding-bottom: 20rpx; }

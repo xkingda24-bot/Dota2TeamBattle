@@ -25,6 +25,16 @@ function replacementLabel(player) {
   return [member.nickname || '队员', rating].filter(Boolean).join(' · ');
 }
 
+function teamAverageMmr(members) {
+  const list = Array.isArray(members) ? members : [];
+  if (!list.length) return 0;
+  const total = list.reduce((sum, member) => {
+    const mmr = Number(member && member.mmr);
+    return sum + (Number.isFinite(mmr) ? mmr : 0);
+  }, 0);
+  return Math.round(total / list.length);
+}
+
 function orderSettlementItems(items, order) {
   const byTeamId = {};
   (items || []).forEach((item) => { byTeamId[item.teamId] = item; });
@@ -384,6 +394,7 @@ Page({
               name,
               teamIconEmoji: captain ? (emojiById[captain.teamIcon] || '') : '',
               members,
+              avgMmr: teamAverageMmr(members),
             };
           })
           : [];
