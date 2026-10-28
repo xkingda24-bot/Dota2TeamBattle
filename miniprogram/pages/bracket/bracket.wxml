@@ -449,6 +449,8 @@
   </view>
 </view>
 
+<brand-footer />
+
 <!-- 比赛卡片模板 -->
 <template name="matchCard">
   <view class="card match-card">

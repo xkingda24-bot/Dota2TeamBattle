@@ -182,11 +182,9 @@
     </view>
   </view>
 
-  <view class="home-bottom-note">
-    <view>GLHF <text>·</text> GOOD LUCK, HAVE FUN</view>
-    <view class="home-feedback-note">有bug · 找Ada阿达</view>
-  </view>
 </view>
+
+<brand-footer />
 
 <!-- 报名暗号验证 -->
 <view class="mask" wx:if="{{secretModal}}" bindtap="onCloseSecret">

@@ -111,6 +111,7 @@
       <text>{{submitting ? '保存中…' : editMode ? '保存赛事设置' : '创建赛事并开始报名'}}</text>
       <text class="submit-arrow">›</text>
     </view>
-    <view class="form-bottom-note">GLHF <text>·</text> GOOD LUCK, HAVE FUN</view>
   </block>
 </view>
+
+<brand-footer />

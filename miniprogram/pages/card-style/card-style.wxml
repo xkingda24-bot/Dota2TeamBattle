@@ -64,3 +64,5 @@
     <view class="style-footnote">样式会同步应用到今后的赛事资料展示；旧比赛中的队伍资料读取当前名片设置。</view>
   </block>
 </view>
+
+<brand-footer />

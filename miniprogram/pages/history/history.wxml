@@ -89,6 +89,8 @@
   </block>
 </view>
 
+<brand-footer />
+
 <!-- 只读比赛卡片 -->
 <template name="hMatchCard">
   <view class="card match-card">

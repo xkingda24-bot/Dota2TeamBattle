@@ -151,6 +151,8 @@
     <view class="btn btn-plain" bindtap="goBack">返回主页</view>
   </view>
 </view>
+
+<brand-footer />
 <!-- 队名与队标设置弹窗 -->
 <view class="mask" wx:if="{{showTeamModal}}" catchtap="onCloseTeamModal">
   <view class="panel team-config-panel" catchtap="noop">
