@@ -222,6 +222,7 @@
 .flow-team-head .team-logo-mark { width: 48rpx; height: 48rpx; margin-right: 10rpx; font-size: 40rpx; }
 .flow-team-name { min-width: 0; color: #e8c27c; font-size: 27rpx; font-weight: 600; }
 .flow-team-average { flex: none; margin-left: auto; color: #9bdef8; font-size: 23rpx; font-weight: 600; white-space: nowrap; }
+.group-average-summary { margin: -2rpx 0 14rpx; color: #9bdef8; font-size: 23rpx; line-height: 1.5; }
 .flow-team-members { display: flex; flex-direction: column; gap: 10rpx; }
 .flow-team-members .player-card { width: 100%; }
 .group-edit-team { padding-bottom: 20rpx; }

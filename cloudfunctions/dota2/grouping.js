@@ -1,3 +1,33 @@
+function mmrValue(player) {
+  const value = Number(player && player.mmr);
+  return Number.isFinite(value) ? value : 0;
+}
+
+function validateAutoGroupCaptains(players, groups, teamCount) {
+  const source = Array.isArray(players) ? players : [];
+  const count = Math.max(0, Math.floor(Number(teamCount) || 0));
+  if (!Array.isArray(groups) || groups.length !== count) return { error: '分组数据不正确（组数不符）' };
+  const topIds = new Set(source
+    .slice()
+    .sort((a, b) => mmrValue(b) - mmrValue(a))
+    .slice(0, count)
+    .map((player) => player && player.openid)
+    .filter(Boolean));
+  if (topIds.size !== count) return { error: '系统分组无法确定各组组长' };
+
+  const assigned = new Set();
+  for (const group of groups) {
+    const topMembers = (Array.isArray(group) ? group : [])
+      .filter((member) => member && topIds.has(member.openid));
+    if (topMembers.length !== 1) {
+      return { error: '系统分组要求天梯分最高的队员分别担任各组组长' };
+    }
+    assigned.add(topMembers[0].openid);
+  }
+  if (assigned.size !== count) return { error: '系统分组要求天梯分最高的队员分别担任各组组长' };
+  return { captainIds: Array.from(assigned) };
+}
+
 function validateAutoGroups(players, submittedGroups, teamCount, groupSize) {
   const source = Array.isArray(players) ? players : [];
   const groups = Array.isArray(submittedGroups) ? submittedGroups : null;
@@ -30,6 +60,8 @@ function validateAutoGroups(players, submittedGroups, teamCount, groupSize) {
     result.push(members);
   }
   if (seen.size !== source.length) return { error: '还有队员未分组' };
+  const captainCheck = validateAutoGroupCaptains(source, result, count);
+  if (captainCheck.error) return captainCheck;
   return { groups: result };
 }
 
@@ -80,4 +112,4 @@ function replaceAutoGroupMember(team, sourceRegistrations, outOpenid, inOpenid, 
   };
 }
 
-module.exports = { validateAutoGroups, replaceAutoGroupMember };
+module.exports = { validateAutoGroups, validateAutoGroupCaptains, replaceAutoGroupMember };

@@ -70,7 +70,7 @@
         <view wx:else class="btn btn-disabled">队员与替补名额已满</view>
         <view wx:if="{{t.waitLimit > 0 && t.waitlistFilled < t.waitLimit}}" class="btn btn-plain {{regSubmitting ? 'btn-disabled' : ''}}" aria-disabled="{{regSubmitting}}" bindtap="onReg" data-role="waitlist">{{regSubmitting ? '提交中…' : '报名替补'}}</view>
         <view wx:elif="{{t.waitLimit > 0}}" class="btn btn-plain btn-disabled">替补名额已满</view>
-        <view class="sub registration-help" wx:if="{{t.mode === 'auto'}}">系统分组模式：队员名额报满后，可报名替补；名单完成后由管理员统一分队。</view>
+        <view class="sub registration-help" wx:if="{{t.mode === 'auto'}}">系统分组模式：队员名额报满后，可报名替补；名单完成后由管理员统一分队。天梯分最高的 {{t.N}} 人分别担任组长，并尽量平衡各组平均分。</view>
         <view class="change-secret" bindtap="onReenterSecret" hover-class="link-pressed">暗号已变更？重新验证 <text>›</text></view>
       </view>
 

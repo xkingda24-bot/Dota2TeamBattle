@@ -17,7 +17,7 @@ const _ = db.command;
 
 const { buildBracket } = require('./bracket');
 const { calculateStandings } = require('./standings');
-const { validateAutoGroups, replaceAutoGroupMember } = require('./grouping');
+const { validateAutoGroups, validateAutoGroupCaptains, replaceAutoGroupMember } = require('./grouping');
 const { canInitializeSuperAdmin } = require('./bootstrap');
 const { dotaRankLabel, isRankVerified, publicDotaCardFields } = require('./card-profile');
 const { selectUserRecord, buildUserMap } = require('./user-records');
@@ -725,10 +725,10 @@ async function composeTournament(t, myOpenid) {
 /* ---------------- 动作 ---------------- */
 
 /* 系统分组算法：
-   1) 位置代表构建：每组依次从 1-5 号位各选一名会该位置的队员（优先均分均衡）
-   2) 补位：每组补到 K 人，优先补该组缺失的位置
-   3) 爬山优化：随机交换两人，组间均分差更小（且缺位不增加）则接受
-   返回预览结构（含每组名单/均分/缺位） */
+   1) 天梯分最高的 N 人先固定为各组组长；
+   2) 其余队员优先补入当前平均分较低的队伍，尽量平衡各组平均分；
+   3) 只交换非组长队员做局部优化，平均分差优先，位置缺位次优；
+   返回预览结构（含每组名单/均分/缺位和最高/最低平均分差）。 */
 function runAutoGroup(players, N, K) {
   const has = (p, r) => Array.isArray(p.roles) && p.roles.indexOf(r) >= 0;
   const missingRoles = (g) => {
@@ -738,86 +738,81 @@ function runAutoGroup(players, N, K) {
     for (let r = 1; r <= 5; r++) if (!s.has(r)) m.push(r);
     return m;
   };
-  const avg = (g) => (g.length ? g.reduce((s, p) => s + (p.mmr || 0), 0) / g.length : 0);
+  const mmr = (p) => {
+    const value = Number(p && p.mmr);
+    return Number.isFinite(value) ? value : 0;
+  };
+  const avg = (g) => (g.length ? g.reduce((s, p) => s + mmr(p), 0) / g.length : 0);
+  const source = (Array.isArray(players) ? players : []).map((p, index) => Object.assign({}, p, { _groupOrder: index }));
+  const sorted = source.slice().sort((a, b) => mmr(b) - mmr(a) || a._groupOrder - b._groupOrder);
+  const captains = sorted.slice(0, N);
+  const pool = sorted.slice(N);
+  let groups = captains.map((captain) => [captain]);
 
-  let groups = [];
-  for (let i = 0; i < N; i++) groups.push([]);
-  const pool = players.map((p) => Object.assign({}, p));
+  // 1. 组长固定后，按天梯分从高到低把其他队员放入当前预计均分最低的队伍。
+  pool.forEach((player) => {
+    let pickIndex = -1;
+    let pickScore = null;
+    groups.forEach((group, index) => {
+      if (group.length >= K) return;
+      const missing = missingRoles(group);
+      const fillsRole = missing.some((role) => has(player, role)) ? 0 : 1;
+      const projected = (avg(group) * group.length + mmr(player)) / (group.length + 1);
+      const score = { projected, fillsRole, size: group.length, index };
+      if (!pickScore || score.projected < pickScore.projected ||
+        (score.projected === pickScore.projected && score.fillsRole < pickScore.fillsRole) ||
+        (score.projected === pickScore.projected && score.fillsRole === pickScore.fillsRole && score.size < pickScore.size)) {
+        pickScore = score;
+        pickIndex = index;
+      }
+    });
+    if (pickIndex >= 0) groups[pickIndex].push(player);
+  });
 
-  // 1. 位置代表：每组依次拿 1-5 号位人选（同位置候选里选 mmr 与当前组均值最接近的）
-  for (let r = 1; r <= 5; r++) {
+  // 2. 局部交换：组长位置固定，只接受能降低平均分极差的交换；同分时减少位置缺位。
+  const score = () => {
+    const averages = groups.map(avg);
+    const maxAvg = averages.length ? Math.max.apply(null, averages) : 0;
+    const minAvg = averages.length ? Math.min.apply(null, averages) : 0;
+    const maxD = maxAvg - minAvg;
+    const missN = groups.reduce((sum, group) => sum + missingRoles(group).length, 0);
+    return { maxD, maxAvg, minAvg, missN };
+  };
+  const better = (a, b) => a.maxD < b.maxD || (a.maxD === b.maxD && a.missN < b.missN);
+  let bestS = score();
+  let best = groups.map((group) => group.slice());
+  for (let pass = 0; pass < 16; pass++) {
+    let candidate = null;
     for (let gi = 0; gi < N; gi++) {
-      if (groups[gi].length >= K) continue;
-      const cand = pool.filter((p) => has(p, r));
-      if (!cand.length) continue; // 全局无人会该位置 → 该组缺位
-      const curAvg = groups[gi].length ? avg(groups[gi]) : null;
-      let pick = cand[0];
-      let bestD = Infinity;
-      cand.forEach((p) => {
-        const d = curAvg == null ? 0 : Math.abs((p.mmr || 0) - curAvg);
-        if (d < bestD) {
-          bestD = d;
-          pick = p;
-        }
-      });
-      groups[gi].push(pick);
-      pool.splice(pool.indexOf(pick), 1);
-    }
-  }
-
-  // 2. 补位：每组补到 K 人，优先补该组缺失位置的人
-  for (let gi = 0; gi < N; gi++) {
-    while (groups[gi].length < K && pool.length) {
-      const miss = missingRoles(groups[gi]);
-      let pick = null;
-      for (let r of miss) {
-        const c = pool.filter((p) => has(p, r));
-        if (c.length) {
-          pick = c[0];
-          break;
+      for (let gj = gi + 1; gj < N; gj++) {
+        for (let ai = 1; ai < groups[gi].length; ai++) {
+          for (let bj = 1; bj < groups[gj].length; bj++) {
+            const temp = groups[gi][ai];
+            groups[gi][ai] = groups[gj][bj];
+            groups[gj][bj] = temp;
+            const current = score();
+            groups[gj][bj] = groups[gi][ai];
+            groups[gi][ai] = temp;
+            if (better(current, bestS) && (!candidate || better(current, candidate.score))) {
+              candidate = { gi, gj, ai, bj, score: current };
+            }
+          }
         }
       }
-      if (!pick) pick = pool[0];
-      groups[gi].push(pick);
-      pool.splice(pool.indexOf(pick), 1);
     }
-  }
-
-  // 3. 爬山优化：随机交换，均分差变小（同分则缺位变少）才接受
-  const score = () => {
-    const av = groups.map(avg);
-    const maxD = Math.max.apply(null, av) - Math.min.apply(null, av);
-    const missN = groups.reduce((s, g) => s + missingRoles(g).length, 0);
-    return { maxD, missN };
-  };
-  let bestS = score();
-  let best = groups.map((g) => g.slice());
-  for (let iter = 0; iter < 4000; iter++) {
-    const gi = Math.floor(Math.random() * N);
-    let gj = Math.floor(Math.random() * N);
-    if (gj === gi) gj = (gj + 1) % N;
-    const ai = Math.floor(Math.random() * groups[gi].length);
-    const bj = Math.floor(Math.random() * groups[gj].length);
-    const tmp = groups[gi][ai];
-    groups[gi][ai] = groups[gj][bj];
-    groups[gj][bj] = tmp;
-    const s = score();
-    // 缺位优先（位置覆盖不牺牲），缺位相同再优化组间均分差
-    if (s.missN < bestS.missN || (s.missN === bestS.missN && s.maxD < bestS.maxD)) {
-      bestS = s;
-      best = groups.map((g) => g.slice());
-    } else {
-      const tmp2 = groups[gi][ai];
-      groups[gi][ai] = groups[gj][bj];
-      groups[gj][bj] = tmp2;
-    }
+    if (!candidate) break;
+    const temp = groups[candidate.gi][candidate.ai];
+    groups[candidate.gi][candidate.ai] = groups[candidate.gj][candidate.bj];
+    groups[candidate.gj][candidate.bj] = temp;
+    bestS = candidate.score;
+    best = groups.map((group) => group.slice());
   }
   groups = best;
 
   // 4. 组装输出
   const out = [];
   for (let gi = 0; gi < N; gi++) {
-    const g = groups[gi].slice().sort((a, b) => (b.mmr || 0) - (a.mmr || 0));
+    const g = groups[gi].slice().sort((a, b) => mmr(b) - mmr(a) || a._groupOrder - b._groupOrder);
     out.push({
       idx: gi,
       captain: g[0] || null,
@@ -833,7 +828,14 @@ function runAutoGroup(players, N, K) {
       })),
     });
   }
-  return { groups: out, maxDiff: Math.round(bestS.maxD), maxDiffOk: bestS.maxD <= 300 };
+  return {
+    groups: out,
+    maxDiff: Math.round(bestS.maxD),
+    maxAvgMmr: Math.round(bestS.maxAvg),
+    minAvgMmr: Math.round(bestS.minAvg),
+    avgMmrDiff: Math.round(bestS.maxD),
+    maxDiffOk: bestS.maxD <= 200,
+  };
 }
 
 const actions = {
@@ -2008,7 +2010,7 @@ const actions = {
     });
   },
 
-  /* 系统分组：预览分组结果（不落库）。约束：每组 K 人；尽量覆盖 1-5 号位；组间均分差尽量 ≤300 */
+  /* 系统分组：预览分组结果（不落库）。每组 K 人；全局前 N 名分别担任组长；均分差尽量 ≤200 */
   async autoGroup(event) {
     if (!(await isAdminUser())) return fail('需要管理员权限');
     const t = await getTournamentById(event.id);
@@ -2075,6 +2077,8 @@ const actions = {
           groups.reduce((found, group) => found || (Array.isArray(group) && group.find((member) => member && member.error)), null);
         if (invalid) return invalid;
         if (total !== players.length) return { error: '还有队员未分组' };
+        const captainCheck = validateAutoGroupCaptains(players, groups, t.N);
+        if (captainCheck.error) return captainCheck;
         groups = groups.map((members) => members.slice().sort((a, b) => (b.mmr || 0) - (a.mmr || 0)));
       } else {
         groups = runAutoGroup(players, t.N, t.K).groups.map((g) => g.members);

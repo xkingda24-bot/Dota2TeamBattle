@@ -29,6 +29,7 @@
     <!-- 队伍名单，供参赛者从流程栏返回查看 -->
     <view id="team-stage-edit-anchor" class="card group-edit-card" wx:if="{{groupedTeams.length && t.mode === 'auto' && t.status === 'draft' && isAdmin && !readonly}}">
       <view class="card-title">分组调整</view>
+      <view class="group-average-summary">平均分最高 {{groupAverageStats.max}} · 最低 {{groupAverageStats.min}} · 相差 {{groupAverageStats.diff}} 分</view>
       <view class="sub">点击队员名片，再点其他组队员可交换；使用队伍右侧箭头调整首轮落位，保存后组长按组内天梯分更新。</view>
       <view wx:if="{{groupSaving}}" class="group-save-status">正在保存分组…</view>
       <view wx:if="{{groupOrderSaving}}" class="group-save-status">正在保存队伍顺序…</view>
@@ -56,6 +57,7 @@
 
     <view id="team-stage-anchor" class="card" wx:if="{{groupedTeams.length && (t.status === 'draft' || stageView === 'draft') && !(t.mode === 'auto' && t.status === 'draft' && isAdmin && !readonly)}}">
       <view class="card-title">{{t.mode === 'auto' ? '系统分组结果' : '参赛队伍'}}</view>
+      <view wx:if="{{t.mode === 'auto'}}" class="group-average-summary">平均分最高 {{groupAverageStats.max}} · 最低 {{groupAverageStats.min}} · 相差 {{groupAverageStats.diff}} 分</view>
       <view class="flow-team {{index === 0 ? 'flow-team-first' : ''}}" wx:for="{{groupedTeams}}" wx:key="teamIndex">
         <view class="flow-team-head">
           <text wx:if="{{item.teamIconEmoji}}" class="team-logo-mark">{{item.teamIconEmoji}}</text>

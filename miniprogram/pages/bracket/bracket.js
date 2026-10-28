@@ -35,6 +35,16 @@ function teamAverageMmr(members) {
   return Math.round(total / list.length);
 }
 
+function groupAverageStats(teams) {
+  const averages = (Array.isArray(teams) ? teams : [])
+    .map((team) => Number(team && team.avgMmr))
+    .filter((value) => Number.isFinite(value));
+  if (!averages.length) return { max: 0, min: 0, diff: 0 };
+  const max = Math.max.apply(null, averages);
+  const min = Math.min.apply(null, averages);
+  return { max, min, diff: max - min };
+}
+
 function orderSettlementItems(items, order) {
   const byTeamId = {};
   (items || []).forEach((item) => { byTeamId[item.teamId] = item; });
@@ -109,6 +119,7 @@ Page({
     teamConfigSaving: false,
     replacementTeams: [],
     groupedTeams: [],
+    groupAverageStats: { max: 0, min: 0, diff: 0 },
     groupSelection: { teamIndex: -1, openid: '', nickname: '' },
     groupSaving: false,
     groupOrderSaving: false,
@@ -405,6 +416,7 @@ Page({
           : rawGroupedTeams.map((team) => team.teamIndex))
           .map((teamIndex, slot) => rawGroupedTeams[teamIndex] && Object.assign({}, rawGroupedTeams[teamIndex], { slot }))
           .filter(Boolean);
+        const groupAverages = groupAverageStats(groupedTeams);
 
         // 云函数在总决赛结束后从赛程结果确定性计算排名。只在最终排名完整时展示，
         // 避免比赛进行中把未淘汰队伍误标成具体名次。
@@ -569,6 +581,7 @@ Page({
           myTeam,
           replacementTeams,
           groupedTeams,
+          groupAverageStats: groupAverages,
           teamIconInput: this._teamNameDirty ? this.data.teamIconInput : (myTeam ? myTeam.captain.teamIcon || '' : ''),
           // 正在编辑队名时不覆盖输入框内容
           teamNameInput: this._teamNameDirty ? this.data.teamNameInput : (myTeam ? myTeam.captain.teamName || '' : ''),

@@ -100,7 +100,7 @@
           <view class="capacity-divider"></view>
           <view class="capacity-item"><text class="capacity-number">{{waitLimit}}</text><text class="capacity-label">替补</text></view>
         </view>
-        <view class="capacity-note" wx:if="{{mode === 'auto'}}">队员报满后，管理员可以进行系统分组，按天梯分和位置平衡各队。</view>
+        <view class="capacity-note" wx:if="{{mode === 'auto'}}">队员报满后，管理员可以进行系统分组。天梯分最高的 {{N}} 人分别担任组长，并尽量将各组平均分差控制在 200 分以内。</view>
         <view class="capacity-note" wx:else>正式名额包含 {{N}} 位队长和 {{N * K}} 位队员。队员报满后自动进入替补，队长通过蛇形选人组队。</view>
       </view>
 

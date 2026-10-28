@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { validateAutoGroups, replaceAutoGroupMember } = require('./grouping');
+const { validateAutoGroups, validateAutoGroupCaptains, replaceAutoGroupMember } = require('./grouping');
 
 const players = [
   { openid: 'a', mmr: 1800 },
@@ -8,8 +8,10 @@ const players = [
   { openid: 'd', mmr: 1600 },
 ];
 
-const valid = validateAutoGroups(players, [['a', 'b'], ['c', 'd']], 2, 2);
-assert.deepStrictEqual(valid.groups.map((group) => group.map((player) => player.openid)), [['b', 'a'], ['d', 'c']]);
+const valid = validateAutoGroups(players, [['a', 'c'], ['b', 'd']], 2, 2);
+assert.deepStrictEqual(valid.groups.map((group) => group.map((player) => player.openid)), [['a', 'c'], ['b', 'd']]);
+assert.strictEqual(validateAutoGroupCaptains(players, valid.groups, 2).error, undefined);
+assert.strictEqual(validateAutoGroups(players, [['a', 'b'], ['c', 'd']], 2, 2).error, '系统分组要求天梯分最高的队员分别担任各组组长');
 assert.strictEqual(validateAutoGroups(players, [['a', 'b']], 2, 2).error, '分组数据不正确（组数不符）');
 assert.strictEqual(validateAutoGroups(players, [['a', 'b'], ['c']], 2, 2).error, '第 2 组人数不正确（需恰好 2 人）');
 assert.strictEqual(validateAutoGroups(players, [['a', 'b'], ['a', 'd']], 2, 2).error, '分组数据不正确（重复或非报名队员）');
