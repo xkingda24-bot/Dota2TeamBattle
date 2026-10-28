@@ -1325,9 +1325,11 @@ Page({
     const t = this.data.t;
     const stage = e.currentTarget.dataset.stage;
     if (!t || !this.data.isAdmin || this.data.readonly || (stage !== 'draft' && stage !== 'registration')) return;
-    const toName = stage === 'draft' ? '选人' : '报名';
+    const toName = stage === 'draft' ? (t.mode === 'auto' ? '分组' : '选人') : '报名';
     const warning = stage === 'draft'
-      ? '将清除当前赛程和落位，保留选人进度或已完成的系统分组。'
+      ? t.mode === 'auto'
+        ? '将清除当前赛程和落位，保留现有系统分组结果，返回分组页面继续微调。'
+        : '将清除当前赛程和落位，保留选人进度。'
       : '将清除选人、分组、落位和赛程数据，报名名单与队长队名保留。';
     wx.showModal({
       title: '退回' + toName + '阶段',

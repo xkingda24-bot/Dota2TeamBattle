@@ -295,6 +295,12 @@
     <view wx:if="{{stageView === 'battle' && t.matches.length === 0}}" class="empty">赛程还未生成（需先完成选人）</view>
 
     <!-- 对战阶段管理 -->
+    <view class="card" wx:if="{{isAdmin && !readonly && t.status === 'battle' && t.mode === 'auto'}}">
+      <view class="card-title">系统分组管理</view>
+      <view class="sub">可清除当前赛程和落位，保留现有队伍名单，返回分组页面继续微调；调整完成后需要重新生成对阵。</view>
+      <view class="btn btn-plain" data-stage="draft" bindtap="onRollbackStage">退回分组页面</view>
+    </view>
+
     <!-- 管理员操作（结束/删除） -->
     <view class="card" wx:if="{{isAdmin && !readonly && t.status === 'finished'}}">
       <view class="card-title">管理员操作</view>
