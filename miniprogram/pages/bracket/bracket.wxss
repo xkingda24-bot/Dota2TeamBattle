@@ -227,7 +227,9 @@
 .flow-team-members .player-card { width: 100%; }
 .group-edit-team { padding-bottom: 20rpx; }
 .group-edit-head { justify-content: space-between; }
-.group-edit-head .flow-team-name { flex: 1; min-width: 0; }
+.group-edit-title { display: flex; align-items: center; flex: 1; min-width: 0; }
+.group-edit-team-logo { flex: none; width: 42rpx; height: 42rpx; margin-right: 8rpx; font-size: 34rpx; }
+.group-edit-title .flow-team-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .group-order-tools { display: flex; flex: none; gap: 8rpx; margin-left: 12rpx; }
 .group-order-btn { display: flex; align-items: center; justify-content: center; width: 58rpx; height: 48rpx; border: 1rpx solid rgba(101, 193, 238, .42); border-radius: 8rpx; color: #83d8ff; background: rgba(49, 133, 182, .14); font-size: 28rpx; line-height: 1; }
 .group-order-disabled { opacity: .35; }

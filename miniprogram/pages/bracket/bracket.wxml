@@ -29,7 +29,10 @@
       <view wx:if="{{groupSelection.openid}}" class="group-selection-hint">已选择：{{groupSelection.nickname}}　请点击其他组的队员完成交换 <text bindtap="clearGroupSelection">取消</text></view>
       <view class="flow-team group-edit-team" wx:for="{{groupedTeams}}" wx:key="teamIndex">
         <view class="flow-team-head group-edit-head">
-          <view class="flow-team-name">第 {{item.slot + 1}} 组 · {{item.name}}</view>
+          <view class="group-edit-title">
+            <text wx:if="{{item.teamIconEmoji}}" class="team-logo-mark group-edit-team-logo">{{item.teamIconEmoji}}</text>
+            <view class="flow-team-name">第 {{item.slot + 1}} 组 · {{item.name}}</view>
+          </view>
           <view class="flow-team-average">平均分 {{item.avgMmr}}</view>
           <view class="group-order-tools">
             <view class="group-order-btn {{item.slot === 0 || groupOrderSaving ? 'group-order-disabled' : ''}}" data-slot="{{item.slot}}" data-dir="-1" catchtap="onGroupMove">↑</view>
