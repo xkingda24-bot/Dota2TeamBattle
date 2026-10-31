@@ -12,7 +12,7 @@
  *   label: '胜者组第一轮' / '胜者组决赛' / '败者组第一轮' / '败者组决赛' / '总决赛',
  *   teamA: 输入源 | null,
  *   teamB: 输入源 | null,
- *   bo: 'BO1'（默认，管理员可改为 BO3/BO5）,
+ *   bo: 'BO1'（默认，本场比赛管理者可改为 BO3/BO5）,
  *   status: 'pending' | 'done',
  *   winner: null | 队伍标识,
  *   scoreA: null | 数字,

@@ -1,11 +1,11 @@
-<!-- 创建比赛 / 管理员修改配置 -->
+<!-- 创建比赛 / 赛事配置 -->
 <nav-bar title="{{editMode ? '修改配置' : '创建比赛'}}" />
 
 <view class="create-page">
-  <view wx:if="{{pageLoading || checkingAdmin}}" class="gate-card">
+  <view wx:if="{{pageLoading || checkingAccess}}" class="gate-card">
     <view class="gate-orbit">✦</view>
     <view class="gate-title">正在准备赛事设置</view>
-    <view class="gate-desc">正在确认权限并读取赛事信息</view>
+    <view class="gate-desc">正在读取赛事信息</view>
     <view class="gate-skeleton"></view>
   </view>
 
@@ -21,6 +21,7 @@
       <view class="form-kicker">TOURNAMENT SETUP</view>
       <view class="form-title">{{editMode ? '调整赛事设置' : '开启一场新赛事'}}</view>
       <view class="form-intro">先设置基本信息，再选择队伍组织方式。报名开始后，玩家将按这些名额加入比赛。</view>
+      <view wx:if="{{!editMode}}" class="form-intro">今日还可创建 {{todayCreateRemaining}} / {{todayCreateLimit}} 场比赛。</view>
     </view>
 
     <view class="card form-card">
@@ -100,7 +101,7 @@
           <view class="capacity-divider"></view>
           <view class="capacity-item"><text class="capacity-number">{{waitLimit}}</text><text class="capacity-label">替补</text></view>
         </view>
-        <view class="capacity-note" wx:if="{{mode === 'auto'}}">队员报满后，管理员可以进行系统分组。天梯分最高的 {{N}} 人分别担任组长，并尽量将各组平均分差控制在 200 分以内。</view>
+        <view class="capacity-note" wx:if="{{mode === 'auto'}}">队员报满后，比赛创建者或最高管理员可以进行系统分组。天梯分最高的 {{N}} 人分别担任组长，并尽量将各组平均分差控制在 200 分以内。</view>
         <view class="capacity-note" wx:else>正式名额包含 {{N}} 位队长和 {{N * K}} 位队员。队员报满后自动进入替补，队长通过蛇形选人组队。</view>
       </view>
 

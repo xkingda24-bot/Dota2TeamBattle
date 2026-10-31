@@ -82,7 +82,7 @@ Page({
     loadError: '',
     notFound: false,
     refreshError: false,
-    isAdmin: false,
+    canManage: false,
     settlement: null,
     settlementReady: false,
     settlementEditing: false,
@@ -137,7 +137,7 @@ Page({
 
   onOpenGroupSwap(e) {
     const t = this.data.t;
-    if (!t || t.mode !== 'auto' || t.status !== 'draft' || !this.data.isAdmin || this.data.readonly || this.data.groupSaving || this.data.groupOrderSaving) return;
+    if (!t || t.mode !== 'auto' || t.status !== 'draft' || !this.data.canManage || this.data.readonly || this.data.groupSaving || this.data.groupOrderSaving) return;
     const teamIndex = Number(e.currentTarget.dataset.teamIndex);
     const openid = e.currentTarget.dataset.openid;
     const team = this.data.groupedTeams[teamIndex];
@@ -166,7 +166,7 @@ Page({
 
   swapGroupMembers(fromTeamIndex, fromOpenid, targetTeamIndex, targetOpenid) {
     const t = this.data.t;
-    if (!t || this.data.groupSaving || !this.data.isAdmin || this.data.readonly) return;
+    if (!t || this.data.groupSaving || !this.data.canManage || this.data.readonly) return;
     const groups = this.data.groupedTeams
       .slice()
       .sort((a, b) => a.teamIndex - b.teamIndex)
@@ -195,7 +195,7 @@ Page({
 
   onGroupMove(e) {
     const t = this.data.t;
-    if (!t || t.mode !== 'auto' || t.status !== 'draft' || !this.data.isAdmin || this.data.readonly || this.data.groupSaving || this.data.groupOrderSaving) return;
+    if (!t || t.mode !== 'auto' || t.status !== 'draft' || !this.data.canManage || this.data.readonly || this.data.groupSaving || this.data.groupOrderSaving) return;
     const slot = Number(e.currentTarget.dataset.slot);
     const dir = Number(e.currentTarget.dataset.dir);
     const seedSlots = this.data.seedSlots.slice();
@@ -221,7 +221,7 @@ Page({
 
   onOpenGroupSubstitution(e) {
     const t = this.data.t;
-    if (!t || t.mode !== 'auto' || t.status !== 'draft' || !this.data.isAdmin || this.data.readonly || this.data.replacementSaving || this.data.groupSaving || this.data.groupOrderSaving) return;
+    if (!t || t.mode !== 'auto' || t.status !== 'draft' || !this.data.canManage || this.data.readonly || this.data.replacementSaving || this.data.groupSaving || this.data.groupOrderSaving) return;
     const teamIndex = Number(e.currentTarget.dataset.teamIndex);
     const openid = String(e.currentTarget.dataset.openid || '');
     const entry = this.data.replacementTeams.find((team) => team.teamIndex === teamIndex);
@@ -390,7 +390,7 @@ Page({
           return Object.assign({}, m, {
             boRange: BO_LIST,
             boIndex: Math.max(0, BO_LIST.indexOf(m.bo)),
-            showAdmin: t.isAdmin && !this.data.readonly && t.status === 'battle',
+            showAdmin: t.canManage && !this.data.readonly && t.status === 'battle',
             teamAInfo,
             teamBInfo,
             membersA: buildMembers(a),
@@ -467,7 +467,7 @@ Page({
           });
         });
         const canManageSettlementOrder = !!(
-          t.isAdmin && !this.data.readonly && t.status === 'finished' && t.champion && !t.archivedAt && standingsItems.length
+          t.canManage && !this.data.readonly && t.status === 'finished' && t.champion && !t.archivedAt && standingsItems.length
         );
         const settlementEditing = !!(this.data.settlementEditing && canManageSettlementOrder);
         if (settlementEditing) {
@@ -502,7 +502,7 @@ Page({
         let seedSlots = [];
         let teamNames = [];
         // 队长选人：选人完成（draftInfo.done）后可调整落位；系统分组：分组完成（draft 状态）直接进入落位调整
-        if (t.status === 'draft' && t.isAdmin && !this.data.readonly && (t.mode === 'auto' || (t.draftInfo && t.draftInfo.done))) {
+        if (t.status === 'draft' && t.canManage && !this.data.readonly && (t.mode === 'auto' || (t.draftInfo && t.draftInfo.done))) {
           showSeeding = true;
           const teams = t.teams || [];
           teamNames = teams.map((tm, i) => (tm.captain
@@ -522,7 +522,7 @@ Page({
 
         const tree = this.buildTreeData(matches);
         // 晋级图节点里的队伍 openid 是落位编号（T0/T1…），反查 teams 得到真实队长信息
-        // 晋级图第一轮（UB1）：标记各队「可设置队名队标」（本队队长或管理员），按钮需携带队长 openid
+        // 晋级图第一轮（UB1）：标记各队「可设置队名队标」（本队队长或比赛管理者），按钮需携带队长 openid
         const teamBySlot = {};
         (t.teams || []).forEach((tm, i) => {
           const slot = seeding.indexOf(i);
@@ -537,11 +537,11 @@ Page({
           };
           nd.teamACaptain = capOf(nd.teamAInfo);
           nd.teamBCaptain = capOf(nd.teamBInfo);
-          nd.canEditA = !!t.isAdmin || !!(nd.teamACaptain && nd.teamACaptain.openid === t.myOpenid);
-          nd.canEditB = !!t.isAdmin || !!(nd.teamBCaptain && nd.teamBCaptain.openid === t.myOpenid);
+          nd.canEditA = !!t.canManage || !!(nd.teamACaptain && nd.teamACaptain.openid === t.myOpenid);
+          nd.canEditB = !!t.canManage || !!(nd.teamBCaptain && nd.teamBCaptain.openid === t.myOpenid);
         });
         const canReplacePlayers = !!(
-          t.isAdmin && !this.data.readonly && (t.status === 'draft' || t.status === 'battle') &&
+          t.canManage && !this.data.readonly && (t.status === 'draft' || t.status === 'battle') &&
           !matches.some((match) => match.status === 'done')
         );
         const captainDraft = t.status === 'draft' && t.mode !== 'auto';
@@ -586,7 +586,7 @@ Page({
           refreshError: false,
           stageView,
           pageTitle,
-          isAdmin: !!t.isAdmin,
+          canManage: !!t.canManage,
           ubMatches,
           lbMatches,
           gf,
@@ -650,7 +650,7 @@ Page({
     });
   },
 
-  /* ---------- 晋级图第一轮：队伍队名/队标设置（队长本人或管理员） ---------- */
+  /* ---------- 晋级图第一轮：队伍队名/队标设置（队长本人或比赛管理者） ---------- */
   openTeamConfig(e) {
     const d = e.currentTarget.dataset || {};
     if (!d.openid) return;
@@ -699,7 +699,7 @@ Page({
 
   /* ---------- 对阵调整 ---------- */
   onSeedMove(e) {
-    if (!this.data.isAdmin || this.data.readonly || this.data.groupOrderSaving) return;
+    if (!this.data.canManage || this.data.readonly || this.data.groupOrderSaving) return;
     const slot = Number(e.currentTarget.dataset.slot);
     const dir = Number(e.currentTarget.dataset.dir);
     const seedSlots = this.data.seedSlots.slice();
@@ -729,7 +729,7 @@ Page({
   },
 
   onSeedChange(e) {
-    if (!this.data.isAdmin || this.data.readonly || this.data.groupOrderSaving) return;
+    if (!this.data.canManage || this.data.readonly || this.data.groupOrderSaving) return;
     const slot = Number(e.currentTarget.dataset.slot);
     const val = Number(e.detail.value);
     const seedSlots = this.data.seedSlots.slice();
@@ -746,7 +746,7 @@ Page({
   },
 
   onShuffleSeeding() {
-    if (!this.data.isAdmin || this.data.readonly || this.data.groupOrderSaving) return;
+    if (!this.data.canManage || this.data.readonly || this.data.groupOrderSaving) return;
     api
       .call('shuffleSeeding', { id: this.data.t.id })
       .then(() => {
@@ -758,7 +758,7 @@ Page({
 
   onStartBracket() {
     const t = this.data.t;
-    if (!t || !this.data.isAdmin || this.data.readonly || t.status !== 'draft' || this.data.groupSaving || this.data.groupOrderSaving) return;
+    if (!t || !this.data.canManage || this.data.readonly || t.status !== 'draft' || this.data.groupSaving || this.data.groupOrderSaving) return;
     wx.showModal({
       title: '生成对阵',
       content: '将按当前落位生成 TI 双败赛程并进入对战阶段，确定？',
@@ -1138,12 +1138,12 @@ Page({
     return { nodes, lines, w: W, h: H };
   },
 
-  /* ---------- 赛制与结果（管理员） ---------- */
+  /* ---------- 赛制与结果（比赛管理者） ---------- */
   onBoChange(e) {
     if (this.data.readonly) return;
     const id = Number(e.currentTarget.dataset.id);
     const bo = BO_LIST[Number(e.detail.value)];
-    if (!this.data.isAdmin) return;
+    if (!this.data.canManage) return;
     api
       .call('setMatchBo', { id: this.data.t.id, matchId: id, bo })
       .then(() => {
@@ -1154,7 +1154,7 @@ Page({
   },
 
   recordResult(e) {
-    if (!this.data.isAdmin || this.data.readonly) return;
+    if (!this.data.canManage || this.data.readonly) return;
     const id = Number(e.currentTarget.dataset.id);
     const match = (this.data.ubMatches.concat(this.data.lbMatches)).find((m) => m.id === id) || this.data.gf;
     if (!match) return;
@@ -1241,10 +1241,10 @@ Page({
     });
   },
 
-  /* ---------- 结束 / 归档 / 删除（管理员） ---------- */
+  /* ---------- 结束 / 归档 / 删除（比赛管理者） ---------- */
 
   onOpenReplacement(e) {
-    if (!this.data.isAdmin || this.data.readonly || this.data.replacementSaving) return;
+    if (!this.data.canManage || this.data.readonly || this.data.replacementSaving) return;
     const entry = this.data.replacementTeams[Number(e.currentTarget.dataset.index)];
     if (!entry) return;
     const selectedOpenid = String(e.currentTarget.dataset.openid || '');
@@ -1293,7 +1293,7 @@ Page({
   onConfirmReplacement() {
     const t = this.data.t;
     const panel = this.data.replacementPanel;
-    if (!t || !panel.show || !this.data.isAdmin || this.data.readonly || this.data.replacementSaving) return;
+    if (!t || !panel.show || !this.data.canManage || this.data.readonly || this.data.replacementSaving) return;
     const outPlayer = panel.outPlayers[panel.outIndex];
     const inPlayer = panel.inPlayers[panel.inIndex];
     if (!outPlayer || !inPlayer) {
@@ -1326,7 +1326,7 @@ Page({
   onRollbackStage(e) {
     const t = this.data.t;
     const stage = e.currentTarget.dataset.stage;
-    if (!t || !this.data.isAdmin || this.data.readonly || (stage !== 'draft' && stage !== 'registration')) return;
+    if (!t || !this.data.canManage || this.data.readonly || (stage !== 'draft' && stage !== 'registration')) return;
     const toName = stage === 'draft' ? (t.mode === 'auto' ? '分组' : '选人') : '报名';
     const warning = stage === 'draft'
       ? t.mode === 'auto'
@@ -1353,7 +1353,7 @@ Page({
     });
   },
 
-  /* 系统分组：返回报名阶段重新分组（管理员） */
+  /* 系统分组：返回报名阶段重新分组（比赛管理者） */
   onResetGroup() {
     const t = this.data.t;
     if (!t || this.data.readonly) return;
@@ -1403,7 +1403,7 @@ Page({
     if (!t || this.data.readonly) return;
     wx.showModal({
       title: '确认删除？',
-      content: '（删除的比赛会移入回收站。）',
+      content: '（删除后无法恢复。）',
       confirmText: '删除比赛',
       confirmColor: '#e5484d',
       success: (res) => {
@@ -1411,7 +1411,7 @@ Page({
           api
             .call('deleteTournament', { id: t.id })
             .then(() => {
-              wx.showToast({ title: '比赛已移入回收站', icon: 'success' });
+              wx.showToast({ title: '比赛已删除', icon: 'success' });
               setTimeout(() => wx.reLaunch({ url: '/pages/index/index' }), 600);
             })
             .catch((err) => wx.showToast({ title: err.message, icon: 'none' }));

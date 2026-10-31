@@ -3,10 +3,10 @@
  *
  * 所有业务逻辑都走这里（小程序端不直连数据库），
  * 身份取自微信 openid（wxContext.OPENID），天然免登录；
- * 管理员为"名单制"：环境变量指定的账号初始化超管（superAdmin）+ 超管可添加多个管理员（admins）。
+ * 最高管理员由环境变量指定的账号初始化；赛事权限按 createdBy（创建者）或最高管理员校验。
  *
  * 集合：users / tournaments / config（部署后通过 initializeDatabase 一次性创建）
- *  config 中存：{ key:'admins', superAdmin: openid, admins: [openid...] }
+ *  config 中存：{ key:'admins', superAdmin: openid }；旧 admins 字段仅为历史兼容数据。
  */
 const cloud = require('wx-server-sdk');
 const https = require('https');
@@ -24,10 +24,11 @@ const { selectUserRecord, buildUserMap } = require('./user-records');
 const { ADMIN_USER_SORT_FIELDS, buildAdminUsers } = require('./admin-users');
 const { buildTestRegistrationAdditions } = require('./test-registration');
 const { buildRegistration, syncRegistrationProfiles } = require('./registration');
-const { mutateTournament, buildRegistrationSummary } = require('./tournament-transaction');
+const { mutateTournament, buildRegistrationSummary, isTransactionConflict } = require('./tournament-transaction');
 const { ADMIN_USER_LIST_FIELDS } = require('./query-projections');
 const { TOURNAMENT_SUMMARY_FIELDS, summarize } = require('./tournament-summary');
 const { TEAM_LOGO_PRESETS, TEAM_LOGO_IDS } = require('./team-logos');
+const { chinaDayRange, createQuotaId, effectiveDailyCount } = require('./daily-quota');
 
 const COLLECTIONS = ['users', 'tournaments', 'config'];
 const BO_LIST = ['BO1', 'BO3', 'BO5'];
@@ -293,7 +294,7 @@ function isTournamentParticipant(tournament, openid) {
 }
 
 function canPostComment(tournament, openid, adminFlag) {
-  // 冠军产生后，管理员可能尚未点击归档；此时也允许在结算页留下感言。
+  // 冠军产生后，比赛创建者或最高管理员可能尚未点击归档；此时也允许在结算页留下感言。
   if (!tournament || tournament.status !== 'finished' || !tournament.champion) return false;
   return !!adminFlag || isTournamentParticipant(tournament, openid);
 }
@@ -382,6 +383,7 @@ async function getTournamentRegistrationSnapshot(id, openid) {
         name: true,
         time: true,
         creatorName: true,
+        createdBy: true,
         status: true,
         updatedAt: true,
         createdAt: true,
@@ -399,11 +401,19 @@ async function getTournamentRegistrationSnapshot(id, openid) {
     if (!tournament || tournament.deletedAt) return null;
     const registrations = Array.isArray(tournament.registrations) ? tournament.registrations : [];
     const count = (role) => registrations.filter((registration) => registration && registration.role === role).length;
+    const cfg = await getAdminsConfig();
+    const isSuper = openid === cfg.superAdmin;
+    const isOwner = !!(tournament.createdBy && tournament.createdBy === openid);
+    const canManage = isOwner || isSuper;
     return {
       id: tournament._id,
       name: tournament.name || '',
       time: tournament.time || '',
       creatorName: tournament.creatorName || '',
+      createdBy: tournament.createdBy || '',
+      isOwner,
+      isSuper,
+      canManage,
       status: tournament.status || '',
       updatedAt: Number(tournament.updatedAt || tournament.createdAt || 0),
       champion: tournament.champion || null,
@@ -504,6 +514,8 @@ async function hydrateLegacyRegistrationSummaries(tournaments) {
 async function getRecentTournamentSummaries(filter, limit, openid, archived) {
   const summaries = [];
   let offset = 0;
+  const cfg = await getAdminsConfig();
+  const isSuper = !!openid && openid === cfg.superAdmin;
   while (summaries.length < limit) {
     const result = await db.collection('tournaments')
       .where(filter)
@@ -517,24 +529,27 @@ async function getRecentTournamentSummaries(filter, limit, openid, archived) {
       (archived == null || !!tournament.archivedAt === archived))
       .slice(0, Math.max(0, limit - summaries.length));
     const hydrated = await hydrateLegacyRegistrationSummaries(matching);
-    summaries.push(...hydrated.map((tournament) => summarize(tournament, openid)));
+    summaries.push(...hydrated.map((tournament) => {
+      const isOwner = !!(openid && tournament.createdBy && tournament.createdBy === openid);
+      return Object.assign(summarize(tournament, openid), {
+        createdBy: tournament.createdBy || '',
+        isOwner,
+        isSuper,
+        canManage: isOwner || isSuper,
+      });
+    }));
     offset += batch.length;
     if (batch.length < 100) break;
   }
   return summaries.slice(0, limit);
 }
 
-/* ---------------- 管理员权限（名单制） ---------------- */
+/* ---------------- 最高管理员与赛事所有者权限 ---------------- */
 
 async function getAdminsConfig() {
   const res = await db.collection('config').where({ key: 'admins' }).limit(1).get();
   if (res.data && res.data.length) return res.data[0];
-  return { key: 'admins', superAdmin: '', admins: [] };
-}
-
-async function isAdmin(openid) {
-  const cfg = await getAdminsConfig();
-  return openid === cfg.superAdmin || (cfg.admins || []).indexOf(openid) >= 0;
+  return { key: 'admins', superAdmin: '' };
 }
 
 async function isSuper(openid) {
@@ -542,8 +557,43 @@ async function isSuper(openid) {
   return openid === cfg.superAdmin;
 }
 
-async function isAdminUser() {
-  return isAdmin(getOpenId());
+/* 比赛权限：比赛创建者或最高管理员可以管理该比赛。旧赛事没有 createdBy 时，
+ * 只允许最高管理员操作，避免把历史赛事意外开放给普通用户。 */
+async function canManageTournament(tournament, openid) {
+  if (!tournament || !openid) return false;
+  if (await isSuper(openid)) return true;
+  return !!tournament.createdBy && tournament.createdBy === openid;
+}
+
+async function requireTournamentManager(event, includeDeleted) {
+  const openid = getOpenId();
+  const tournament = await getTournamentById(event && event.id, !!includeDeleted);
+  if (!tournament) return { error: '比赛不存在' };
+  if (!(await canManageTournament(tournament, openid))) {
+    return { error: '只有比赛创建者或最高管理员可以操作本场比赛' };
+  }
+  return { tournament, openid };
+}
+
+async function getTodayCreateStats(openid, now) {
+  if (!openid) return { todayCreateCount: 0, todayCreateRemaining: 2, todayCreateLimit: 2, dailyLimit: 2 };
+  const range = chinaDayRange(now);
+  const quotaId = createQuotaId(openid, range.dayKey);
+  const quotaResult = await db.collection('config').where({ _id: quotaId }).limit(1).get();
+  const quotaCount = Number(quotaResult && quotaResult.data && quotaResult.data[0] && quotaResult.data[0].count) || 0;
+  const tournaments = await db.collection('tournaments')
+    .where({ createdBy: openid, createdAt: _.gte(range.start).and(_.lt(range.end)) })
+    .limit(3)
+    .get();
+  // Count even permanently deleted and legacy soft-deleted documents; the quota record
+  // preserves counts after permanent deletion during the current day.
+  const count = effectiveDailyCount(quotaCount, (tournaments && tournaments.data || []).length);
+  return {
+    todayCreateCount: count,
+    todayCreateRemaining: Math.max(0, 2 - count),
+    todayCreateLimit: 2,
+    dailyLimit: 2,
+  };
 }
 
 /* ---------------- 对阵解析 ---------------- */
@@ -640,8 +690,9 @@ async function composeTournament(t, myOpenid) {
       : Object.assign({}, registration || {}, member);
     return decorateCardPlayer(source);
   };
-  const admin = myOpenid === adminConfig.superAdmin || (adminConfig.admins || []).indexOf(myOpenid) >= 0;
   const superFlag = myOpenid === adminConfig.superAdmin;
+  const isOwner = !!(t.createdBy && t.createdBy === myOpenid);
+  const canManage = isOwner || superFlag;
 
   // 选人信息（仅队长选人模式）
   let draftInfo = null;
@@ -703,9 +754,11 @@ async function composeTournament(t, myOpenid) {
     status: t.status,
     champion: t.champion || null,
     creatorName: t.creatorName || '',
-    secret: admin ? t.secret : '', // 暗号仅管理员可见
+    createdBy: t.createdBy || '',
+    isOwner,
+    canManage,
+    secret: canManage ? t.secret : '', // 暗号仅本场创建者或最高管理员可见
     myOpenid,
-    isAdmin: admin,
     isSuper: superFlag,
     captainFilled: captains.length,
     captainTotal,
@@ -723,7 +776,7 @@ async function composeTournament(t, myOpenid) {
     // 总决赛完成后才返回最终名次；比赛进行中为 null，避免客户端展示猜测名次。
     standings,
     comments,
-    canComment: canPostComment(t, myOpenid, admin),
+    canComment: canPostComment(t, myOpenid, canManage),
     myComment: comments.find((comment) => comment.isMine) || null,
     createdAt: t.createdAt,
     updatedAt: t.updatedAt || t.createdAt || 0,
@@ -863,7 +916,6 @@ const actions = {
   async home(event) {
     const openid = getOpenId();
     const [user, cfg] = await Promise.all([getUser(openid), getAdminsConfig()]);
-    const isAdminFlag = openid === cfg.superAdmin || (cfg.admins || []).indexOf(openid) >= 0;
     const isSuperFlag = openid === cfg.superAdmin;
     // 客户端传入"今天 0 点"的时间戳，避免云函数时区差异
     const todayStart = Number(event.todayStart) || 0;
@@ -874,12 +926,15 @@ const actions = {
       getRecentTournamentSummaries(todayFilter, 50, openid, true),
       getRecentTournamentSummaries(olderFilter, 50, openid),
     ]);
+    const createStats = await getTodayCreateStats(openid, Date.now());
     return ok({
       user,
-      isAdmin: isAdminFlag,
+      // 创建入口对所有已登录用户开放；赛事操作权限由每场摘要的 canManage 控制。
+      canCreate: !!openid,
       isSuper: isSuperFlag,
       hasSuper: !!cfg.superAdmin,
-      // 已归档的比赛进入历史，已删除的比赛只在回收站显示。
+      ...createStats,
+      // 已归档的比赛进入历史；删除的比赛不再显示。
       today: todayActive,
       older: todayArchived.concat(activeOlder).slice(0, 50),
     });
@@ -1043,7 +1098,7 @@ const actions = {
     }
     const me = await getUser(openid);
     if (!me) return fail('请先设置昵称再初始化');
-    const data = { superAdmin: openid, admins: [], createdAt: Date.now() };
+    const data = { superAdmin: openid, createdAt: Date.now() };
     if (cfg._id) {
       await db.collection('config').doc(cfg._id).update({ data });
     } else {
@@ -1052,11 +1107,11 @@ const actions = {
     return ok({ isSuper: true });
   },
 
-  /* 管理员信息（所有用户可看）；超管可管理用户 */
+  /* 最高管理员信息（所有用户可看）；超管可查看用户列表 */
   async getStaff() {
     const openid = getOpenId();
     const cfg = await getAdminsConfig();
-    const ids = [cfg.superAdmin].concat(cfg.admins || []).filter(Boolean);
+    const ids = [cfg.superAdmin].filter(Boolean);
     const members = [];
     for (const id of ids) {
       const u = await getUser(id);
@@ -1068,8 +1123,6 @@ const actions = {
       user,
       superAdminOpenid: cfg.superAdmin,
       superAdmin: members.find((m) => m.openid === cfg.superAdmin) || null,
-      admins: members.filter((m) => m.openid !== cfg.superAdmin),
-      isAdmin: await isAdmin(openid),
       isSuper: await isSuper(openid),
       bootstrapOpenid: cfg.superAdmin ? '' : openid,
       canInitializeSuperAdmin: canInitializeSuperAdmin(
@@ -1120,32 +1173,6 @@ const actions = {
     return ok({ cardStyles: await getCardStylesByOpenids(openids) });
   },
 
-  /* 超管：添加管理员（按 openid 或昵称） */
-  async addAdmin(event) {
-    const openid = getOpenId();
-    if (!(await isSuper(openid))) return fail('只有最高管理员可以添加管理员');
-    let targetOpenid = String(event.openid || '').trim();
-    let target = null;
-    if (targetOpenid) {
-      target = await getUser(targetOpenid);
-      if (!target) return fail('未找到该用户');
-    } else {
-      const nickname = String(event.nickname || '').trim();
-      if (!nickname) return fail('请输入要添加的用户昵称');
-      const res = await db.collection('users').where({ nickname }).limit(1).get();
-      if (!res.data || !res.data.length) return fail('没有找到昵称为「' + nickname + '」的用户（对方需先设置昵称）');
-      target = res.data[0];
-      targetOpenid = target.openid || target._openid || '';
-    }
-    if (!targetOpenid) return fail('无法识别该用户的身份，请让对方重新设置一次昵称');
-    if (targetOpenid === openid) return fail('你已经是最高管理员');
-    const cfg = await getAdminsConfig();
-    if ((cfg.admins || []).indexOf(targetOpenid) >= 0) return fail('该用户已是管理员');
-    const admins = (cfg.admins || []).concat([targetOpenid]);
-    await db.collection('config').doc(cfg._id).update({ data: { admins } });
-    return ok(true);
-  },
-
   /* 超管：分页管理所有用户，排序按 Dota ID / 天梯分 / 用户名 / 已校验段位。 */
   async listUsers(event) {
     const openid = getOpenId();
@@ -1169,7 +1196,7 @@ const actions = {
       offset += batch.length;
       if (batch.length < 100) break;
     }
-    const sortedUsers = buildAdminUsers(records, cfg.admins || [], cfg.superAdmin, sortBy, order);
+    const sortedUsers = buildAdminUsers(records, cfg.superAdmin, sortBy, order);
     const start = (page - 1) * pageSize;
     const users = sortedUsers.slice(start, start + pageSize);
     return ok({
@@ -1183,68 +1210,8 @@ const actions = {
     });
   },
 
-  /* 超管：移除管理员 */
-  async removeAdmin(event) {
-    const openid = getOpenId();
-    if (!(await isSuper(openid))) return fail('只有最高管理员可以移除管理员');
-    const targetOpenid = event.openid;
-    if (targetOpenid === openid) return fail('不能移除自己（最高管理员）');
-    const cfg = await getAdminsConfig();
-    const admins = (cfg.admins || []).filter((id) => id !== targetOpenid);
-    if (admins.length === (cfg.admins || []).length) return fail('该用户不是管理员');
-    await db.collection('config').doc(cfg._id).update({ data: { admins } });
-    return ok(true);
-  },
-
-  /* 超管：删除用户资料并撤销其管理员权限，赛事内嵌的历史快照保留。 */
-  async deleteUser(event) {
-    const openid = getOpenId();
-    if (!(await isSuper(openid))) return fail('只有最高管理员可以删除用户账号');
-    const targetOpenid = String(event.openid || '').trim();
-    if (!targetOpenid) return fail('缺少要删除的用户');
-    if (targetOpenid === openid) return fail('不能删除当前最高管理员账号');
-    const cfg = await getAdminsConfig();
-    if (targetOpenid === cfg.superAdmin) return fail('不能删除最高管理员账号');
-    const target = await getUser(targetOpenid);
-    if (!target) return fail('未找到该用户');
-
-    const loadAllMatches = async (field) => {
-      const result = [];
-      let offset = 0;
-      while (true) {
-        const page = await db.collection('users').where({ [field]: targetOpenid }).orderBy('_id', 'asc').skip(offset).limit(100).get();
-        const batch = page.data || [];
-        result.push(...batch);
-        offset += batch.length;
-        if (batch.length < 100) break;
-      }
-      return result;
-    };
-    const [ownedRecords, explicitRecords] = await Promise.all([
-      loadAllMatches('_openid'),
-      loadAllMatches('openid'),
-    ]);
-    const uniqueRecords = new Map();
-    ownedRecords.concat(explicitRecords.filter((record) =>
-      !(record && typeof record._openid === 'string' && record._openid)
-    )).forEach((record) => {
-      if (record && record._id) uniqueRecords.set(record._id, record);
-    });
-    if (!uniqueRecords.size) return fail('未找到该用户的资料记录');
-
-    const admins = (cfg.admins || []).filter((id) => id !== targetOpenid);
-    if (admins.length !== (cfg.admins || []).length && cfg._id) {
-      await db.collection('config').doc(cfg._id).update({ data: { admins } });
-    }
-    for (const record of uniqueRecords.values()) {
-      await db.collection('users').doc(record._id).remove();
-    }
-    return ok({ deleted: true, removedRecords: uniqueRecords.size });
-  },
-
-  /* 创建比赛（管理员）：支持多场并行，报名需暗号 */
+  /* 创建比赛（所有用户）：每日最多两场，报名需暗号 */
   async createTournament(event) {
-    if (!(await isAdminUser())) return fail('只有管理员可以创建比赛');
     const name = String(event.name || '').trim();
     const time = String(event.time || '').trim();
     const secret = String(event.secret || '').trim();
@@ -1259,38 +1226,84 @@ const actions = {
     if (K < 1 || K > MAX_K) return fail(mode === 'auto' ? '每组人数需在 1-' + MAX_K + ' 之间' : '每个队长选队友数量需在 1-' + MAX_K + ' 之间');
     if (!isFinite(waitLimit) || waitLimit < 0 || waitLimit > 20) return fail('替补数量需在 0-20 之间');
     const openid = getOpenId();
+    if (!openid) return fail('无法识别当前用户');
     const me = await getUser(openid);
-    const res = await db.collection('tournaments').add({
-      data: {
-        name,
-        time,
-        secret,
-        mode,
-        N,
-        K,
-        waitLimit: Math.round(waitLimit),
-        status: 'registration',
-        registrations: [],
-        ...buildRegistrationSummary([]),
-        captainOrder: [],
-        draft: null,
-        teams: [],
-        seeding: null,
-        matches: [],
-        champion: null,
-        comments: [],
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-        createdBy: openid,
-        creatorName: me ? me.nickname : '',
-      },
+    const now = Date.now();
+    const range = chinaDayRange(now);
+    const quotaId = createQuotaId(openid, range.dayKey);
+    const tournamentData = {
+      name,
+      time,
+      secret,
+      mode,
+      N,
+      K,
+      waitLimit: Math.round(waitLimit),
+      status: 'registration',
+      registrations: [],
+      ...buildRegistrationSummary([]),
+      captainOrder: [],
+      draft: null,
+      teams: [],
+      seeding: null,
+      matches: [],
+      champion: null,
+      comments: [],
+      createdAt: now,
+      updatedAt: now,
+      createdBy: openid,
+      creatorName: me ? me.nickname : '',
+    };
+    let result = null;
+    for (let attempt = 1; attempt <= 5; attempt += 1) {
+      try {
+        result = await db.runTransaction(async (transaction) => {
+        const quotaRef = transaction.collection('config').doc(quotaId);
+        const quotaResult = await transaction.collection('config').where({ _id: quotaId }).limit(1).get();
+        const quota = quotaResult && quotaResult.data && quotaResult.data.length ? quotaResult.data[0] : null;
+        const existing = await transaction.collection('tournaments')
+          .where({ createdBy: openid, createdAt: _.gte(range.start).and(_.lt(range.end)) })
+          .limit(3)
+          .get();
+        const existingCount = (existing && existing.data || []).length;
+        const used = effectiveDailyCount(quota && quota.count, existingCount);
+        if (used >= 2) return { error: '每位用户每天最多创建 2 场比赛' };
+        const tournament = await transaction.collection('tournaments').add({ data: tournamentData });
+        const quotaData = {
+          key: 'createQuota',
+          openid,
+          dayKey: range.dayKey,
+          count: used + 1,
+          updatedAt: now,
+        };
+        if (quota && quota._id) {
+          await quotaRef.update({ data: quotaData });
+        } else {
+          await quotaRef.set({ data: Object.assign({ createdAt: now }, quotaData) });
+        }
+        return { id: tournament._id, count: used + 1 };
+        });
+        break;
+      } catch (e) {
+        if (isTransactionConflict(e) && attempt < 5) continue;
+        console.error('create tournament failed:', e);
+        return fail('创建比赛失败，请稍后重试');
+      }
+    }
+    if (result && result.error) return fail(result.error);
+    return ok({
+      id: result.id,
+      todayCreateCount: result.count,
+      todayCreateRemaining: Math.max(0, 2 - result.count),
+      todayCreateLimit: 2,
+      dailyLimit: 2,
     });
-    return ok({ id: res._id });
   },
 
-  /* 管理员：修改报名阶段的比赛配置（名称/时间/暗号/模式/队伍数/每队人数或队友数/替补数） */
+  /* 比赛创建者或最高管理员：修改报名阶段的比赛配置 */
   async updateConfig(event) {
-    if (!(await isAdminUser())) return fail('只有管理员可以修改配置');
+    const managed = await requireTournamentManager(event);
+    if (managed.error) return fail(managed.error);
     const name = String(event.name || '').trim();
     const time = String(event.time || '').trim();
     const secret = String(event.secret || '').trim();
@@ -1385,7 +1398,7 @@ const actions = {
     });
   },
 
-  /* 设置队伍名称（队长本人/组长本人或管理员；队长选人模式报名阶段，系统分组模式分组完成后；最多 10 个字） */
+  /* 设置队伍名称（队长本人/组长本人或本场比赛管理者；最多 10 个字） */
   async setTeamName(event) {
     const openid = getOpenId();
     const teamName = String(event.teamName || '').trim();
@@ -1394,14 +1407,16 @@ const actions = {
     const teamIcon = hasTeamIcon ? String(event.teamIcon || '').trim() : null;
     if (hasTeamIcon && teamIcon && TEAM_LOGO_IDS.indexOf(teamIcon) < 0) return fail('请选择内置队标');
     const targetOpenid = String(event.openid || '') || openid;
-    const isAdminFlag = await isAdmin(openid);
-    if (targetOpenid !== openid && !isAdminFlag) return fail('只有队长本人或管理员可以设置队伍名称');
+    const currentTournament = await getTournamentById(event.id);
+    if (!currentTournament) return fail('比赛不存在');
+    const manager = await canManageTournament(currentTournament, openid);
+    if (targetOpenid !== openid && !manager) return fail('只有队长本人或比赛创建者、最高管理员可以设置队伍名称');
     const result = await mutateTournament(db, event.id, (t) => {
       if (t.mode === 'auto') {
         if (t.status !== 'draft' && t.status !== 'battle') return { error: '只有分组完成后可以设置队伍名称' };
         const teams = (t.teams || []).map((tm) => Object.assign({}, tm));
         const ti = teams.findIndex((tm) => tm.captain && tm.captain.openid === targetOpenid);
-        if (ti < 0) return { error: '只能由组长（本队天梯分最高者）或管理员设置队伍名称' };
+        if (ti < 0) return { error: '只能由组长（本队天梯分最高者）或本场比赛管理者设置队伍名称' };
         teams[ti] = Object.assign({}, teams[ti], {
           captain: Object.assign({}, teams[ti].captain, Object.assign({ teamName }, hasTeamIcon ? { teamIcon } : {})),
         });
@@ -1417,7 +1432,7 @@ const actions = {
       if (t.status === 'draft' || t.status === 'battle') {
         const teams = (t.teams || []).map((tm) => Object.assign({}, tm));
         const ti = teams.findIndex((tm) => tm.captain && tm.captain.openid === targetOpenid);
-        if (ti < 0) return { error: '只能由本队队长或管理员设置队伍名称' };
+        if (ti < 0) return { error: '只能由本队队长或本场比赛管理者设置队伍名称' };
         teams[ti] = Object.assign({}, teams[ti], {
           captain: Object.assign({}, teams[ti].captain, Object.assign({ teamName }, hasTeamIcon ? { teamIcon } : {})),
         });
@@ -1428,9 +1443,10 @@ const actions = {
     return result.error ? fail(result.error) : ok(true);
   },
 
-  /* 管理员：报名阶段把队员移入替补 / 替补移回队员 */
+  /* 比赛创建者或最高管理员：报名阶段把队员移入替补 / 替补移回队员 */
   async moveRegistration(event) {
-    if (!(await isAdminUser())) return fail('需要管理员权限');
+    const managed = await requireTournamentManager(event);
+    if (managed.error) return fail(managed.error);
     const toRole = event.toRole === 'player' ? 'player' : 'waitlist';
     const result = await mutateTournament(db, event.id, (t) => {
       if (t.status !== 'registration') return { error: '只有报名阶段可以调整名单' };
@@ -1459,7 +1475,7 @@ const actions = {
   async cancelRegister(event) {
     const openid = getOpenId();
     const result = await mutateTournament(db, event.id, (t) => {
-      if (t.status !== 'registration') return { error: '报名已锁定，请联系管理员' };
+      if (t.status !== 'registration') return { error: '报名已锁定，请联系本场比赛创建者或最高管理员' };
       const current = Array.isArray(t.registrations) ? t.registrations : [];
       const registrations = current.filter((r) => r.openid !== openid);
       if (registrations.length === current.length) return { error: '你尚未报名' };
@@ -1468,9 +1484,10 @@ const actions = {
     return result.error ? fail(result.error) : ok(true);
   },
 
-  /* 移除报名（管理员） */
+  /* 移除报名（比赛创建者或最高管理员） */
   async removeRegistration(event) {
-    if (!(await isAdminUser())) return fail('需要管理员权限');
+    const managed = await requireTournamentManager(event);
+    if (managed.error) return fail(managed.error);
     const result = await mutateTournament(db, event.id, (t) => {
       const current = Array.isArray(t.registrations) ? t.registrations : [];
       const registrations = current.filter((r) => r.openid !== event.openid);
@@ -1480,9 +1497,10 @@ const actions = {
     return result.error ? fail(result.error) : ok(true);
   },
 
-  /* 开始选人（管理员）：随机排序队长，初始化蛇形轮次 */
+  /* 开始选人（比赛创建者或最高管理员）：随机排序队长，初始化蛇形轮次 */
   async startDraft(event) {
-    if (!(await isAdminUser())) return fail('需要管理员权限');
+    const managed = await requireTournamentManager(event);
+    if (managed.error) return fail(managed.error);
     const result = await mutateTournament(db, event.id, (t) => {
       if (t.status !== 'registration') return { error: '当前不在报名阶段' };
       const registrations = Array.isArray(t.registrations) ? t.registrations : [];
@@ -1512,12 +1530,12 @@ const actions = {
     return result.error ? fail(result.error) : ok(true);
   },
 
-  /* 队长选人 / 管理员代选 */
+  /* 队长选人 / 比赛创建者或最高管理员代选 */
   async pickPlayer(event) {
     const openid = getOpenId();
-    const isAdminFlag = await isAdmin(openid);
     const t = await getTournamentById(event.id);
     if (!t) return fail('比赛不存在');
+    const canManage = await canManageTournament(t, openid);
     if (t.status !== 'draft') return fail('当前不在选人阶段');
     const playerOpenid = event.playerOpenid;
     if (!playerOpenid) return fail('缺少被选队员');
@@ -1536,7 +1554,7 @@ const actions = {
     const capIdx = round % 2 === 1 ? inRoundIdx : t.N - 1 - inRoundIdx;
     const currentCaptain = (t.captainOrder || [])[capIdx];
     if (!currentCaptain) return fail('队长信息缺失，请刷新');
-    if (openid !== currentCaptain.openid && !isAdminFlag) {
+    if (openid !== currentCaptain.openid && !canManage) {
       return fail('还没轮到你选人（当前是' + currentCaptain.nickname + '）');
     }
     const nextPicks = picks.slice();
@@ -1559,11 +1577,11 @@ const actions = {
     return ok({ picked: playerOpenid, teamIndex: capIdx, done });
   },
 
-  /* 重置选人（管理员）：重新随机队长顺序并清空已选 */
+  /* 重置选人（比赛创建者或最高管理员）：重新随机队长顺序并清空已选 */
   async resetDraft(event) {
-    if (!(await isAdminUser())) return fail('需要管理员权限');
-    const t = await getTournamentById(event.id);
-    if (!t) return fail('比赛不存在');
+    const managed = await requireTournamentManager(event, false);
+    if (managed.error) return fail(managed.error);
+    const t = managed.tournament;
     if (t.status !== 'draft') return fail('当前不在选人阶段');
     const captains = (t.registrations || []).filter((r) => r.role === 'captain');
     const captainOrder = shuffle(captains).map((c) => ({
@@ -1585,11 +1603,11 @@ const actions = {
     return ok(true);
   },
 
-  /* 调整胜者组第一轮对阵（管理员，选人/分组完成后、生成对阵前） */
+  /* 调整胜者组第一轮对阵（比赛创建者或最高管理员） */
   async setSeeding(event) {
-    if (!(await isAdminUser())) return fail('需要管理员权限');
-    const t = await getTournamentById(event.id);
-    if (!t) return fail('比赛不存在');
+    const managed = await requireTournamentManager(event, false);
+    if (managed.error) return fail(managed.error);
+    const t = managed.tournament;
     if (t.status !== 'draft') return fail('当前不在生成对阵阶段');
     if (t.mode !== 'auto') {
       const totalPicks = t.N * t.K;
@@ -1608,9 +1626,9 @@ const actions = {
 
   /* 随机对阵 */
   async shuffleSeeding(event) {
-    if (!(await isAdminUser())) return fail('需要管理员权限');
-    const t = await getTournamentById(event.id);
-    if (!t) return fail('比赛不存在');
+    const managed = await requireTournamentManager(event, false);
+    if (managed.error) return fail(managed.error);
+    const t = managed.tournament;
     if (t.status !== 'draft') return fail('当前不在生成对阵阶段');
     const base = [];
     for (let i = 0; i < t.N; i++) base.push(i);
@@ -1618,11 +1636,11 @@ const actions = {
     return ok(true);
   },
 
-  /* 生成对阵、进入对战阶段（管理员） */
+  /* 生成对阵、进入对战阶段（比赛创建者或最高管理员） */
   async startBracket(event) {
-    if (!(await isAdminUser())) return fail('需要管理员权限');
-    const t = await getTournamentById(event.id);
-    if (!t) return fail('比赛不存在');
+    const managed = await requireTournamentManager(event, false);
+    if (managed.error) return fail(managed.error);
+    const t = managed.tournament;
     if (t.status !== 'draft') return fail('当前不在生成对阵阶段');
     let teams;
     if (t.mode === 'auto') {
@@ -1669,11 +1687,11 @@ const actions = {
     return ok(true);
   },
 
-  /* 配置比赛赛制（管理员） */
+  /* 配置比赛赛制（比赛创建者或最高管理员） */
   async setMatchBo(event) {
-    if (!(await isAdminUser())) return fail('需要管理员权限');
-    const t = await getTournamentById(event.id);
-    if (!t) return fail('比赛不存在');
+    const managed = await requireTournamentManager(event, false);
+    if (managed.error) return fail(managed.error);
+    const t = managed.tournament;
     if (t.status !== 'battle') return fail('当前不在对战阶段');
     const bo = BO_LIST.indexOf(event.bo) >= 0 ? event.bo : null;
     if (!bo) return fail('赛制只能是 BO1 / BO3 / BO5');
@@ -1686,11 +1704,11 @@ const actions = {
     return ok(true);
   },
 
-  /* 记录比赛结果（管理员）：自动晋级 / 淘汰 / 产生冠军 */
+  /* 记录比赛结果（比赛创建者或最高管理员） */
   async setMatchResult(event) {
-    if (!(await isAdminUser())) return fail('需要管理员权限');
-    const t = await getTournamentById(event.id);
-    if (!t) return fail('比赛不存在');
+    const managed = await requireTournamentManager(event, false);
+    if (managed.error) return fail(managed.error);
+    const t = managed.tournament;
     if (t.status !== 'battle') return fail('当前不在对战阶段');
     const matchId = Number(event.matchId);
     const idx = (t.matches || []).findIndex((m) => m.id === matchId);
@@ -1747,18 +1765,18 @@ const actions = {
         matches,
         champion: _.set(champion),
         status,
-        // 决赛打完标记已结束，但**不自动归档**：由管理员在主页/对战页手动归档
+        // 决赛打完标记已结束，但**不自动归档**：由创建者或最高管理员手动归档
         archivedAt: t.archivedAt || null,
       },
     });
     return ok({ champion: champion ? champion.name : null, finished: status === 'finished' });
   },
 
-  /* 修正比赛结果（管理员）：级联重置受影响的后续比赛 */
+  /* 修正比赛结果（比赛创建者或最高管理员） */
   async resetMatchResult(event) {
-    if (!(await isAdminUser())) return fail('需要管理员权限');
-    const t = await getTournamentById(event.id);
-    if (!t) return fail('比赛不存在');
+    const managed = await requireTournamentManager(event, false);
+    if (managed.error) return fail(managed.error);
+    const t = managed.tournament;
     const matchId = Number(event.matchId);
     const idx = (t.matches || []).findIndex((m) => m.id === matchId);
     if (idx < 0) return fail('比赛不存在');
@@ -1807,11 +1825,11 @@ const actions = {
     return ok(true);
   },
 
-  /* 管理员退回比赛阶段；只清除当前阶段之后的数据。 */
+  /* 比赛创建者或最高管理员退回比赛阶段；只清除当前阶段之后的数据。 */
   async rollbackStage(event) {
-    if (!(await isAdminUser())) return fail('需要管理员权限');
-    const t = await getTournamentById(event.id);
-    if (!t) return fail('比赛不存在');
+    const managed = await requireTournamentManager(event, false);
+    if (managed.error) return fail(managed.error);
+    const t = managed.tournament;
     if (t.archivedAt || t.status === 'finished') return fail('已结束或归档的比赛不能调整阶段');
     if (t.status === 'registration') return fail('当前已经在报名阶段');
     const target = event.stage === 'draft' || event.stage === 'registration' ? event.stage : '';
@@ -1844,9 +1862,11 @@ const actions = {
     return ok({ status: target });
   },
 
-  /* 管理员在选人或对战阶段替换队员；已记录任何赛果后锁定名单。 */
+  /* 比赛创建者或最高管理员在选人或对战阶段替换队员。 */
   async replacePlayer(event) {
-    if (!(await isAdminUser())) return fail('需要管理员权限');
+    const managed = await requireTournamentManager(event, false);
+    if (managed.error) return fail(managed.error);
+    const t = managed.tournament;
     const teamIndex = Number(event.teamIndex);
     const outOpenid = String(event.outOpenid || '').trim();
     const inOpenid = String(event.inOpenid || '').trim();
@@ -1927,11 +1947,11 @@ const actions = {
     return result.error ? fail(result.error) : ok(result.result);
   },
 
-  /* 结束并归档（管理员）：手动把已结束的比赛归档到历史（要求已有冠军，未结束不能归档） */
+  /* 结束并归档（比赛创建者或最高管理员） */
   async finishTournament(event) {
-    if (!(await isAdminUser())) return fail('需要管理员权限');
-    const t = await getTournamentById(event.id);
-    if (!t) return fail('比赛不存在');
+    const managed = await requireTournamentManager(event, false);
+    if (managed.error) return fail(managed.error);
+    const t = managed.tournament;
     if (t.archivedAt) return fail('比赛已归档');
     if (!t.champion) return fail('比赛还未结束（未产生冠军），不能归档');
     await updateTournamentDoc(t._id, {
@@ -1940,11 +1960,11 @@ const actions = {
     return ok(true);
   },
 
-  /* 管理员微调结算名次；传空数组恢复为赛果自动排序。 */
+  /* 比赛创建者或最高管理员微调结算名次。 */
   async setStandingsOrder(event) {
-    if (!(await isAdminUser())) return fail('需要管理员权限');
-    const t = await getTournamentById(event.id);
-    if (!t) return fail('比赛不存在');
+    const managed = await requireTournamentManager(event, false);
+    if (managed.error) return fail(managed.error);
+    const t = managed.tournament;
     if (t.status !== 'finished' || !t.champion) return fail('比赛结束后才能调整名次');
     if (t.archivedAt) return fail('已归档比赛不能调整名次');
     const automatic = calculateStandings(t, resolveBracket(t), t.teams);
@@ -1967,46 +1987,64 @@ const actions = {
     return ok({ standingsOrder: order });
   },
 
-  /* 删除比赛（管理员）：移入回收站，保留比赛数据供恢复。 */
+  /* 删除比赛（创建者或超管）：永久删除。 */
   async deleteTournament(event) {
-    if (!(await isAdminUser())) return fail('需要管理员权限');
-    const t = await getTournamentById(event.id, true);
-    if (!t) return fail('比赛不存在');
-    if (t.deletedAt) return fail('比赛已在回收站中');
-    await updateTournamentDoc(t._id, { data: { deletedAt: Date.now(), updatedAt: Date.now() } });
-    return ok(true);
-  },
+    const managed = await requireTournamentManager(event, true);
+    if (managed.error) return fail(managed.error);
+    const { tournament, openid } = managed;
+    for (let attempt = 1; attempt <= 5; attempt += 1) {
+      try {
+        const result = await db.runTransaction(async (transaction) => {
+          const tournamentRef = transaction.collection('tournaments').doc(tournament._id);
+          const latestResult = await tournamentRef.get();
+          const latest = latestResult && latestResult.data;
+          if (!latest) return { error: '比赛不存在' };
+          if (!(await canManageTournament(latest, openid))) {
+            return { error: '只有比赛创建者或最高管理员可以操作本场比赛' };
+          }
 
-  /* 回收站：所有用户可查看最近删除的 10 场比赛。 */
-  async listTrash() {
-    const openid = getOpenId();
-    const result = await db.collection('tournaments')
-      .where({ deletedAt: _.gt(0) })
-      .field(TOURNAMENT_SUMMARY_FIELDS)
-      .orderBy('deletedAt', 'desc')
-      .limit(10)
-      .get();
-    const hydrated = await hydrateLegacyRegistrationSummaries(result.data || []);
-    return ok({ trash: hydrated.map((t) => Object.assign(summarize(t, openid), { deletedAt: t.deletedAt })) });
-  },
-
-  /* 管理员恢复回收站中的比赛。 */
-  async restoreTournament(event) {
-    if (!(await isAdminUser())) return fail('需要管理员权限');
-    const t = await getTournamentById(event.id, true);
-    if (!t) return fail('比赛不存在');
-    if (!t.deletedAt) return fail('比赛不在回收站中');
-    await updateTournamentDoc(t._id, { data: { deletedAt: null, updatedAt: Date.now() } });
-    return ok(true);
-  },
-
-  /* 管理员彻底删除回收站中的比赛。 */
-  async purgeTournament(event) {
-    if (!(await isAdminUser())) return fail('需要管理员权限');
-    const t = await getTournamentById(event.id, true);
-    if (!t) return fail('比赛不存在');
-    if (!t.deletedAt) return fail('请先把比赛移入回收站');
-    await db.collection('tournaments').doc(t._id).remove();
+          // Keep today's quota after a permanent delete. This also accounts for
+          // same-day matches that existed before quota tracking was introduced.
+          const ownerOpenid = latest.createdBy;
+          const range = chinaDayRange(Date.now());
+          const createdAt = Number(latest.createdAt) || 0;
+          if (ownerOpenid && createdAt >= range.start && createdAt < range.end) {
+            const quotaId = createQuotaId(ownerOpenid, range.dayKey);
+            const quotaRef = transaction.collection('config').doc(quotaId);
+            let quota = null;
+            try {
+              const quotaResult = await quotaRef.get();
+              quota = quotaResult && quotaResult.data;
+            } catch (e) {
+              quota = null;
+            }
+            const existing = await transaction.collection('tournaments')
+              .where({ createdBy: ownerOpenid, createdAt: _.gte(range.start).and(_.lt(range.end)) })
+              .limit(3)
+              .get();
+            const used = effectiveDailyCount(quota && quota.count, (existing && existing.data || []).length);
+            const quotaData = {
+              key: 'createQuota',
+              openid: ownerOpenid,
+              dayKey: range.dayKey,
+              count: used,
+              updatedAt: Date.now(),
+            };
+            if (quota && quota._id) {
+              await quotaRef.update({ data: quotaData });
+            } else {
+              await quotaRef.set({ data: Object.assign({ createdAt: Date.now() }, quotaData) });
+            }
+          }
+          await tournamentRef.remove();
+          return { deleted: true };
+        });
+        return result && result.error ? fail(result.error) : ok(true);
+      } catch (e) {
+        if (isTransactionConflict(e) && attempt < 5) continue;
+        throw e;
+      }
+    }
     return ok(true);
   },
 
@@ -2021,9 +2059,9 @@ const actions = {
 
   /* 系统分组：预览分组结果（不落库）。每组 K 人；全局前 N 名分别担任组长；均分差尽量 ≤200 */
   async autoGroup(event) {
-    if (!(await isAdminUser())) return fail('需要管理员权限');
-    const t = await getTournamentById(event.id);
-    if (!t) return fail('比赛不存在');
+    const managed = await requireTournamentManager(event, false);
+    if (managed.error) return fail(managed.error);
+    const t = managed.tournament;
     if (t.mode !== 'auto') return fail('本场比赛不是系统分组模式');
     if (t.status !== 'registration') return fail('当前不在报名阶段');
     const synced = await syncTournamentRegistrations(t);
@@ -2060,9 +2098,9 @@ const actions = {
 
   /* 系统分组：确认分组并写入队伍（服务端重算，不信任客户端数据） */
   async confirmGroup(event) {
-    if (!(await isAdminUser())) return fail('需要管理员权限');
-    const current = await getTournamentById(event.id);
-    if (!current) return fail('比赛不存在');
+    const managed = await requireTournamentManager(event);
+    if (managed.error) return fail(managed.error);
+    const current = managed.tournament;
     const latestProfiles = await syncTournamentRegistrations(current);
     const result = await mutateTournament(db, event.id, (t) => {
       if (t.mode !== 'auto') return { error: '本场比赛不是系统分组模式' };
@@ -2126,11 +2164,11 @@ const actions = {
     return result.error ? fail(result.error) : ok({});
   },
 
-  /* 系统分组：在分组阶段保存管理员调整后的队员名单。 */
+  /* 系统分组：在分组阶段保存比赛创建者或最高管理员调整后的队员名单。 */
   async saveAutoGroups(event) {
-    if (!(await isAdminUser())) return fail('需要管理员权限');
-    const t = await getTournamentById(event.id);
-    if (!t) return fail('比赛不存在');
+    const managed = await requireTournamentManager(event, false);
+    if (managed.error) return fail(managed.error);
+    const t = managed.tournament;
     if (t.mode !== 'auto' || t.status !== 'draft') return fail('当前不在系统分组阶段');
     if ((t.matches || []).length) return fail('对阵已生成，不能再调整分组');
     const players = (t.registrations || []).filter((registration) => registration.role === 'player');
@@ -2166,11 +2204,11 @@ const actions = {
     return ok(true);
   },
 
-  /* 系统分组：返回报名阶段重新分组（管理员，未生成对阵前；报名名单保留） */
+  /* 系统分组：返回报名阶段重新分组（比赛创建者或最高管理员） */
   async resetGroup(event) {
-    if (!(await isAdminUser())) return fail('需要管理员权限');
-    const t = await getTournamentById(event.id);
-    if (!t) return fail('比赛不存在');
+    const managed = await requireTournamentManager(event, false);
+    if (managed.error) return fail(managed.error);
+    const t = managed.tournament;
     if (t.mode !== 'auto') return fail('仅系统分组模式支持重新分组');
     if (t.status !== 'draft') return fail('只有分组完成后（未生成对阵前）可以重新分组');
     await updateTournamentDoc(t._id, {
@@ -2179,9 +2217,9 @@ const actions = {
     return ok(true);
   },
 
-  /* 生成虚拟测试用户并报名（管理员；用于自测完整流程） */
+  /* 生成虚拟测试用户并报名（仅超管；用于自测完整流程） */
   async seedTest(event) {
-    if (!(await isAdminUser())) return fail('仅管理员可生成测试数据');
+    if (!(await isSuper(getOpenId()))) return fail('仅最高管理员可生成测试数据');
     let t = null;
     if (event.id) {
       t = await getTournamentById(event.id);
@@ -2425,7 +2463,7 @@ const actions = {
     const t = await getTournamentById(event.id);
     if (!t) return fail('比赛不存在');
     const comments = publicComments(t, openid);
-    const admin = await isAdmin(openid);
+    const admin = await canManageTournament(t, openid);
     return ok({
       comments,
       canComment: canPostComment(t, openid, admin),
@@ -2433,14 +2471,14 @@ const actions = {
     });
   },
 
-  /* 发表或更新赛后感言：参赛者和管理员各可留一条，最多 100 字。 */
+  /* 发表或更新赛后感言：参赛者和本场比赛管理者各可留一条，最多 100 字。 */
   async addComment(event) {
     const openid = getOpenId();
     if (!openid) return fail('无法识别当前用户');
     const t = await getTournamentById(event.id);
     if (!t) return fail('比赛不存在');
-    const admin = await isAdmin(openid);
-    if (!canPostComment(t, openid, admin)) return fail('仅比赛结束后的参赛者或管理员可以留言');
+    const admin = await canManageTournament(t, openid);
+    if (!canPostComment(t, openid, admin)) return fail('仅比赛结束后的参赛者或本场比赛管理者可以留言');
 
     if (typeof event.text !== 'string') return fail('内容格式无效');
     const text = event.text.trim();
@@ -2455,7 +2493,7 @@ const actions = {
       const member = members.find((item) => item && typeof item === 'object' && item.openid === openid);
       return member || found;
     }, null);
-    const nickname = String((me && me.nickname) || (registration && registration.nickname) || (teamMember && teamMember.nickname) || (admin ? '管理员' : '参赛者'))
+    const nickname = String((me && me.nickname) || (registration && registration.nickname) || (teamMember && teamMember.nickname) || (admin ? '比赛管理者' : '参赛者'))
       .trim()
       .slice(0, 20) || '用户';
     let saveResult;
@@ -2467,7 +2505,7 @@ const actions = {
         const fresh = await ref.get();
         const latest = fresh && fresh.data;
         if (!latest) return { error: '比赛不存在' };
-        if (!canPostComment(latest, openid, admin)) return { error: '仅比赛结束后的参赛者或管理员可以留言' };
+        if (!canPostComment(latest, openid, admin)) return { error: '仅比赛结束后的参赛者或本场比赛管理者可以留言' };
         const comments = Array.isArray(latest.comments) ? latest.comments.map((comment) => Object.assign({}, comment)) : [];
         const existingIndex = comments.findIndex((comment) => commentOwner(comment) === openid);
         const now = Date.now();
@@ -2511,18 +2549,12 @@ const actions = {
     return ok(snapshot);
   },
 
-  /* 报名页首屏数据：只返回赛事基础信息、报名名单和管理员权限，避免组装赛程/积分/评论。 */
+  /* 报名页首屏数据：只返回赛事基础信息、报名名单和本场比赛管理权限。 */
   async registrationDetail(event) {
     const openid = getOpenId();
-    const [snapshot, adminConfig] = await Promise.all([
-      getTournamentRegistrationSnapshot(event.id, openid).then(decorateRegistrationSnapshot),
-      getAdminsConfig(),
-    ]);
+    const snapshot = await getTournamentRegistrationSnapshot(event.id, openid).then(decorateRegistrationSnapshot);
     if (!snapshot) return fail('比赛不存在');
-    const isAdminFlag = openid === adminConfig.superAdmin || (adminConfig.admins || []).indexOf(openid) >= 0;
     return ok(Object.assign({}, snapshot, {
-      isAdmin: isAdminFlag,
-      isSuper: openid === adminConfig.superAdmin,
       settlementReady: snapshot.status === 'finished' && !!snapshot.champion,
     }));
   },

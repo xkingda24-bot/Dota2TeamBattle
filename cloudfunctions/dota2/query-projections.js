@@ -13,6 +13,7 @@ const TOURNAMENT_SUMMARY_FIELDS = {
   waitLimit: true,
   champion: true,
   creatorName: true,
+  createdBy: true,
   createdAt: true,
   archivedAt: true,
   deletedAt: true,

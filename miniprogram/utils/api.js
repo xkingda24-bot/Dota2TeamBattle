@@ -1,5 +1,5 @@
 /**
- * 云函数调用封装（管理员为身份制名单，无需密码会话）
+ * 云函数调用封装（身份由微信 OpenID 确认，无需密码会话）
  */
 function call(action, data) {
   const payload = Object.assign({}, data || {}, { action });

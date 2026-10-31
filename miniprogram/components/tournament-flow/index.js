@@ -104,7 +104,7 @@ Component({
       const returningToLiveBattle = tournament.status === 'battle' && index === activeIndex;
       const targetReadonly = index < activeIndex || (this.properties.readonly && !returningToLiveBattle);
       const draftAnchor = tournament.mode === 'auto' && tournament.status === 'draft' &&
-        tournament.isAdmin && !this.properties.readonly
+        tournament.canManage && !this.properties.readonly
         ? 'team-stage-edit-anchor'
         : 'team-stage-anchor';
 

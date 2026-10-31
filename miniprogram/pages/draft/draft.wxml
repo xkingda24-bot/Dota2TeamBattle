@@ -59,15 +59,15 @@
       <view class="card draft-player-row" wx:for="{{t.draftInfo.remainingPlayers}}" wx:key="openid">
         <player-card player="{{item}}" card-style="{{item.cardStyle}}" compact="{{true}}" />
         <view class="row">
-          <view wx:if="{{canPick || isAdmin}}" class="btn-small" data-openid="{{item.openid}}" data-name="{{item.nickname}}" bindtap="onPick">选他</view>
+          <view wx:if="{{canPick || canManage}}" class="btn-small" data-openid="{{item.openid}}" data-name="{{item.nickname}}" bindtap="onPick">选他</view>
           <view wx:else class="sub">等待轮到你</view>
         </view>
       </view>
     </block>
 
-    <!-- 管理员 -->
-    <view class="card" wx:if="{{isAdmin && !readonly}}">
-      <view class="card-title">管理员操作</view>
+    <!-- 比赛管理者 -->
+    <view class="card" wx:if="{{canManage && !readonly}}">
+      <view class="card-title">比赛管理操作</view>
       <view class="sub">可代当前轮次队长选人（直接点上方「选他」）；选人完成后生成对阵进入对战阶段</view>
       <view class="btn" wx:if="{{t.draftInfo.done}}" bindtap="onStartBracket">生成对阵并进入对战</view>
       <view class="btn btn-plain" bindtap="onOpenStageManagement">队伍管理与阶段回退</view>

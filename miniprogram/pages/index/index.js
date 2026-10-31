@@ -8,19 +8,15 @@ Page({
     loading: true,
     loadError: '',
     user: null,
-    isAdmin: false,
     isSuper: false,
     hasSuper: false,
+    todayCreateCount: 0,
+    todayCreateRemaining: 2,
+    todayCreateLimit: 2,
     today: [],
     older: [],
     historyExpanded: false,
     historyBusyId: '',
-    trash: [],
-    trashExpanded: false,
-    trashLoaded: false,
-    trashBusyId: '',
-    trashLoading: false,
-    trashError: '',
     // 暗号验证弹窗
     secretModal: false,
     secretTargetId: '',
@@ -91,15 +87,16 @@ Page({
         );
         this.setData({
           user: d.user,
-          isAdmin: !!d.isAdmin,
           isSuper: !!d.isSuper,
           hasSuper: !!d.hasSuper,
+          todayCreateCount: Number(d.todayCreateCount) || 0,
+          todayCreateRemaining: d.todayCreateRemaining == null ? 2 : Number(d.todayCreateRemaining),
+          todayCreateLimit: Number(d.todayCreateLimit || d.dailyLimit) || 2,
           today,
           older,
           loading: false,
           loadError: '',
         });
-        if (this.data.trashExpanded) this.loadTrash();
         // 登录后未设置昵称 → 自动弹窗
         if (!d.user && !this._nickPrompted) {
           this._nickPrompted = true;
@@ -346,10 +343,6 @@ Page({
   },
 
   goCreate() {
-    if (!this.data.isAdmin) {
-      wx.showToast({ title: '只有管理员可以创建比赛', icon: 'none' });
-      return;
-    }
     wx.navigateTo({ url: '/pages/create/create' });
   },
 
@@ -364,9 +357,9 @@ Page({
   },
 
   deleteFromHistory(e) {
-    if (!this.data.isAdmin || this.data.historyBusyId) return;
+    if (this.data.historyBusyId) return;
     const item = this.data.older[Number(e.currentTarget.dataset.index)];
-    if (!item) return;
+    if (!item || !item.canManage) return;
     const id = String(item.id || item._id || '');
     if (!id) {
       wx.showToast({ title: '赛事编号缺失，请刷新后重试', icon: 'none' });
@@ -374,93 +367,19 @@ Page({
     }
     wx.showModal({
       title: '删除确认',
-      content: '「' + item.name + '」及其比赛数据会移入回收站，可稍后恢复。确定删除？',
-      confirmText: '确认移入',
+      content: '「' + item.name + '」及其比赛数据将被删除，确定继续？',
+      confirmText: '确认删除',
       confirmColor: '#e5484d',
       success: (res) => {
         if (!res.confirm) return;
         this.setData({ historyBusyId: id });
         api.call('deleteTournament', { id })
           .then(() => {
-            wx.showToast({ title: '已移入回收站', icon: 'success' });
-            this.setData({ trashExpanded: true });
+            wx.showToast({ title: '已删除', icon: 'success' });
             return this.load();
           })
           .catch((err) => wx.showToast({ title: err.message || '删除失败，请重试', icon: 'none' }))
           .finally(() => this.setData({ historyBusyId: '' }));
-      },
-    });
-  },
-
-  toggleTrash() {
-    const trashExpanded = !this.data.trashExpanded;
-    this.setData({ trashExpanded });
-    if (trashExpanded && (!this.data.trashLoaded || this.data.trashError)) this.loadTrash();
-  },
-
-  loadTrash() {
-    if (this.data.trashLoading) return Promise.resolve();
-    this.setData({ trashLoading: true, trashError: '' });
-    return api.call('listTrash')
-      .then((result) => {
-        const items = Array.isArray(result) ? result : (Array.isArray(result && result.trash) ? result.trash : []);
-        const trash = items.slice().sort((a, b) => Number(b.deletedAt || 0) - Number(a.deletedAt || 0)).slice(0, 10).map((item) =>
-          Object.assign({}, item, {
-            deletedAtText: this.formatTrashDate(item.deletedAt),
-          })
-        );
-        this.setData({ trash, trashLoading: false, trashLoaded: true, trashError: '' });
-      })
-      .catch((err) => {
-        this.setData({ trashLoading: false, trashError: err.message || '回收站暂时无法加载' });
-      });
-  },
-
-  formatTrashDate(value) {
-    return formatDateTime(value);
-  },
-
-  restoreFromTrash(e) {
-    if (!this.data.isAdmin || this.data.trashBusyId) return;
-    const item = this.data.trash[Number(e.currentTarget.dataset.index)];
-    if (!item) return;
-    wx.showModal({
-      title: '恢复比赛',
-      content: '确定将「' + item.name + '」从回收站恢复到历史赛事吗？',
-      confirmText: '恢复',
-      success: (res) => {
-        if (!res.confirm) return;
-        this.setData({ trashBusyId: item.id });
-        api.call('restoreTournament', { id: item.id })
-          .then(() => {
-            wx.showToast({ title: '已恢复比赛', icon: 'success' });
-            return this.load();
-          })
-          .catch((err) => wx.showToast({ title: err.message || '恢复失败', icon: 'none' }))
-          .finally(() => this.setData({ trashBusyId: '' }));
-      },
-    });
-  },
-
-  purgeFromTrash(e) {
-    if (!this.data.isAdmin || this.data.trashBusyId) return;
-    const item = this.data.trash[Number(e.currentTarget.dataset.index)];
-    if (!item) return;
-    wx.showModal({
-      title: '删除确认',
-      content: '彻底删除「' + item.name + '」后将无法恢复，确定删除？',
-      confirmText: '彻底删除',
-      confirmColor: '#e5484d',
-      success: (res) => {
-        if (!res.confirm) return;
-        this.setData({ trashBusyId: item.id });
-        api.call('purgeTournament', { id: item.id })
-          .then(() => {
-            wx.showToast({ title: '已彻底删除', icon: 'success' });
-            return this.load();
-          })
-          .catch((err) => wx.showToast({ title: err.message || '删除失败', icon: 'none' }))
-          .finally(() => this.setData({ trashBusyId: '' }));
       },
     });
   },
@@ -496,21 +415,19 @@ Page({
   },
 
   onLongPressTournament(e) {
-    if (!this.data.isAdmin) return;
     const item = this.data.today[e.currentTarget.dataset.index];
-    if (!item) return;
+    if (!item || !item.canManage) return;
     wx.showModal({
       title: '删除确认',
-      content: '「' + item.name + '」及其报名、选人和赛程数据将移入回收站，可稍后恢复。确定继续？',
-      confirmText: '确认移入',
+      content: '「' + item.name + '」及其报名、选人和赛程数据将被删除，确定继续？',
+      confirmText: '确认删除',
       confirmColor: '#e5484d',
       success: (res) => {
         if (res.confirm) {
           api
             .call('deleteTournament', { id: item.id || item._id })
             .then(() => {
-              wx.showToast({ title: '已移入回收站', icon: 'success' });
-              this.setData({ trashExpanded: true });
+              wx.showToast({ title: '已删除', icon: 'success' });
               this.load();
             })
             .catch((err) => wx.showToast({ title: err.message, icon: 'none' }));
@@ -519,13 +436,12 @@ Page({
     });
   },
 
-  /* ---------- 左滑卡片：归档 / 删除（管理员） ---------- */
+  /* ---------- 左滑卡片：归档 / 删除（比赛创建者或最高管理员） ---------- */
   onAdminMenu(e) {
     if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
-    if (!this.data.isAdmin) return;
     const index = Number(e.currentTarget.dataset.index);
     const item = this.data.today[index];
-    if (!item) return;
+    if (!item || !item.canManage) return;
 
     const canArchive = !!item.champion;
     if (!canArchive) {
@@ -549,7 +465,7 @@ Page({
 
   archiveToday(index) {
     const item = this.data.today[Number(index)];
-    if (!item || !this.data.isAdmin) return;
+    if (!item || !item.canManage) return;
     wx.showModal({
       title: '归档比赛',
       content: '将「' + item.name + '」归档到历史比赛，确定归档？',
@@ -568,7 +484,7 @@ Page({
 
   deleteToday(index) {
     const item = this.data.today[Number(index)];
-    if (!item || !this.data.isAdmin) return;
+    if (!item || !item.canManage) return;
     const id = String(item.id || item._id || '');
     if (!id) {
       wx.showToast({ title: '赛事编号缺失，请刷新后重试', icon: 'none' });
@@ -576,16 +492,15 @@ Page({
     }
     wx.showModal({
       title: '删除确认',
-      content: '「' + item.name + '」及其报名、选人和赛程数据将移入回收站，可稍后恢复。确定继续？',
-      confirmText: '确认移入',
+      content: '「' + item.name + '」及其报名、选人和赛程数据将被删除，确定继续？',
+      confirmText: '确认删除',
       confirmColor: '#e5484d',
       success: (res) => {
         if (!res.confirm) return;
         api
           .call('deleteTournament', { id })
           .then(() => {
-            wx.showToast({ title: '已移入回收站', icon: 'success' });
-            this.setData({ trashExpanded: true });
+            wx.showToast({ title: '已删除', icon: 'success' });
             return this.load();
           })
           .catch((err) => wx.showToast({ title: err.message || '删除失败，请重试', icon: 'none' }));
@@ -594,10 +509,12 @@ Page({
   },
 
   onSwipeStart(e) {
-    if (!this.data.isAdmin) return;
+    const index = Number(e.currentTarget.dataset.index);
+    const item = this.data.today[index];
+    if (!item || !item.canManage) return;
     this._swipeStartX = e.touches[0].clientX;
     this._swipeStartY = e.touches[0].clientY;
-    this._swipeIndex = e.currentTarget.dataset.index;
+    this._swipeIndex = index;
     this._swipeDirection = '';
     this._swipeMoved = false;
   },
@@ -662,7 +579,7 @@ Page({
     const index = Number(e.currentTarget.dataset.index);
     const action = e.currentTarget.dataset.action;
     const item = this.data.today[index];
-    if (!item || !this.data.isAdmin) return;
+    if (!item || !item.canManage) return;
     // 先收起卡片
     this.setData({ ['today[' + index + '].swipeX']: 0, ['today[' + index + '].swipeOpen']: false });
     if (action === 'archive') {

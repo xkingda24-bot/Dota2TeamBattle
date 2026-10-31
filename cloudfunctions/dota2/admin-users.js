@@ -33,7 +33,7 @@ function sortAdminUsers(users, sortBy, order) {
   });
 }
 
-function buildAdminUsers(records, adminOpenids, superAdminOpenid, sortBy, order, now) {
+function buildAdminUsers(records, superAdminOpenid, sortBy, order, now) {
   const source = (records || []).filter(Boolean);
   const openids = Array.from(new Set(source.reduce((ids, record) => {
     const id = typeof record._openid === 'string' && record._openid ? record._openid : record.openid;
@@ -43,7 +43,6 @@ function buildAdminUsers(records, adminOpenids, superAdminOpenid, sortBy, order,
   const ownerRecords = source.filter((record) => typeof record._openid === 'string');
   const explicitRecords = source.filter((record) => typeof record.openid === 'string');
   const userMap = buildUserMap(openids, ownerRecords, explicitRecords);
-  const adminSet = new Set((adminOpenids || []).filter(Boolean));
   const users = Object.keys(userMap).map((openid) => {
     const user = userMap[openid];
     const card = publicDotaCardFields(user.mmr, user, null, now);
@@ -59,7 +58,6 @@ function buildAdminUsers(records, adminOpenids, superAdminOpenid, sortBy, order,
       dota2RankLabel: card.dota2RankVerified ? card.dota2RankLabel : '未校验段位',
       dota2LeaderboardRank: card.dota2LeaderboardRank,
       dota2RankVerifiedAt: card.dota2RankVerifiedAt,
-      isAdmin: adminSet.has(openid),
       isSuper: openid === superAdminOpenid,
     };
   });

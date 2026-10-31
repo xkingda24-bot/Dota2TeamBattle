@@ -20,7 +20,7 @@
     </view>
 
     <!-- 队伍名单，供参赛者从流程栏返回查看 -->
-    <view id="team-stage-edit-anchor" class="card group-edit-card" wx:if="{{groupedTeams.length && t.mode === 'auto' && t.status === 'draft' && isAdmin && !readonly}}">
+    <view id="team-stage-edit-anchor" class="card group-edit-card" wx:if="{{groupedTeams.length && t.mode === 'auto' && t.status === 'draft' && canManage && !readonly}}">
       <view class="card-title">分组调整</view>
       <view class="group-average-summary">平均分最高 {{groupAverageStats.max}} · 最低 {{groupAverageStats.min}} · 相差 {{groupAverageStats.diff}} 分</view>
       <view class="sub">点击队员名片，再点其他组队员可交换；使用队伍右侧箭头调整首轮落位，保存后组长按组内天梯分更新。</view>
@@ -51,7 +51,7 @@
       <view class="btn group-start-bracket {{groupOrderSaving || groupSaving ? 'btn-disabled' : ''}}" bindtap="onStartBracket">生成对阵并开始</view>
     </view>
 
-    <view id="team-stage-anchor" class="card" wx:if="{{groupedTeams.length && (t.status === 'draft' || stageView === 'draft') && !(t.mode === 'auto' && t.status === 'draft' && isAdmin && !readonly)}}">
+    <view id="team-stage-anchor" class="card" wx:if="{{groupedTeams.length && (t.status === 'draft' || stageView === 'draft') && !(t.mode === 'auto' && t.status === 'draft' && canManage && !readonly)}}">
       <view class="card-title">{{t.mode === 'auto' ? '系统分组结果' : '参赛队伍'}}</view>
       <view wx:if="{{t.mode === 'auto'}}" class="group-average-summary">平均分最高 {{groupAverageStats.max}} · 最低 {{groupAverageStats.min}} · 相差 {{groupAverageStats.diff}} 分</view>
       <view class="flow-team {{index === 0 ? 'flow-team-first' : ''}}" wx:for="{{groupedTeams}}" wx:key="teamIndex">
@@ -217,13 +217,13 @@
           <view class="settlement-other-title comments-title">赛后感言</view>
           <view class="comments-count">{{settlement.comments.length}} 条</view>
         </view>
-        <view wx:if="{{!settlement.comments.length}}" class="comments-empty">还没有感言，欢迎参赛者和管理员分享这场比赛。</view>
+        <view wx:if="{{!settlement.comments.length}}" class="comments-empty">还没有感言，欢迎参赛者和比赛管理者分享这场比赛。</view>
         <view wx:for="{{settlement.comments}}" wx:key="viewKey" wx:for-item="comment" class="comment-item">
           <view class="comment-author">{{comment.nickname}}<text wx:if="{{comment.isMine}}" class="comment-mine">我</text></view>
           <view class="comment-text">{{comment.text}}</view>
         </view>
         <view wx:if="{{settlement.canComment}}" class="comment-editor">
-          <view class="comment-hint">每位参赛者和管理员可发布一条感言，之后可以修改（最多 100 字）</view>
+          <view class="comment-hint">每位参赛者和比赛管理者可发布一条感言，之后可以修改（最多 100 字）</view>
           <textarea
             class="comment-input"
             maxlength="100"
@@ -273,7 +273,7 @@
     </view>
 
     <!-- 选人/分组阶段管理 -->
-    <view class="card" wx:if="{{isAdmin && !readonly && t.status === 'draft'}}">
+    <view class="card" wx:if="{{canManage && !readonly && t.status === 'draft'}}">
       <view class="card-title">赛前管理</view>
       <view class="sub" wx:if="{{t.mode !== 'auto'}}">队伍信息有误时可替换队员；退回报名会清除队伍和选人进度，但保留报名名单。</view>
       <view class="sub" wx:else>退回报名会清除分组结果，但保留报名名单。</view>
@@ -291,15 +291,15 @@
     <view wx:if="{{stageView === 'battle' && t.matches.length === 0}}" class="empty">赛程还未生成（需先完成选人）</view>
 
     <!-- 对战阶段管理 -->
-    <view class="card" wx:if="{{isAdmin && !readonly && t.status === 'battle' && t.mode === 'auto'}}">
+    <view class="card" wx:if="{{canManage && !readonly && t.status === 'battle' && t.mode === 'auto'}}">
       <view class="card-title">系统分组管理</view>
       <view class="sub">可清除当前赛程和落位，保留现有队伍名单，返回分组页面继续微调；调整完成后需要重新生成对阵。</view>
       <view class="btn btn-plain" data-stage="draft" bindtap="onRollbackStage">退回分组页面</view>
     </view>
 
-    <!-- 管理员操作（结束/删除） -->
-    <view class="card" wx:if="{{isAdmin && !readonly && t.status === 'finished'}}">
-      <view class="card-title">管理员操作</view>
+    <!-- 比赛管理操作（结束/删除） -->
+    <view class="card" wx:if="{{canManage && !readonly && t.status === 'finished'}}">
+      <view class="card-title">比赛管理操作</view>
       <view class="sub">{{t.status === 'finished' ? '本场比赛已结束，归档后主页不再显示' : '比赛结束后（产生冠军）才可归档'}}</view>
       <view class="row">
         <view class="btn btn-plain admin-btn" wx:if="{{t.status === 'battle' || t.status === 'finished'}}" bindtap="onFinish">{{t.status === 'finished' ? '归档到历史' : '结束并归档'}}</view>
@@ -374,7 +374,7 @@
     </view>
   </view>
 
-  <!-- 管理员替换队员 -->
+  <!-- 比赛管理者替换队员 -->
   <view class="mask" wx:if="{{replacementPanel.show}}">
     <view class="panel">
       <view class="card-title">替换队员</view>
@@ -421,7 +421,7 @@
     </view>
   </view>
 
-  <!-- 晋级图第一轮：设置队名和队标（队长本人或管理员） -->
+  <!-- 晋级图第一轮：设置队名和队标（队长本人或比赛管理者） -->
   <view class="mask" wx:if="{{teamConfigPanel.show}}">
     <view class="panel">
       <view class="card-title">设置队名和队标</view>

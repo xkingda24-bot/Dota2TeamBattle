@@ -30,7 +30,7 @@ Page({
     readonly: false,
     stageView: '',
     myReg: null,
-    isAdmin: false,
+    canManage: false,
     activeTab: 'captain',
     captainList: [],
     playerList: [],
@@ -47,7 +47,7 @@ Page({
     teamNameSaving: false,
     teamNameDirty: false, // 输入框正在编辑中，轮询刷新不要覆盖
     grouping: false,
-    // 管理员点击报名名片弹出的成员操作面板
+    // 比赛管理者点击报名名片弹出的成员操作面板
     memberAction: { show: false, openid: '', nickname: '', role: '' },
   },
 
@@ -106,7 +106,6 @@ Page({
 
   refreshTournamentSnapshot(version) {
     if (!this.id) return this.load(true);
-    if (version && version.deletedAt) return this.load(true);
     return api.call('tournamentRegistrationSnapshot', { id: this.id }).then((snapshot) => {
       const previous = this.data.t;
       if (!snapshot || !previous || snapshot.status !== previous.status || snapshot.status !== 'registration') {
@@ -208,7 +207,7 @@ Page({
           t,
           myReg,
           activeTab,
-          isAdmin: !!t.isAdmin && !this.data.readonly,
+          canManage: !!t.canManage && !this.data.readonly,
           loading: false,
           loadError: '',
           notFound: false,
@@ -381,10 +380,10 @@ Page({
     });
   },
 
-  /* 管理员：点击报名名片弹出操作面板（移入替补/移回队员/移除） */
+  /* 比赛创建者或最高管理员：点击报名名片弹出操作面板（移入替补/移回队员/移除） */
   onMemberTap(e) {
     const t = this.data.t;
-    if (!t || this.data.readonly || !this.data.isAdmin || t.status !== 'registration') return;
+    if (!t || this.data.readonly || !this.data.canManage || t.status !== 'registration') return;
     this.setData({
       memberAction: {
         show: true,
@@ -401,7 +400,7 @@ Page({
 
   onRemoveReg(e) {
     const t = this.data.t;
-    if (!t || this.data.readonly || !this.data.isAdmin) return;
+    if (!t || this.data.readonly || !this.data.canManage) return;
     const openid = e.currentTarget.dataset.openid;
     const nickname = e.currentTarget.dataset.nickname;
     wx.showModal({
@@ -422,13 +421,13 @@ Page({
     });
   },
 
-  /* 管理员：队员 <-> 替补 双向移动 */
+  /* 比赛创建者或最高管理员：队员 <-> 替补 双向移动 */
   onMoveReg(e) {
     const t = this.data.t;
     const openid = e.currentTarget.dataset.openid;
     const nickname = e.currentTarget.dataset.nickname;
     const to = e.currentTarget.dataset.to;
-    if (!t || this.data.readonly || !this.data.isAdmin) return;
+    if (!t || this.data.readonly || !this.data.canManage) return;
     const actionText = to === 'player' ? '移回队员名单' : '移入替补';
     wx.showModal({
       title: actionText,
@@ -508,14 +507,14 @@ Page({
 
   onEditConfig() {
     const t = this.data.t;
-    if (!t || this.data.readonly || !this.data.isAdmin) return;
+    if (!t || this.data.readonly || !this.data.canManage) return;
     wx.navigateTo({ url: '/pages/create/create?id=' + t.id });
   },
 
-  /* ---------- 系统分组（管理员） ---------- */
+  /* ---------- 系统分组（比赛创建者或最高管理员） ---------- */
   onAutoGroup() {
     const t = this.data.t;
-    if (!t || this.data.readonly || !this.data.isAdmin || this.data.grouping) return;
+    if (!t || this.data.readonly || !this.data.canManage || this.data.grouping) return;
     this.setData({ grouping: true });
     api
       .call('autoGroup', { id: t.id })
@@ -536,7 +535,7 @@ Page({
 
   onStartDraft() {
     const t = this.data.t;
-    if (!t || this.data.readonly || !this.data.isAdmin) return;
+    if (!t || this.data.readonly || !this.data.canManage) return;
     wx.showModal({
       title: '开始选人',
       content: '将随机排序 ' + t.N + ' 位队长并按蛇形顺序选人，确定开始？',
@@ -584,10 +583,10 @@ Page({
 
   onDelete() {
     const t = this.data.t;
-    if (!t || this.data.readonly || !this.data.isAdmin) return;
+    if (!t || this.data.readonly || !this.data.canManage) return;
     wx.showModal({
       title: '确认删除？',
-      content: '（删除的比赛会移入回收站。）',
+      content: '（删除后无法恢复。）',
       confirmText: '删除比赛',
       confirmColor: '#e5484d',
       success: (res) => {
@@ -595,7 +594,7 @@ Page({
           api
             .call('deleteTournament', { id: t.id })
             .then(() => {
-              wx.showToast({ title: '比赛已移入回收站', icon: 'success' });
+              wx.showToast({ title: '比赛已删除', icon: 'success' });
               setTimeout(() => wx.reLaunch({ url: '/pages/index/index' }), 600);
             })
             .catch((err) => wx.showToast({ title: err.message, icon: 'none' }));

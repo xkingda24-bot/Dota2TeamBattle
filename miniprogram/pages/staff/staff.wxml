@@ -1,9 +1,9 @@
-<!--pages/staff/staff.wxml - 我的（资料 + 管理员管理）-->
+<!--pages/staff/staff.wxml - 我的（资料 + 用户列表查看）-->
 <nav-bar title="我的" />
 <view class="container">
   <view wx:if="{{loading && !hasLoaded}}" class="card">
     <view class="card-title">正在加载</view>
-    <view class="sub">正在读取个人资料和管理员信息，请稍候…</view>
+    <view class="sub">正在读取个人资料，请稍候…</view>
   </view>
   <view wx:elif="{{loadError && !hasLoaded}}" class="card">
     <view class="card-title">加载失败</view>
@@ -62,40 +62,29 @@
       <view class="spacer"></view>
       <view class="tag tag-red">最高权限</view>
     </view>
-    <view class="sub" wx:if="{{isSuper}}">（你）可以在管理员管理中调整用户权限</view>
+    <view class="sub" wx:if="{{isSuper}}">（你）拥有所有比赛的管理权限</view>
   </view>
 
-  <!-- 管理员列表 -->
-  <view class="card" wx:if="{{superAdmin}}">
-    <view class="card-title">管理员（{{admins.length}}）</view>
-    <view wx:if="{{admins.length === 0}}" class="empty">还没有其他管理员</view>
-    <view class="staff-row" wx:for="{{admins}}" wx:key="openid">
-      <view class="staff-nick">{{item.nickname}}</view>
-      <view class="spacer"></view>
-      <view wx:if="{{isAdmin}}" class="tag tag-green">管理员</view>
-    </view>
-  </view>
-
-  <!-- 超管：管理员管理 -->
+  <!-- 超管：只读用户列表 -->
   <view class="card" wx:if="{{isSuper}}">
-    <view class="card-title">管理员管理</view>
-    <view class="sub">分页查看全部用户，按 Dota ID、天梯分、用户名或段位排序；可管理管理员权限或删除用户资料。</view>
-    <view class="btn" bindtap="onOpenUserList">管理员管理</view>
+    <view class="card-title">用户列表查看</view>
+    <view class="sub">分页查看全部用户，可按 Dota ID、天梯分、用户名或段位排序。</view>
+    <view class="btn" bindtap="onOpenUserList">查看用户列表</view>
   </view>
 
   <!-- 说明 -->
   <view class="card">
     <view class="card-title">权限说明</view>
-    <view class="sub">· 只有管理员可以在主页创建比赛，并管理报名/选人/赛程。<br />· 最高管理员可以管理用户、设置管理员或删除用户资料。<br />· 普通用户可正常报名、选人、查看赛程。</view>
+    <view class="sub">· 所有用户都可以创建比赛，每人每天最多创建 2 场。<br />· 只有比赛创建者和最高管理员可以管理该比赛。<br />· 最高管理员可查看全部用户列表，所有用户可正常报名、选人、查看赛程。</view>
   </view>
   </block>
 </view>
 
-<!-- 管理员管理：分页用户列表 -->
+<!-- 用户列表查看：分页只读列表 -->
 <view class="mask" wx:if="{{userListModal}}" bindtap="onCloseUserList">
   <view class="panel admin-panel" catchtap="noop">
-    <view class="panel-title">管理员管理</view>
-    <view class="panel-sub">共 {{userListTotal}} 位用户 · 仅最高管理员可操作</view>
+    <view class="panel-title">用户列表查看</view>
+    <view class="panel-sub">共 {{userListTotal}} 位用户 · 仅最高管理员可查看</view>
     <view class="sort-label">排序（点击切换升序 / 降序）</view>
     <view class="user-sort-options">
       <view class="user-sort-option {{userListSortBy === 'dota2Id' ? 'user-sort-active' : ''}}" data-sort="dota2Id" bindtap="onChangeUserSort">Dota ID{{userListSortBy === 'dota2Id' ? (userListOrder === 'asc' ? ' ↑' : ' ↓') : ''}}</view>
@@ -119,14 +108,9 @@
           <view class="admin-user-heading">
             <text class="user-nick">{{item.nickname || '未设置昵称'}}</text>
             <text wx:if="{{item.isSuper}}" class="tag tag-red">最高管理员</text>
-            <text wx:elif="{{item.isAdmin}}" class="tag tag-green">管理员</text>
           </view>
           <view class="admin-user-meta">Dota ID：{{item.dotaIdText}} · {{item.mmrText}}</view>
           <view class="admin-user-meta">段位：{{item.rankText}}</view>
-        </view>
-        <view wx:if="{{!item.isSuper}}" class="admin-user-actions">
-          <view class="btn-small {{item.isAdmin ? 'btn-plain' : ''}} {{userActionOpenid === item.openid ? 'btn-disabled' : ''}}" data-openid="{{item.openid}}" data-nickname="{{item.nickname}}" data-admin="{{item.isAdmin ? 'true' : 'false'}}" bindtap="onToggleUserAdmin">{{item.isAdmin ? '移除管理员' : '设为管理员'}}</view>
-          <view class="btn-small btn-danger {{userActionOpenid === item.openid ? 'btn-disabled' : ''}}" data-openid="{{item.openid}}" data-nickname="{{item.nickname}}" data-dotaid="{{item.dota2Id}}" bindtap="onDeleteUser">删除账号</view>
         </view>
       </view>
     </scroll-view>

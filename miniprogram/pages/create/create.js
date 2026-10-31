@@ -1,4 +1,4 @@
-// pages/create/create.js - 创建比赛 / 管理员修改配置（id 存在时进入编辑模式）
+// pages/create/create.js - 创建比赛 / 赛事配置（id 存在时进入编辑模式）
 const api = require('../../utils/api');
 
 function pad(n) {
@@ -9,10 +9,12 @@ Page({
   data: {
     editMode: false,
     pageLoading: false,
-    checkingAdmin: false,
+    checkingAccess: false,
     accessCheckFailed: false,
     accessMessage: '',
     isSuper: false,
+    todayCreateRemaining: 2,
+    todayCreateLimit: 2,
     name: '',
     secret: '',
     date: '',
@@ -39,7 +41,7 @@ Page({
       time: pad(now.getHours()) + ':' + pad(now.getMinutes()),
     });
 
-    // 编辑模式：管理员修改比赛配置
+    // 编辑模式：创建者或最高管理员修改比赛配置
     if (options && options.id) {
       this.id = options.id;
       this.setData({ editMode: true, pageLoading: true });
@@ -47,24 +49,24 @@ Page({
       return;
     }
 
-    // 创建模式：管理员校验
-    this.setData({ checkingAdmin: true });
-    this.checkAdmin();
+    // 所有用户都可以创建，服务端会校验每日额度
+    this.setData({ checkingAccess: true });
+    this.checkCreateAccess();
   },
 
   loadTournament() {
     return api
       .call('tournament', { id: this.id })
       .then((d) => {
-        if (!d || !d.isAdmin) {
+        if (!d || !d.canManage) {
           this.setData({
             pageLoading: false,
             accessCheckFailed: true,
             accessMessage: '当前账号没有修改此赛事的权限',
           });
           wx.showModal({
-            title: '需要管理员',
-            content: '只有管理员可以修改比赛配置。',
+            title: '没有权限',
+            content: '只有比赛创建者或最高管理员可以修改比赛配置。',
             showCancel: false,
             success: () => wx.navigateBack(),
           });
@@ -98,28 +100,23 @@ Page({
       });
   },
 
-  checkAdmin() {
+  checkCreateAccess() {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
     return api
-      .call('getStaff')
+      .call('home', { todayStart })
       .then((d) => {
-        if (!d.isAdmin) {
-          this.setData({
-            checkingAdmin: false,
-            accessCheckFailed: true,
-            accessMessage: '只有管理员可以创建比赛。',
-          });
-          wx.showModal({
-            title: '需要管理员',
-            content: '只有管理员可以创建比赛。若你已是管理员，请从主页右上角「我的」查看名单。',
-            showCancel: false,
-            success: () => wx.navigateBack(),
-          });
-          return;
-        }
-        this.setData({ checkingAdmin: false, accessCheckFailed: false, accessMessage: '', isSuper: !!d.isSuper });
+        this.setData({
+          checkingAccess: false,
+          accessCheckFailed: false,
+          accessMessage: '',
+          isSuper: !!d.isSuper,
+          todayCreateRemaining: d.todayCreateRemaining == null ? 2 : Number(d.todayCreateRemaining),
+          todayCreateLimit: Number(d.todayCreateLimit || d.dailyLimit) || 2,
+        });
       })
       .catch((e) => {
-        this.setData({ checkingAdmin: false, accessCheckFailed: true, accessMessage: e.message || '管理员身份检查失败' });
+        this.setData({ checkingAccess: false, accessCheckFailed: true, accessMessage: e.message || '创建权限检查失败' });
       });
   },
 
@@ -129,8 +126,8 @@ Page({
       this.setData({ pageLoading: true });
       this.loadTournament();
     } else {
-      this.setData({ checkingAdmin: true });
-      this.checkAdmin();
+      this.setData({ checkingAccess: true });
+      this.checkCreateAccess();
     }
   },
 
@@ -170,7 +167,11 @@ Page({
   },
 
   submit() {
-    if (this.data.submitting || this.data.pageLoading || this.data.checkingAdmin || this.data.accessCheckFailed) return;
+    if (this.data.submitting || this.data.pageLoading || this.data.checkingAccess || this.data.accessCheckFailed) return;
+    if (!this.data.editMode && this.data.todayCreateRemaining <= 0) {
+      wx.showToast({ title: '今天创建比赛的次数已用完', icon: 'none' });
+      return;
+    }
     const name = this.data.name.trim();
     if (!name) {
       wx.showToast({ title: '请填写比赛名称', icon: 'none' });
@@ -191,7 +192,10 @@ Page({
     }
     const time = this.data.date + ' ' + this.data.time;
     this.setData({ submitting: true });
-    const done = () => {
+    const done = (result) => {
+      if (!this.data.editMode && result && Number.isFinite(Number(result.todayCreateRemaining))) {
+        this.setData({ todayCreateRemaining: Number(result.todayCreateRemaining) });
+      }
       wx.showToast({ title: this.data.editMode ? '已保存' : '创建成功', icon: 'success' });
       setTimeout(() => wx.navigateBack(), 700);
     };

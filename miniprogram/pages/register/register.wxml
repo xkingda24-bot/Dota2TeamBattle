@@ -35,7 +35,7 @@
     <!-- 报名暗号 -->
     <view class="card" wx:if="{{t.status === 'registration' && !myReg && !secretOk && !readonly}}">
       <view class="card-title">报名暗号</view>
-      <view class="sub">输入管理员设置的暗号后即可报名</view>
+      <view class="sub">输入比赛创建者设置的暗号后即可报名</view>
       <view class="row secret-row">
         <input class="input secret-input" placeholder="请输入暗号" placeholder-class="ph" value="{{secretInput}}" bindinput="onSecretInput" />
         <view class="btn-small" bindtap="onVerifySecret">验证</view>
@@ -70,7 +70,7 @@
         <view wx:else class="btn btn-disabled">队员与替补名额已满</view>
         <view wx:if="{{t.waitLimit > 0 && t.waitlistFilled < t.waitLimit}}" class="btn btn-plain {{regSubmitting ? 'btn-disabled' : ''}}" aria-disabled="{{regSubmitting}}" bindtap="onReg" data-role="waitlist">{{regSubmitting ? '提交中…' : '报名替补'}}</view>
         <view wx:elif="{{t.waitLimit > 0}}" class="btn btn-plain btn-disabled">替补名额已满</view>
-        <view class="sub registration-help" wx:if="{{t.mode === 'auto'}}">系统分组模式：队员名额报满后，可报名替补；名单完成后由管理员统一分队。天梯分最高的 {{t.N}} 人分别担任组长，并尽量平衡各组平均分。</view>
+        <view class="sub registration-help" wx:if="{{t.mode === 'auto'}}">系统分组模式：队员名额报满后，可报名替补；名单完成后由比赛创建者或最高管理员统一分队。天梯分最高的 {{t.N}} 人分别担任组长，并尽量平衡各组平均分。</view>
         <view class="change-secret" bindtap="onReenterSecret" hover-class="link-pressed">暗号已变更？重新验证 <text>›</text></view>
       </view>
 
@@ -111,9 +111,9 @@
       </view>
     </view>
 
-    <!-- 管理员操作 -->
-    <view class="card" wx:if="{{isAdmin && !readonly}}">
-      <view class="card-title">管理员操作</view>
+    <!-- 比赛管理操作 -->
+    <view class="card" wx:if="{{canManage && !readonly}}">
+      <view class="card-title">比赛管理操作</view>
       <view class="sub" wx:if="{{t.mode === 'auto'}}">队员 {{t.playerFilled}}/{{t.playerTotal}}<text wx:if="{{t.waitLimit > 0}}"> · 替补 {{t.waitlistFilled}}/{{t.waitLimit}}</text></view>
       <view class="sub" wx:else>队长 {{t.captainFilled}}/{{t.captainTotal}} · 队员 {{t.playerFilled}}/{{t.playerTotal}}<text wx:if="{{t.waitLimit > 0}}"> · 替补 {{t.waitlistFilled}}/{{t.waitLimit}}</text></view>
       <view class="btn btn-plain {{testFillSubmitting ? 'btn-disabled' : ''}}" wx:if="{{t.status === 'registration' && t.isSuper}}" bindtap="onFillTestData">{{testFillSubmitting ? '正在补全…' : '用测试数据补全报名'}}</view>
@@ -174,11 +174,11 @@
     </view>
   </view>
 </view>
-<!-- 管理员：点击报名名片弹出的成员操作面板 -->
+<!-- 比赛管理者：点击报名名片弹出的成员操作面板 -->
 <view class="mask" wx:if="{{memberAction.show}}" catchtap="onCloseMemberAction">
   <view class="panel team-config-panel" catchtap="noop">
     <view class="panel-title">{{memberAction.nickname}}</view>
-    <view class="panel-sub">{{memberAction.role === 'captain' ? '队长报名' : memberAction.role === 'waitlist' ? '替补报名' : '队员报名'}} · 管理员操作</view>
+    <view class="panel-sub">{{memberAction.role === 'captain' ? '队长报名' : memberAction.role === 'waitlist' ? '替补报名' : '队员报名'}} · 比赛管理操作</view>
     <view class="divider"></view>
     <view class="panel-btns">
       <view wx:if="{{memberAction.role === 'player'}}" class="panel-btn btn-plain" data-openid="{{memberAction.openid}}" data-nickname="{{memberAction.nickname}}" data-to="waitlist" bindtap="onMoveReg">移入替补</view>

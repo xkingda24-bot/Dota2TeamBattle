@@ -65,7 +65,7 @@ Page({
     mode: 'list', // list | detail
     loading: true,
     loadError: '',
-    isAdmin: false,
+    canManage: false,
     deletingId: '',
     older: [],
     t: null,
@@ -116,7 +116,7 @@ Page({
                 : '已结束',
           })
         );
-        this.setData({ older, isAdmin: !!d.isAdmin, loading: false });
+        this.setData({ older, canManage: false, loading: false });
       })
       .catch((e) => {
         this.setData({ loading: false, loadError: e.message || '历史赛事加载失败' });
@@ -137,7 +137,7 @@ Page({
             t: Object.assign({}, t, {
               teams: buildTeamRosters(teams, t.registrations, cardStyles),
             }),
-            isAdmin: !!t.isAdmin,
+            canManage: !!t.canManage,
             ubMatches: matches.filter((m) => m.stage === 'upper' || (m.stage || '').indexOf('UB') === 0),
             lbMatches: matches.filter((m) => m.stage === 'lower' || (m.stage || '').indexOf('LB') === 0),
             gf: matches.find((m) => m.isChampionMatch) || null,
@@ -170,9 +170,10 @@ Page({
 
   deleteFromHistory(e) {
     if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
-    if (!this.data.isAdmin || this.data.deletingId) return;
+    if (this.data.deletingId) return;
     const data = e.currentTarget.dataset || {};
     const item = data.index !== undefined ? this.data.older[Number(data.index)] : null;
+    if (!(item ? item.canManage : this.data.t && this.data.t.canManage)) return;
     // 兼容旧版云函数返回 `_id`，避免取不到赛事编号后静默退出。
     const id = String(data.id || (item && (item.id || item._id)) || (this.data.t && (this.data.t.id || this.data.t._id)) || '');
     const name = (item && item.name) || (this.data.t && this.data.t.name) || '本场比赛';
@@ -182,15 +183,15 @@ Page({
     }
     wx.showModal({
       title: '删除确认',
-      content: '「' + name + '」及其比赛数据会移入回收站，可稍后恢复。确定删除？',
-      confirmText: '确认移入',
+      content: '「' + name + '」及其比赛数据将被删除，确定继续？',
+      confirmText: '确认删除',
       confirmColor: '#e5484d',
       success: (result) => {
         if (!result.confirm) return;
         this.setData({ deletingId: id });
         api.call('deleteTournament', { id })
           .then(() => {
-            wx.showToast({ title: '已移入回收站', icon: 'success' });
+            wx.showToast({ title: '已删除', icon: 'success' });
             if (this.data.mode === 'detail') {
               this.id = '';
               this.setData({ mode: 'list', t: null });

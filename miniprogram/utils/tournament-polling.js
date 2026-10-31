@@ -67,10 +67,8 @@ function poll(page, generation) {
   const request = page.id
     ? api.call('tournamentVersion', { id: page.id }).then((version) => {
         if (!page._pollActive || page._pollGeneration !== generation) return;
-        // Cache the observed version before loading details. A tournament in
-        // the recycle bin has a valid version but its normal detail endpoint
-        // intentionally returns "not found"; without this, every poll retries
-        // the same failed detail request.
+        // Cache the observed version before loading details so a transient
+        // refresh failure does not repeatedly process the same update.
         const versionTokenValue = versionToken(version);
         const changed = versionTokenValue !== page._lastTournamentVersion;
         if (changed) {

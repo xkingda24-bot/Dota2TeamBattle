@@ -11,19 +11,6 @@
   font-size: 30rpx;
   color: #e8e4da;
 }
-.staff-add-row {
-  margin-top: 16rpx;
-}
-.staff-add-input {
-  flex: 1;
-  margin-right: 16rpx;
-}
-/* 添加管理员输入框：显式占满整行，加高防裁切 */
-.add-input {
-  width: 100%;
-  min-height: 92rpx;
-}
-
 .ph {
   color: #9aa4b2;
 }

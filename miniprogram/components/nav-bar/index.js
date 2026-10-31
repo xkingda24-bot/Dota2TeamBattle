@@ -1,4 +1,4 @@
-// components/nav-bar/index.js - 自定义导航栏（左上主页 / 右上管理员，动态避让胶囊按钮）
+// components/nav-bar/index.js - 自定义导航栏（左上主页 / 右上我的，动态避让胶囊按钮）
 Component({
   properties: {
     title: {

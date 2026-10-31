@@ -31,6 +31,7 @@ function summarize(t, myOpenid) {
     waitLimit: t.waitLimit || 0,
     champion: t.champion || null,
     creatorName: t.creatorName || '',
+    createdBy: t.createdBy || '',
     createdAt: t.createdAt,
     archivedAt: t.archivedAt || null,
     deletedAt: t.deletedAt || null,

@@ -1,4 +1,4 @@
-// pages/staff/staff.js - 我的（资料 + 管理员管理；所有用户可看，超管可管理）
+// pages/staff/staff.js - 我的（资料 + 超管用户列表查看）
 const api = require('../../utils/api');
 const { formatDateTime } = require('../../utils/date-time');
 const { hasCurrentRankVerification, rankVerifiedAt, normalizeRankTier, dotaRankLabel, leaderboardRank } = require('../../utils/dota-rank');
@@ -30,12 +30,10 @@ Page({
     user: null,
     superAdmin: null,
     superAdminOpenid: '',
-    admins: [],
-    isAdmin: false,
     isSuper: false,
     canInitializeSuperAdmin: false,
     bootstrapOpenid: '',
-    // 超管：管理员管理
+    // 超管：只读用户列表
     userListModal: false,
     userList: [],
     listLoading: false,
@@ -46,7 +44,6 @@ Page({
     userListPageCount: 1,
     userListSortBy: 'nickname',
     userListOrder: 'asc',
-    userActionOpenid: '',
     // 资料编辑弹窗
     profileModal: false,
     pf: {
@@ -89,8 +86,6 @@ Page({
           user,
           superAdmin: d.superAdmin,
           superAdminOpenid: d.superAdminOpenid || (d.superAdmin && d.superAdmin.openid) || '',
-          admins: d.admins || [],
-          isAdmin: !!d.isAdmin,
           isSuper: !!d.isSuper,
           canInitializeSuperAdmin: !!d.canInitializeSuperAdmin,
           bootstrapOpenid: d.bootstrapOpenid || '',
@@ -127,7 +122,7 @@ Page({
     this.load();
   },
 
-  /* ---------- 最高管理员：用户 / 管理员管理 ---------- */
+  /* ---------- 最高管理员：只读用户列表 ---------- */
 
   onOpenUserList() {
     if (!this.data.isSuper) return;
@@ -145,7 +140,7 @@ Page({
 
   loadUserList(options) {
     const opts = options || {};
-    if (!this.data.isSuper || this.data.listLoading || (this.data.userActionOpenid && !opts.allowDuringAction)) return;
+    if (!this.data.isSuper || this.data.listLoading) return;
     const page = Math.max(1, Number(opts.page || this.data.userListPage) || 1);
     const sortBy = opts.sortBy || this.data.userListSortBy;
     const order = opts.order || this.data.userListOrder;
@@ -185,7 +180,7 @@ Page({
   },
 
   onChangeUserSort(e) {
-    if (this.data.listLoading || this.data.userActionOpenid) return;
+    if (this.data.listLoading) return;
     const sortBy = String(e.currentTarget.dataset.sort || 'nickname');
     const order = sortBy === this.data.userListSortBy && this.data.userListOrder === 'asc' ? 'desc' : 'asc';
     this.setData({
@@ -198,67 +193,13 @@ Page({
   },
 
   onChangeUserPage(e) {
-    if (this.data.listLoading || this.data.userActionOpenid) return;
+    if (this.data.listLoading) return;
     const nextPage = this.data.userListPage + Number(e.currentTarget.dataset.delta || 0);
     if (nextPage < 1 || nextPage > this.data.userListPageCount) return;
     this.loadUserList({ page: nextPage });
   },
 
-  onToggleUserAdmin(e) {
-    const openid = e.currentTarget.dataset.openid;
-    const nickname = e.currentTarget.dataset.nickname;
-    const isAdmin = e.currentTarget.dataset.admin === true || String(e.currentTarget.dataset.admin) === 'true';
-    if (!openid || this.data.userActionOpenid || this.data.listLoading) return;
-    if (openid === this.data.superAdminOpenid) return;
-    wx.showModal({
-      title: isAdmin ? '移除管理员' : '设置管理员',
-      content: isAdmin ? '确定移除 ' + (nickname || '该用户') + ' 的管理员权限吗？' : '确定将 ' + (nickname || '该用户') + ' 设为管理员吗？',
-      success: (res) => {
-        if (!res.confirm) return;
-        this.setData({ userActionOpenid: openid });
-        api.call(isAdmin ? 'removeAdmin' : 'addAdmin', { openid })
-          .then(() => {
-            this.load();
-            this.loadUserList({ allowDuringAction: true });
-            wx.showToast({ title: isAdmin ? '已移除管理员' : '已设置为管理员', icon: 'success' });
-          })
-          .catch((err) => wx.showToast({ title: err.message || '操作失败，请重试', icon: 'none' }))
-          .finally(() => this.setData({ userActionOpenid: '' }));
-      },
-    });
-  },
-
-  onDeleteUser(e) {
-    const openid = e.currentTarget.dataset.openid;
-    const nickname = e.currentTarget.dataset.nickname || '未设置昵称用户';
-    const dota2Id = e.currentTarget.dataset.dotaid || '';
-    if (!openid || this.data.userActionOpenid || this.data.listLoading) return;
-    if (openid === this.data.superAdminOpenid) return;
-    wx.showModal({
-      title: '删除用户账号',
-      content: '确定删除“' + nickname + '”的小程序资料吗？' + (dota2Id ? '\nDota ID：' + dota2Id : '') + '\n删除后会撤销管理员权限；既有比赛报名、赛果和感言快照会保留。微信登录身份不受影响，之后可重新创建资料。',
-      confirmText: '删除账号',
-      confirmColor: '#d94a42',
-      success: (res) => {
-        if (!res.confirm) return;
-        this.setData({ userActionOpenid: openid });
-        api.call('deleteUser', { openid })
-          .then(() => {
-            const page = this.data.userList.length === 1 && this.data.userListPage > 1
-              ? this.data.userListPage - 1
-              : this.data.userListPage;
-            this.load();
-            this.loadUserList({ page, allowDuringAction: true });
-            wx.showToast({ title: '用户账号已删除', icon: 'success' });
-          })
-          .catch((err) => wx.showToast({ title: err.message || '删除失败，请重试', icon: 'none' }))
-          .finally(() => this.setData({ userActionOpenid: '' }));
-      },
-    });
-  },
-
   onCloseUserList() {
-    if (this.data.userActionOpenid) return;
     this.setData({ userListModal: false });
   },
 
@@ -517,32 +458,10 @@ Page({
 
   noop() {},
 
-  /* ---------- 管理员 ---------- */
-
-  remove(e) {
-    const openid = e.currentTarget.dataset.openid;
-    const nickname = e.currentTarget.dataset.nickname;
-    wx.showModal({
-      title: '移除管理员',
-      content: '确定移除 ' + nickname + ' 的管理员权限吗？',
-      success: (res) => {
-        if (res.confirm) {
-          api
-            .call('removeAdmin', { openid })
-            .then(() => {
-              wx.showToast({ title: '已移除', icon: 'success' });
-              this.load();
-            })
-            .catch((err) => wx.showToast({ title: err.message, icon: 'none' }));
-        }
-      },
-    });
-  },
-
   initSuper() {
     wx.showModal({
       title: '初始化最高管理员',
-      content: '当前微信账号已被指定为初始超管。初始化后，你将获得添加和移除管理员的权限。确定继续？',
+      content: '当前微信账号已被指定为初始最高管理员。初始化后，你将可以查看全部用户并管理所有比赛。确定继续？',
       success: (res) => {
         if (res.confirm) {
           api

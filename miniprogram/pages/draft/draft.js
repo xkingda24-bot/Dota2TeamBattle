@@ -25,7 +25,7 @@ Page({
     t: null,
     readonly: false,
     stageView: '',
-    isAdmin: false,
+    canManage: false,
     orderChips: [],
     canPick: false,
     pickStateText: '',
@@ -97,7 +97,7 @@ Page({
         }
         this._lastTournamentVersion = tournamentPolling.versionToken(t);
         this._lastFullSyncAt = Date.now();
-        this.setData({ t, isAdmin: !!t.isAdmin && !this.data.readonly, loading: false, loadError: '', refreshError: false }, () => {
+        this.setData({ t, canManage: !!t.canManage && !this.data.readonly, loading: false, loadError: '', refreshError: false }, () => {
           this.redirectToBattle(t);
         });
         this.computeDraft();
@@ -126,7 +126,7 @@ Page({
     let canPick = false;
     let pickStateText = '';
     if (di.done) {
-      pickStateText = '选人完成，等待管理员生成对阵';
+      pickStateText = '选人完成，等待比赛管理者生成对阵';
     } else {
       const order = [];
       for (let i = 0; i < t.N; i++) {
@@ -151,7 +151,7 @@ Page({
     if (!t || this.data.readonly || !t.draftInfo) return;
     const di = t.draftInfo;
     if (di.done) return;
-    if (!this.data.canPick && !this.data.isAdmin) {
+    if (!this.data.canPick && !this.data.canManage) {
       wx.showToast({ title: '还没轮到你选人', icon: 'none' });
       return;
     }
@@ -163,10 +163,10 @@ Page({
           this.load();
         })
         .catch((err) => wx.showToast({ title: err.message, icon: 'none' }));
-    if (this.data.isAdmin && !this.data.canPick) {
+    if (this.data.canManage && !this.data.canPick) {
       const cap = di.currentCaptain ? di.currentCaptain.nickname : '';
       wx.showModal({
-        title: '管理员代选',
+        title: '比赛管理者代选',
         content: '为当前队长（' + cap + '）代选 ' + name + ' ？',
         success: (res) => {
           if (res.confirm) doPick();
@@ -185,7 +185,7 @@ Page({
 
   onResetDraft() {
     const t = this.data.t;
-    if (!t || this.data.readonly || !this.data.isAdmin) return;
+    if (!t || this.data.readonly || !this.data.canManage) return;
     wx.showModal({
       title: '重置选人',
       content: '将重新随机排序队长并清空所有已选队员，确定重置？',
@@ -205,7 +205,7 @@ Page({
 
   onStartBracket() {
     const t = this.data.t;
-    if (!t || this.data.readonly || !this.data.isAdmin || !t.draftInfo) return;
+    if (!t || this.data.readonly || !this.data.canManage || !t.draftInfo) return;
     if (!t.draftInfo.done) {
       wx.showToast({ title: '选人还未完成', icon: 'none' });
       return;
@@ -228,16 +228,16 @@ Page({
   },
 
   onOpenStageManagement() {
-    if (!this.id || this.data.readonly || !this.data.isAdmin) return;
+    if (!this.id || this.data.readonly || !this.data.canManage) return;
     wx.navigateTo({ url: '/pages/bracket/bracket?id=' + this.id });
   },
 
   onDelete() {
     const t = this.data.t;
-    if (!t || this.data.readonly || !this.data.isAdmin) return;
+    if (!t || this.data.readonly || !this.data.canManage) return;
     wx.showModal({
       title: '确认删除？',
-      content: '（删除的比赛会移入回收站。）',
+      content: '（删除后无法恢复。）',
       confirmText: '删除比赛',
       confirmColor: '#e5484d',
       success: (res) => {
@@ -245,7 +245,7 @@ Page({
           api
             .call('deleteTournament', { id: t.id })
             .then(() => {
-              wx.showToast({ title: '比赛已移入回收站', icon: 'success' });
+              wx.showToast({ title: '比赛已删除', icon: 'success' });
               setTimeout(() => wx.reLaunch({ url: '/pages/index/index' }), 600);
             })
             .catch((err) => wx.showToast({ title: err.message, icon: 'none' }));

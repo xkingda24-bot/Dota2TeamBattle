@@ -12,12 +12,12 @@ const records = [
   { _id: 'user-e', _openid: 'user-e', nickname: '', mmr: 5000, updatedAt: 100 },
 ];
 
-const users = buildAdminUsers(records, ['user-b'], 'user-a', 'nickname', 'asc', now);
+const users = buildAdminUsers(records, 'user-a', 'nickname', 'asc', now);
 assert.strictEqual(users.length, 5, 'duplicate records map to one user and users without nicknames remain in the list');
 assert.strictEqual(users.find((user) => user.openid === 'user-a').nickname, 'Ada');
 assert.strictEqual(users.find((user) => user.openid === 'user-a').mmr, 5500);
 assert.strictEqual(users.find((user) => user.openid === 'user-a').isSuper, true);
-assert.strictEqual(users.find((user) => user.openid === 'user-b').isAdmin, true);
+assert.strictEqual(Object.prototype.hasOwnProperty.call(users.find((user) => user.openid === 'user-b'), 'isAdmin'), false);
 assert.strictEqual(users.find((user) => user.openid === 'user-d').dota2RankLabel, '未校验段位');
 assert.deepStrictEqual(users.slice(-1).map((user) => user.openid), ['user-e']);
 
