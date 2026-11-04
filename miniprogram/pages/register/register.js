@@ -357,6 +357,16 @@ Page({
     wx.showToast({ title: '请输入最新报名暗号', icon: 'none' });
   },
 
+  /* 创建者或管理员：复制本场报名暗号 */
+  onCopySecret() {
+    const t = this.data.t;
+    if (!t || !t.secret) return;
+    wx.setClipboardData({
+      data: t.secret,
+      success: () => wx.showToast({ title: '暗号已复制', icon: 'none' }),
+    });
+  },
+
   onCancelReg() {
     const t = this.data.t;
     if (!t || this.data.readonly) return;

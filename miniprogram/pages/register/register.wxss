@@ -109,6 +109,14 @@
   flex: 1;
   margin-right: 16rpx;
 }
+.secret-display {
+  flex: 1;
+  font-size: 32rpx;
+  font-weight: 600;
+  letter-spacing: 2rpx;
+  color: #f5f2ea;
+  word-break: break-all;
+}
 .team-name-input {
   flex: 1;
   margin-right: 16rpx;
