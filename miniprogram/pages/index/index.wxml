@@ -197,8 +197,8 @@
     <view class="sub role-help">1 核心 · 2 中单 · 3 劣单 · 4/5 辅助</view>
 
     <view class="field-label">个人签名</view>
-    <input class="input" placeholder="选填，最多15个字" placeholder-class="ph" maxlength="15" value="{{pfSig}}" bindinput="onPfSig" />
-    <view class="char-count">{{pfSig.length}}/15</view>
+    <input class="input" placeholder="选填，最多25个字" placeholder-class="ph" maxlength="25" value="{{pfSig}}" bindinput="onPfSig" />
+    <view class="char-count">{{pfSig.length}}/25</view>
 
     <view class="panel-btns">
       <view class="panel-btn btn-plain" bindtap="onCloseNick">稍后</view>

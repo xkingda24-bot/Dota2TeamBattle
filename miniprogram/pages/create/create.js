@@ -13,8 +13,8 @@ Page({
     accessCheckFailed: false,
     accessMessage: '',
     isSuper: false,
-    todayCreateRemaining: 2,
-    todayCreateLimit: 2,
+    todayCreateRemaining: 5,
+    todayCreateLimit: 5,
     name: '',
     secret: '',
     date: '',
@@ -111,8 +111,8 @@ Page({
           accessCheckFailed: false,
           accessMessage: '',
           isSuper: !!d.isSuper,
-          todayCreateRemaining: d.todayCreateRemaining == null ? 2 : Number(d.todayCreateRemaining),
-          todayCreateLimit: Number(d.todayCreateLimit || d.dailyLimit) || 2,
+          todayCreateRemaining: d.todayCreateRemaining == null ? 5 : Number(d.todayCreateRemaining),
+          todayCreateLimit: Number(d.todayCreateLimit || d.dailyLimit) || 5,
         });
       })
       .catch((e) => {

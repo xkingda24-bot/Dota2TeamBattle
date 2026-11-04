@@ -576,7 +576,7 @@ async function requireTournamentManager(event, includeDeleted) {
 }
 
 async function getTodayCreateStats(openid, now) {
-  if (!openid) return { todayCreateCount: 0, todayCreateRemaining: 2, todayCreateLimit: 2, dailyLimit: 2 };
+  if (!openid) return { todayCreateCount: 0, todayCreateRemaining: 5, todayCreateLimit: 5, dailyLimit: 5 };
   const range = chinaDayRange(now);
   const quotaId = createQuotaId(openid, range.dayKey);
   const quotaResult = await db.collection('config').where({ _id: quotaId }).limit(1).get();
@@ -590,9 +590,9 @@ async function getTodayCreateStats(openid, now) {
   const count = effectiveDailyCount(quotaCount, (tournaments && tournaments.data || []).length);
   return {
     todayCreateCount: count,
-    todayCreateRemaining: Math.max(0, 2 - count),
-    todayCreateLimit: 2,
-    dailyLimit: 2,
+    todayCreateRemaining: Math.max(0, 5 - count),
+    todayCreateLimit: 5,
+    dailyLimit: 5,
   };
 }
 
@@ -808,10 +808,11 @@ function runAutoGroup(players, N, K) {
   const source = (Array.isArray(players) ? players : []).map((p, index) => Object.assign({}, p, { _groupOrder: index }));
   const sorted = source.slice().sort((a, b) => mmr(b) - mmr(a) || a._groupOrder - b._groupOrder);
   const captains = sorted.slice(0, N);
-  const pool = sorted.slice(N);
+  const pool = shuffle(sorted.slice(N));
   let groups = captains.map((captain) => [captain]);
 
-  // 1. 组长固定后，按天梯分从高到低把其他队员放入当前预计均分最低的队伍。
+  // 1. 组长固定后，打乱组员入组顺序（每次分组结果不同，仍以当前预计均分最低的队伍为优先），
+  //    不满意可再次分组；组长始终保持为天梯分最高的前 N 名。
   pool.forEach((player) => {
     let pickIndex = -1;
     let pickScore = null;
@@ -986,9 +987,9 @@ const actions = {
       );
     }
     if (roles.length === 0) return fail('请至少选择一个常玩位置');
-    // 个人签名（选填，不超过 15 个字）
+    // 个人签名（选填，不超过 25 个字）
     const signature = String(event.signature || '').trim();
-    if (signature.length > 15) return fail('个人签名最多 15 个字');
+    if (signature.length > 25) return fail('个人签名最多 25 个字');
 
     // 更换 Dota ID 时必须先完成 OpenDota 段位校验；清空 ID 则会同时清除段位资料。
     let dotaProfile = null;
@@ -1267,7 +1268,7 @@ const actions = {
           .get();
         const existingCount = (existing && existing.data || []).length;
         const used = effectiveDailyCount(quota && quota.count, existingCount);
-        if (used >= 2) return { error: '每位用户每天最多创建 2 场比赛' };
+        if (used >= 5) return { error: '每位用户每天最多创建 5 场比赛' };
         const tournament = await transaction.collection('tournaments').add({ data: tournamentData });
         const quotaData = {
           key: 'createQuota',
@@ -1294,9 +1295,9 @@ const actions = {
     return ok({
       id: result.id,
       todayCreateCount: result.count,
-      todayCreateRemaining: Math.max(0, 2 - result.count),
-      todayCreateLimit: 2,
-      dailyLimit: 2,
+      todayCreateRemaining: Math.max(0, 5 - result.count),
+      todayCreateLimit: 5,
+      dailyLimit: 5,
     });
   },
 
@@ -2215,6 +2216,53 @@ const actions = {
       data: { status: 'registration', teams: [], seeding: null, matches: [], champion: null, updatedAt: Date.now() },
     });
     return ok(true);
+  },
+
+  /* 系统分组：一键重新分组（比赛创建者或最高管理员）。
+     直接在分组阶段重算并替换当前分组（随机化：组长仍为天梯分前 N，组员入组顺序打乱），
+     保留各队已设置的队名/队标；仅分组完成后（未生成对阵前）可调用。 */
+  async regroup(event) {
+    const managed = await requireTournamentManager(event, false);
+    if (managed.error) return fail(managed.error);
+    const current = managed.tournament;
+    const latestProfiles = await syncTournamentRegistrations(current);
+    const result = await mutateTournament(db, event.id, (t) => {
+      if (t.mode !== 'auto') return { error: '仅系统分组模式支持重新分组' };
+      if (t.status !== 'draft') return { error: '只有分组完成后（未生成对阵前）可以重新分组' };
+      if ((t.matches || []).length) return { error: '对阵已生成，不能再重新分组' };
+      const synced = syncRegistrationProfiles(t.registrations, latestProfiles.profiles);
+      const players = synced.registrations.filter((r) => r.role === 'player');
+      const need = t.N * t.K;
+      if (players.length < need) return { error: '队员尚未报满（' + players.length + '/' + need + '），报满后才能分组' };
+      const groups = runAutoGroup(players, t.N, t.K).groups.map((g) => g.members);
+      const oldTeams = t.teams || [];
+      const teams = groups.map((members, index) => {
+        const oldCaptain = oldTeams[index] && oldTeams[index].captain || {};
+        const captain = members[0];
+        return {
+          captain: {
+            openid: captain.openid,
+            nickname: captain.nickname,
+            teamName: oldCaptain.teamName || '',
+            teamIcon: oldCaptain.teamIcon || '',
+            mmr: captain.mmr,
+            ...registrationDotaFields(captain),
+            roles: captain.roles || [],
+            signature: captain.signature || '',
+          },
+          players: members.slice(1).map((member) => ({
+            openid: member.openid,
+            nickname: member.nickname,
+            mmr: member.mmr,
+            ...registrationDotaFields(member),
+            roles: member.roles || [],
+            signature: member.signature || '',
+          })),
+        };
+      });
+      return { data: { teams }, result: {} };
+    });
+    return result.error ? fail(result.error) : ok({});
   },
 
   /* 生成虚拟测试用户并报名（仅超管；用于自测完整流程） */

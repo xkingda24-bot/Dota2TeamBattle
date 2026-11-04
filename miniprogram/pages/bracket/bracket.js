@@ -123,6 +123,7 @@ Page({
     groupOrderSaving: false,
     replacementPanel: { show: false, selecting: '', teamIndex: -1, teamName: '', outPlayers: [], inPlayers: [], outIndex: 0, inIndex: 0, incomingLabel: '' },
     replacementSaving: false,
+    grouping: false, // 系统分组：一键重新分组提交中
   },
 
   onLoad(options) {
@@ -1349,6 +1350,29 @@ Page({
             setTimeout(() => wx.redirectTo({ url: route + '?id=' + t.id }), 500);
           })
           .catch((err) => wx.showToast({ title: err.message || '阶段回退失败', icon: 'none' }));
+      },
+    });
+  },
+
+  /* 系统分组：一键重新分组（比赛管理者），保留各队已设置的队名/队标 */
+  onRegroup() {
+    const t = this.data.t;
+    if (!t || this.data.readonly || !this.data.canManage || this.data.grouping) return;
+    if (t.mode !== 'auto' || t.status !== 'draft') return;
+    wx.showModal({
+      title: '重新分组',
+      content: '将重新计算并替换当前分组结果（各队已设置的队名/队标保留；组长仍按天梯分最高的前 N 名安排）。若对新结果不满意，可再次点击重分或手动交换队员。确定继续？',
+      success: (res) => {
+        if (!res.confirm) return;
+        this.setData({ grouping: true });
+        api
+          .call('regroup', { id: t.id })
+          .then(() => {
+            wx.showToast({ title: '已重新分组', icon: 'success' });
+            this.load();
+          })
+          .catch((err) => wx.showToast({ title: err.message || '重新分组失败', icon: 'none' }))
+          .finally(() => this.setData({ grouping: false }));
       },
     });
   },

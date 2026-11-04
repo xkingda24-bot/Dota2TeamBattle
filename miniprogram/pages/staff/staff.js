@@ -392,8 +392,8 @@ Page({
       return;
     }
     const sig = (pf.signature || '').trim();
-    if (sig.length > 15) {
-      wx.showToast({ title: '个人签名最多 15 个字', icon: 'none' });
+    if (sig.length > 25) {
+      wx.showToast({ title: '个人签名最多 25 个字', icon: 'none' });
       return;
     }
     if ((pf.mmr || '').trim() === '') {

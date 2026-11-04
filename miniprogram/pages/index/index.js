@@ -11,8 +11,8 @@ Page({
     isSuper: false,
     hasSuper: false,
     todayCreateCount: 0,
-    todayCreateRemaining: 2,
-    todayCreateLimit: 2,
+    todayCreateRemaining: 5,
+    todayCreateLimit: 5,
     today: [],
     older: [],
     historyExpanded: false,
@@ -90,8 +90,8 @@ Page({
           isSuper: !!d.isSuper,
           hasSuper: !!d.hasSuper,
           todayCreateCount: Number(d.todayCreateCount) || 0,
-          todayCreateRemaining: d.todayCreateRemaining == null ? 2 : Number(d.todayCreateRemaining),
-          todayCreateLimit: Number(d.todayCreateLimit || d.dailyLimit) || 2,
+          todayCreateRemaining: d.todayCreateRemaining == null ? 5 : Number(d.todayCreateRemaining),
+          todayCreateLimit: Number(d.todayCreateLimit || d.dailyLimit) || 5,
           today,
           older,
           loading: false,
@@ -255,8 +255,8 @@ Page({
       return;
     }
     const sig = (this.data.pfSig || '').trim();
-    if (sig.length > 15) {
-      wx.showToast({ title: '个人签名最多 15 个字', icon: 'none' });
+    if (sig.length > 25) {
+      wx.showToast({ title: '个人签名最多 25 个字', icon: 'none' });
       return;
     }
     if ((this.data.pfMmr || '').trim() === '') {
