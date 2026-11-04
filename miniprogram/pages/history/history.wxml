@@ -83,7 +83,7 @@
       </block>
       <view wx:if="{{t.status !== 'draft' && t.matches.length === 0}}" class="empty">本场比赛未生成赛程</view>
       <view class="btn" wx:if="{{t.matches && t.matches.length > 0}}" bindtap="goTree">查看晋级图</view>
-      <button wx:if="{{t.canManage}}" class="btn btn-danger history-delete" data-id="{{t.id || t._id}}" catch:tap="deleteFromHistory" hover-class="btn-pressed">{{deletingId === t.id || deletingId === t._id ? '处理中…' : '删除赛事'}}</button>
+      <button wx:if="{{t.canDelete}}" class="btn btn-danger history-delete" data-id="{{t.id || t._id}}" catch:tap="deleteFromHistory" hover-class="btn-pressed">{{deletingId === t.id || deletingId === t._id ? '处理中…' : '删除赛事'}}</button>
       <view class="btn btn-plain" bindtap="backList">返回列表</view>
     </block>
   </block>
