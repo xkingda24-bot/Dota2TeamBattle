@@ -3,6 +3,7 @@ const api = require('../../utils/api');
 const { hasCurrentRankVerification, dotaRankLabel } = require('../../utils/dota-rank');
 const tournamentPolling = require('../../utils/tournament-polling');
 const { TEAM_LOGO_PRESETS } = require('../../utils/team-logos');
+const { getTodayBoundary } = require('../../utils/date-time');
 
 const BO_LIST = ['BO1', 'BO3', 'BO5'];
 
@@ -305,7 +306,7 @@ Page({
     if (!silent) this.setData({ loading: true, loadError: '', notFound: false, refreshError: false });
     const data = this.id ? { id: this.id } : {};
     const now = new Date();
-    data.todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    data.todayStart = getTodayBoundary(now);
     return api
       .call('tournament', data)
       .then((t) => {

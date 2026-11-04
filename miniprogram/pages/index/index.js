@@ -1,6 +1,6 @@
 // pages/index/index.js - 主页（创建比赛 + 今天的比赛 + 历史入口）
 const api = require('../../utils/api');
-const { formatDateTime } = require('../../utils/date-time');
+const { formatDateTime, getTodayBoundary } = require('../../utils/date-time');
 const { normalizeRankTier, dotaRankLabel, leaderboardRank } = require('../../utils/dota-rank');
 
 Page({
@@ -55,7 +55,7 @@ Page({
   load() {
     this.setData({ loading: true, loadError: '' });
     const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const todayStart = getTodayBoundary(now);
     return api
       .call('home', { todayStart })
       .then((d) => {

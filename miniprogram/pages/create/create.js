@@ -1,5 +1,6 @@
 // pages/create/create.js - 创建比赛 / 赛事配置（id 存在时进入编辑模式）
 const api = require('../../utils/api');
+const { getTodayBoundary } = require('../../utils/date-time');
 
 function pad(n) {
   return n < 10 ? '0' + n : '' + n;
@@ -102,7 +103,7 @@ Page({
 
   checkCreateAccess() {
     const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const todayStart = getTodayBoundary(now);
     return api
       .call('home', { todayStart })
       .then((d) => {

@@ -1,5 +1,6 @@
 // pages/history/history.js - 历史比赛（列表 + 详情）
 const api = require('../../utils/api');
+const { getTodayBoundary } = require('../../utils/date-time');
 
 const BO_LIST = ['BO1', 'BO3', 'BO5'];
 
@@ -100,7 +101,7 @@ Page({
   loadList() {
     this.setData({ loading: true, loadError: '' });
     const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const todayStart = getTodayBoundary(now);
     return api
       .call('home', { todayStart })
       .then((d) => {

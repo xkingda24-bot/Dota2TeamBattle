@@ -2,6 +2,7 @@
 const api = require('../../utils/api');
 const tournamentPolling = require('../../utils/tournament-polling');
 const { TEAM_LOGO_PRESETS } = require('../../utils/team-logos');
+const { getTodayBoundary } = require('../../utils/date-time');
 
 const ROLE_LABELS = ['', '1号位', '2号位', '3号位', '4号位', '5号位'];
 
@@ -182,7 +183,7 @@ Page({
     }
     const data = this.id ? { id: this.id } : {};
     const now = new Date();
-    data.todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    data.todayStart = getTodayBoundary(now);
     const action = this.id && !this.data.readonly ? 'registrationDetail' : 'tournament';
     return api
       .call(action, data)
