@@ -1401,7 +1401,7 @@ Page({
 
   onFinish() {
     const t = this.data.t;
-    if (!t || this.data.readonly) return;
+    if (!t || this.data.readonly || !t.canDelete) return;
     const isFinished = t.status === 'finished';
     wx.showModal({
       title: isFinished ? '归档比赛' : '结束并归档',
@@ -1424,7 +1424,7 @@ Page({
 
   onDelete() {
     const t = this.data.t;
-    if (!t || this.data.readonly) return;
+    if (!t || this.data.readonly || !t.canDelete) return;
     wx.showModal({
       title: '确认删除？',
       content: '（删除后无法恢复。）',

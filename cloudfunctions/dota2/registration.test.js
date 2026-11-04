@@ -47,6 +47,13 @@ assert.strictEqual(
 assert.strictEqual(buildRegistration(Object.assign({}, base, { status: 'draft' }), 'u1', member, 'player', 'letmein', noDotaFields, 123).error, '当前不在报名阶段');
 assert.strictEqual(buildRegistration(base, 'u1', member, 'player', 'wrong', noDotaFields, 123).error, '报名暗号错误');
 
+/* 普通管理员 / 比赛创建者报名免暗号（skipSecret） */
+created = buildRegistration(base, 'uAdmin', member, 'player', 'wrong', noDotaFields, 123, true);
+assert.strictEqual(created.registration.role, 'player');
+assert.strictEqual(created.error, undefined);
+assert.strictEqual(buildRegistration(base, 'u1', member, 'player', 'wrong', noDotaFields, 123, false).error, '报名暗号错误');
+assert.strictEqual(buildRegistration(base, 'u1', member, 'player', 'wrong', noDotaFields, 123, 0).error, '报名暗号错误');
+
 const synced = syncRegistrationProfiles([
   { openid: 'u1', role: 'player', nickname: '旧昵称', mmr: 4200, roles: [1], signature: '旧签名', ts: 123 },
   { openid: 'u2', role: 'waitlist', nickname: '替补', mmr: 3000, roles: [5], signature: '' },

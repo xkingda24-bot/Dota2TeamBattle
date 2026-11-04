@@ -33,7 +33,7 @@
     </view>
 
     <!-- 报名暗号 -->
-    <view class="card" wx:if="{{t.status === 'registration' && !myReg && !secretOk && !readonly}}">
+    <view class="card" wx:if="{{t.status === 'registration' && !myReg && !secretOk && !canManage && !readonly}}">
       <view class="card-title">报名暗号</view>
       <view class="sub">输入比赛创建者设置的暗号后即可报名</view>
       <view class="row secret-row">
@@ -70,8 +70,8 @@
         <view wx:else class="btn btn-disabled">队员与替补名额已满</view>
         <view wx:if="{{t.waitLimit > 0 && t.waitlistFilled < t.waitLimit}}" class="btn btn-plain {{regSubmitting ? 'btn-disabled' : ''}}" aria-disabled="{{regSubmitting}}" bindtap="onReg" data-role="waitlist">{{regSubmitting ? '提交中…' : '报名替补'}}</view>
         <view wx:elif="{{t.waitLimit > 0}}" class="btn btn-plain btn-disabled">替补名额已满</view>
-        <view class="sub registration-help" wx:if="{{t.mode === 'auto'}}">系统分组模式：队员名额报满后，可报名替补；名单完成后由比赛创建者或最高管理员统一分队。天梯分最高的 {{t.N}} 人分别担任组长，并尽量平衡各组平均分。</view>
-        <view class="change-secret" bindtap="onReenterSecret" hover-class="link-pressed">暗号已变更？重新验证 <text>›</text></view>
+        <view class="sub registration-help" wx:if="{{t.mode === 'auto'}}">系统分组模式：队员名额报满后，可报名替补；名单完成后由比赛创建者或管理员统一分队。天梯分最高的 {{t.N}} 人分别担任组长，并尽量平衡各组平均分。</view>
+        <view wx:if="{{!canManage}}" class="change-secret" bindtap="onReenterSecret" hover-class="link-pressed">暗号已变更？重新验证 <text>›</text></view>
       </view>
 
       <view wx:if="{{!myReg && t.status === 'registration' && !secretOk}}" class="registration-hint">输入上方暗号验证后即可选择报名身份。</view>
@@ -120,7 +120,7 @@
       <view class="btn btn-plain" wx:if="{{t.status === 'registration'}}" bindtap="onEditConfig">修改比赛配置</view>
       <view class="btn {{grouping ? 'btn-disabled' : ''}}" wx:if="{{t.status === 'registration' && t.mode === 'auto'}}" aria-disabled="{{grouping}}" bindtap="onAutoGroup">{{grouping ? '正在分组…' : '进行系统分组'}}</view>
       <view class="btn" wx:if="{{t.status === 'registration' && t.mode !== 'auto'}}" bindtap="onStartDraft">开始选人（随机排序队长）</view>
-      <view class="btn btn-danger" wx:if="{{t.status === 'registration'}}" bindtap="onDelete">删除比赛</view>
+      <view class="btn btn-danger" wx:if="{{t.status === 'registration' && canDelete}}" bindtap="onDelete">删除比赛</view>
       <view class="btn btn-plain" wx:if="{{t.status !== 'registration'}}">当前阶段：{{t.status === 'draft' ? (t.mode === 'auto' ? '分组完成，等待生成对阵' : '选人中') : t.status === 'battle' ? '对战中' : '已结束'}}</view>
     </view>
   </block>

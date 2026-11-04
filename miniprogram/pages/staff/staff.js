@@ -31,6 +31,9 @@ Page({
     superAdmin: null,
     superAdminOpenid: '',
     isSuper: false,
+    isAdmin: false,
+    adminOpenids: [],
+    adminsSaving: false,
     canInitializeSuperAdmin: false,
     bootstrapOpenid: '',
     // 超管：只读用户列表
@@ -87,6 +90,8 @@ Page({
           superAdmin: d.superAdmin,
           superAdminOpenid: d.superAdminOpenid || (d.superAdmin && d.superAdmin.openid) || '',
           isSuper: !!d.isSuper,
+          isAdmin: !!d.isAdmin,
+          adminOpenids: Array.isArray(d.admins) ? d.admins : [],
           canInitializeSuperAdmin: !!d.canInitializeSuperAdmin,
           bootstrapOpenid: d.bootstrapOpenid || '',
           loading: false,
@@ -157,6 +162,7 @@ Page({
           mmrText: user.mmr === null || user.mmr === undefined || user.mmr === '' ? '未填写天梯分' : '天梯 ' + user.mmr,
           dotaIdText: user.dota2Id || '未填写 ID',
           rankText: user.dota2RankVerified ? user.dota2RankLabel : '未校验段位',
+          isAdminUser: this.data.adminOpenids.indexOf(user.openid) >= 0,
         }));
         const total = Number(d.total) || 0;
         this.setData({
@@ -201,6 +207,36 @@ Page({
 
   onCloseUserList() {
     this.setData({ userListModal: false });
+  },
+
+  /* ---------- 超管：设置 / 取消普通管理员（全量提交，≤ 20 人） ---------- */
+
+  onToggleAdmin(e) {
+    if (!this.data.isSuper || this.data.adminsSaving || !this.data.userListModal) return;
+    const openid = String(e.currentTarget.dataset.openid || '');
+    if (!openid) return;
+    const admins = this.data.adminOpenids.slice();
+    const i = admins.indexOf(openid);
+    if (i >= 0) {
+      admins.splice(i, 1);
+    } else {
+      admins.push(openid);
+    }
+    this.setData({ adminsSaving: true });
+    api
+      .call('setAdmins', { openids: admins })
+      .then((d) => {
+        this.setData({
+          adminOpenids: Array.isArray(d.admins) ? d.admins : admins,
+          adminsSaving: false,
+        });
+        wx.showToast({ title: '已更新', icon: 'success' });
+        this.loadUserList({ page: this.data.userListPage });
+      })
+      .catch((err) => {
+        this.setData({ adminsSaving: false });
+        wx.showToast({ title: err.message || '设置失败，请重试', icon: 'none' });
+      });
   },
 
   /* ---------- 资料编辑 ---------- */

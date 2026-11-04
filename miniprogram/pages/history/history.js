@@ -173,7 +173,7 @@ Page({
     if (this.data.deletingId) return;
     const data = e.currentTarget.dataset || {};
     const item = data.index !== undefined ? this.data.older[Number(data.index)] : null;
-    if (!(item ? item.canManage : this.data.t && this.data.t.canManage)) return;
+    if (!(item ? item.canDelete : this.data.t && this.data.t.canDelete)) return;
     // 兼容旧版云函数返回 `_id`，避免取不到赛事编号后静默退出。
     const id = String(data.id || (item && (item.id || item._id)) || (this.data.t && (this.data.t.id || this.data.t._id)) || '');
     const name = (item && item.name) || (this.data.t && this.data.t.name) || '本场比赛';

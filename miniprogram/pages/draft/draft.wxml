@@ -72,7 +72,7 @@
       <view class="btn" wx:if="{{t.draftInfo.done}}" bindtap="onStartBracket">生成对阵并进入对战</view>
       <view class="btn btn-plain" bindtap="onOpenStageManagement">队伍管理与阶段回退</view>
       <view class="btn btn-plain" bindtap="onResetDraft">重置选人（重新随机队长顺序）</view>
-      <view class="btn btn-danger" bindtap="onDelete">删除比赛</view>
+      <view wx:if="{{canDelete && !readonly}}" class="btn btn-danger" bindtap="onDelete">删除比赛</view>
     </view>
   </block>
 

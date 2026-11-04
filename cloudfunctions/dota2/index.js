@@ -402,9 +402,11 @@ async function getTournamentRegistrationSnapshot(id, openid) {
     const registrations = Array.isArray(tournament.registrations) ? tournament.registrations : [];
     const count = (role) => registrations.filter((registration) => registration && registration.role === role).length;
     const cfg = await getAdminsConfig();
-    const isSuper = openid === cfg.superAdmin;
+    const superFlag = openid === cfg.superAdmin;
+    const isAdminFlag = superFlag || (Array.isArray(cfg.admins) && cfg.admins.indexOf(openid) >= 0);
     const isOwner = !!(tournament.createdBy && tournament.createdBy === openid);
-    const canManage = isOwner || isSuper;
+    const canManage = isOwner || isAdminFlag;
+    const canDelete = isOwner || superFlag;
     return {
       id: tournament._id,
       name: tournament.name || '',
@@ -412,8 +414,10 @@ async function getTournamentRegistrationSnapshot(id, openid) {
       creatorName: tournament.creatorName || '',
       createdBy: tournament.createdBy || '',
       isOwner,
-      isSuper,
+      isSuper: superFlag,
+      isAdmin: isAdminFlag,
       canManage,
+      canDelete,
       status: tournament.status || '',
       updatedAt: Number(tournament.updatedAt || tournament.createdAt || 0),
       champion: tournament.champion || null,
@@ -515,7 +519,8 @@ async function getRecentTournamentSummaries(filter, limit, openid, archived) {
   const summaries = [];
   let offset = 0;
   const cfg = await getAdminsConfig();
-  const isSuper = !!openid && openid === cfg.superAdmin;
+  const superFlag = !!openid && openid === cfg.superAdmin;
+  const adminList = Array.isArray(cfg.admins) ? cfg.admins : [];
   while (summaries.length < limit) {
     const result = await db.collection('tournaments')
       .where(filter)
@@ -531,11 +536,14 @@ async function getRecentTournamentSummaries(filter, limit, openid, archived) {
     const hydrated = await hydrateLegacyRegistrationSummaries(matching);
     summaries.push(...hydrated.map((tournament) => {
       const isOwner = !!(openid && tournament.createdBy && tournament.createdBy === openid);
+      const isAdminFlag = superFlag || (adminList.indexOf(openid) >= 0);
       return Object.assign(summarize(tournament, openid), {
         createdBy: tournament.createdBy || '',
         isOwner,
-        isSuper,
-        canManage: isOwner || isSuper,
+        isSuper: superFlag,
+        isAdmin: isAdminFlag,
+        canManage: isOwner || isAdminFlag,
+        canDelete: isOwner || superFlag,
       });
     }));
     offset += batch.length;
@@ -557,11 +565,26 @@ async function isSuper(openid) {
   return openid === cfg.superAdmin;
 }
 
-/* 比赛权限：比赛创建者或最高管理员可以管理该比赛。旧赛事没有 createdBy 时，
- * 只允许最高管理员操作，避免把历史赛事意外开放给普通用户。 */
-async function canManageTournament(tournament, openid) {
+/* 管理员判定：最高管理员或普通管理员（config.admins 列表，实时读取） */
+async function isAdmin(openid) {
+  if (!openid) return false;
+  const cfg = await getAdminsConfig();
+  if (openid === cfg.superAdmin) return true;
+  return Array.isArray(cfg.admins) && cfg.admins.indexOf(openid) >= 0;
+}
+
+/* 终结性操作（删除/归档）：仅比赛创建者或最高管理员。普通管理员不可删除/归档他人比赛。 */
+async function canDeleteTournament(tournament, openid) {
   if (!tournament || !openid) return false;
   if (await isSuper(openid)) return true;
+  return !!tournament.createdBy && tournament.createdBy === openid;
+}
+
+/* 比赛权限：比赛创建者或管理员（超管/普通管理员）可以管理该比赛。旧赛事没有 createdBy 时，
+ * 只允许管理员操作，避免把历史赛事意外开放给普通用户。 */
+async function canManageTournament(tournament, openid) {
+  if (!tournament || !openid) return false;
+  if (await isAdmin(openid)) return true;
   return !!tournament.createdBy && tournament.createdBy === openid;
 }
 
@@ -570,7 +593,7 @@ async function requireTournamentManager(event, includeDeleted) {
   const tournament = await getTournamentById(event && event.id, !!includeDeleted);
   if (!tournament) return { error: '比赛不存在' };
   if (!(await canManageTournament(tournament, openid))) {
-    return { error: '只有比赛创建者或最高管理员可以操作本场比赛' };
+    return { error: '只有比赛创建者或管理员可以操作本场比赛' };
   }
   return { tournament, openid };
 }
@@ -691,8 +714,10 @@ async function composeTournament(t, myOpenid) {
     return decorateCardPlayer(source);
   };
   const superFlag = myOpenid === adminConfig.superAdmin;
+  const isAdminFlag = superFlag || (Array.isArray(adminConfig.admins) && adminConfig.admins.indexOf(myOpenid) >= 0);
   const isOwner = !!(t.createdBy && t.createdBy === myOpenid);
-  const canManage = isOwner || superFlag;
+  const canManage = isOwner || isAdminFlag;
+  const canDelete = isOwner || superFlag;
 
   // 选人信息（仅队长选人模式）
   let draftInfo = null;
@@ -756,8 +781,10 @@ async function composeTournament(t, myOpenid) {
     creatorName: t.creatorName || '',
     createdBy: t.createdBy || '',
     isOwner,
+    isAdmin: isAdminFlag,
     canManage,
-    secret: canManage ? t.secret : '', // 暗号仅本场创建者或最高管理员可见
+    canDelete,
+    secret: canManage ? t.secret : '', // 暗号仅本场创建者或管理员可见
     myOpenid,
     isSuper: superFlag,
     captainFilled: captains.length,
@@ -1125,6 +1152,8 @@ const actions = {
       superAdminOpenid: cfg.superAdmin,
       superAdmin: members.find((m) => m.openid === cfg.superAdmin) || null,
       isSuper: await isSuper(openid),
+      isAdmin: await isAdmin(openid),
+      admins: Array.isArray(cfg.admins) ? cfg.admins : [],
       bootstrapOpenid: cfg.superAdmin ? '' : openid,
       canInitializeSuperAdmin: canInitializeSuperAdmin(
         openid,
@@ -1202,6 +1231,7 @@ const actions = {
     const users = sortedUsers.slice(start, start + pageSize);
     return ok({
       users,
+      admins: Array.isArray(cfg.admins) ? cfg.admins : [],
       page,
       pageSize,
       total: sortedUsers.length,
@@ -1209,6 +1239,33 @@ const actions = {
       sortBy,
       order,
     });
+  },
+
+  /* 超管：全量设置普通管理员列表（≤ 20 人；去重、过滤空、排除超管自身；幂等）。 */
+  async setAdmins(event) {
+    const openid = getOpenId();
+    if (!(await isSuper(openid))) return fail('只有最高管理员可以设置普通管理员');
+    const list = Array.isArray(event.openids) ? event.openids : [];
+    const seen = new Set();
+    const deduped = [];
+    list.forEach((value) => {
+      const item = String(value || '').trim();
+      if (item && item !== openid && !seen.has(item)) {
+        seen.add(item);
+        deduped.push(item);
+      }
+    });
+    if (deduped.length > 20) return fail('普通管理员最多 20 人');
+    const cfg = await getAdminsConfig();
+    const update = { admins: deduped, updatedAt: Date.now() };
+    if (cfg && cfg._id) {
+      await db.collection('config').doc(cfg._id).update({ data: update });
+    } else {
+      await db.collection('config').add({
+        data: Object.assign({ key: 'admins', superAdmin: cfg.superAdmin || '', createdAt: Date.now() }, update),
+      });
+    }
+    return ok({ admins: deduped });
   },
 
   /* 创建比赛（所有用户）：每日最多两场，报名需暗号 */
@@ -1301,7 +1358,7 @@ const actions = {
     });
   },
 
-  /* 比赛创建者或最高管理员：修改报名阶段的比赛配置 */
+  /* 比赛创建者或管理员：修改报名阶段的比赛配置 */
   async updateConfig(event) {
     const managed = await requireTournamentManager(event);
     if (managed.error) return fail(managed.error);
@@ -1372,9 +1429,10 @@ const actions = {
     if (!me || !me.nickname) return fail('请先设置昵称');
     if (me.mmr == null) return fail('请先在「我的-编辑资料」填写天梯分后再报名');
     if (!Array.isArray(me.roles) || me.roles.length === 0) return fail('请先在「我的-编辑资料」选择常玩位置后再报名');
+    const skipSecret = await isAdmin(openid);
     const result = await mutateTournament(db, event.id, (t) => {
       const registration = buildRegistration(
-        t, openid, me, event.role, event.secret, registrationDotaFields(me), Date.now()
+        t, openid, me, event.role, event.secret, registrationDotaFields(me), Date.now(), skipSecret
       );
       if (registration.error) return registration;
       return { data: { registrations: registration.registrations }, result: registration.result };
@@ -1444,7 +1502,7 @@ const actions = {
     return result.error ? fail(result.error) : ok(true);
   },
 
-  /* 比赛创建者或最高管理员：报名阶段把队员移入替补 / 替补移回队员 */
+  /* 比赛创建者或管理员：报名阶段把队员移入替补 / 替补移回队员 */
   async moveRegistration(event) {
     const managed = await requireTournamentManager(event);
     if (managed.error) return fail(managed.error);
@@ -1476,7 +1534,7 @@ const actions = {
   async cancelRegister(event) {
     const openid = getOpenId();
     const result = await mutateTournament(db, event.id, (t) => {
-      if (t.status !== 'registration') return { error: '报名已锁定，请联系本场比赛创建者或最高管理员' };
+      if (t.status !== 'registration') return { error: '报名已锁定，请联系本场比赛创建者或管理员' };
       const current = Array.isArray(t.registrations) ? t.registrations : [];
       const registrations = current.filter((r) => r.openid !== openid);
       if (registrations.length === current.length) return { error: '你尚未报名' };
@@ -1826,7 +1884,7 @@ const actions = {
     return ok(true);
   },
 
-  /* 比赛创建者或最高管理员退回比赛阶段；只清除当前阶段之后的数据。 */
+  /* 比赛创建者或管理员退回比赛阶段；只清除当前阶段之后的数据。 */
   async rollbackStage(event) {
     const managed = await requireTournamentManager(event, false);
     if (managed.error) return fail(managed.error);
@@ -1863,7 +1921,7 @@ const actions = {
     return ok({ status: target });
   },
 
-  /* 比赛创建者或最高管理员在选人或对战阶段替换队员。 */
+  /* 比赛创建者或管理员在选人或对战阶段替换队员。 */
   async replacePlayer(event) {
     const managed = await requireTournamentManager(event, false);
     if (managed.error) return fail(managed.error);
@@ -1948,11 +2006,15 @@ const actions = {
     return result.error ? fail(result.error) : ok(result.result);
   },
 
-  /* 结束并归档（比赛创建者或最高管理员） */
+  /* 结束并归档（比赛创建者或最高管理员；普通管理员不可归档） */
   async finishTournament(event) {
-    const managed = await requireTournamentManager(event, false);
-    if (managed.error) return fail(managed.error);
-    const t = managed.tournament;
+    const openid = getOpenId();
+    const tournament = await getTournamentById(event && event.id, false);
+    if (!tournament) return fail('比赛不存在');
+    if (!(await canDeleteTournament(tournament, openid))) {
+      return fail('只有比赛创建者或最高管理员可以结束并归档比赛');
+    }
+    const t = tournament;
     if (t.archivedAt) return fail('比赛已归档');
     if (!t.champion) return fail('比赛还未结束（未产生冠军），不能归档');
     await updateTournamentDoc(t._id, {
@@ -1961,7 +2023,7 @@ const actions = {
     return ok(true);
   },
 
-  /* 比赛创建者或最高管理员微调结算名次。 */
+  /* 比赛创建者或管理员微调结算名次。 */
   async setStandingsOrder(event) {
     const managed = await requireTournamentManager(event, false);
     if (managed.error) return fail(managed.error);
@@ -1988,11 +2050,14 @@ const actions = {
     return ok({ standingsOrder: order });
   },
 
-  /* 删除比赛（创建者或超管）：永久删除。 */
+  /* 删除比赛（创建者或超管；普通管理员不可删除他人比赛）：永久删除。 */
   async deleteTournament(event) {
-    const managed = await requireTournamentManager(event, true);
-    if (managed.error) return fail(managed.error);
-    const { tournament, openid } = managed;
+    const openid = getOpenId();
+    const tournament = await getTournamentById(event && event.id, true);
+    if (!tournament) return fail('比赛不存在');
+    if (!(await canDeleteTournament(tournament, openid))) {
+      return fail('只有比赛创建者或最高管理员可以删除比赛');
+    }
     for (let attempt = 1; attempt <= 5; attempt += 1) {
       try {
         const result = await db.runTransaction(async (transaction) => {
@@ -2000,8 +2065,8 @@ const actions = {
           const latestResult = await tournamentRef.get();
           const latest = latestResult && latestResult.data;
           if (!latest) return { error: '比赛不存在' };
-          if (!(await canManageTournament(latest, openid))) {
-            return { error: '只有比赛创建者或最高管理员可以操作本场比赛' };
+          if (!(await canDeleteTournament(latest, openid))) {
+            return { error: '只有比赛创建者或最高管理员可以删除比赛' };
           }
 
           // Keep today's quota after a permanent delete. This also accounts for

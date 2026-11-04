@@ -1,8 +1,8 @@
 const { publicDotaCardFields } = require('./card-profile');
 
-function buildRegistration(tournament, openid, member, requestedRole, secret, dotaFields, now) {
+function buildRegistration(tournament, openid, member, requestedRole, secret, dotaFields, now, skipSecret) {
   if (!tournament || tournament.status !== 'registration') return { error: '当前不在报名阶段' };
-  if (String(secret || '') !== String(tournament.secret || '')) return { error: '报名暗号错误' };
+  if (!skipSecret && String(secret || '') !== String(tournament.secret || '')) return { error: '报名暗号错误' };
 
   const registrations = Array.isArray(tournament.registrations) ? tournament.registrations : [];
   if (registrations.some((registration) => registration && registration.openid === openid)) {

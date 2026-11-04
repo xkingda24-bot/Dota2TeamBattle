@@ -61,7 +61,7 @@
     bindtouchmove="onSwipeMove"
     bindtouchend="onSwipeEnd"
   >
-    <view class="swipe-actions {{item.champion ? 'swipe-actions-wide' : ''}}" wx:if="{{item.canManage}}">
+    <view class="swipe-actions {{item.champion ? 'swipe-actions-wide' : ''}}" wx:if="{{item.canDelete}}">
       <view class="swipe-action" wx:if="{{item.champion}}" data-index="{{index}}" data-action="archive" catch:tap="onSwipeAction">
         <text class="action-symbol">✓</text><text>归档</text>
       </view>
@@ -87,7 +87,7 @@
           <view class="phase-tag {{item.status === 'registration' ? 'phase-registration' : item.status === 'draft' ? 'phase-draft' : item.status === 'battle' ? 'phase-battle' : 'phase-finished'}}">
             <view class="phase-dot"></view>{{item.phaseText}}
           </view>
-          <view wx:if="{{item.canManage}}" class="admin-menu" catch:tap="onAdminMenu" data-index="{{index}}" aria-label="比赛管理菜单">•••</view>
+          <view wx:if="{{item.canDelete}}" class="admin-menu" catch:tap="onAdminMenu" data-index="{{index}}" aria-label="比赛管理菜单">•••</view>
         </view>
       </view>
 
@@ -137,7 +137,7 @@
           <view class="history-item-meta">{{item.time}}<text wx:if="{{item.N}}"> · {{item.N}} 支队伍</text></view>
           <view wx:if="{{item.champion}}" class="history-item-meta history-champion">冠军：{{item.champion.name}}</view>
         </view>
-        <button wx:if="{{item.canManage}}" class="history-action history-delete-action" data-index="{{index}}" catch:tap="deleteFromHistory" hover-class="btn-pressed">{{historyBusyId === item.id || historyBusyId === item._id ? '处理中…' : '删除'}}</button>
+        <button wx:if="{{item.canDelete}}" class="history-action history-delete-action" data-index="{{index}}" catch:tap="deleteFromHistory" hover-class="btn-pressed">{{historyBusyId === item.id || historyBusyId === item._id ? '处理中…' : '删除'}}</button>
       </view>
       <view wx:if="{{older.length === 50}}" class="history-footnote">显示最近 50 场历史赛事</view>
     </view>

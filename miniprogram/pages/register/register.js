@@ -198,7 +198,7 @@ Page({
         const regs = (t.registrations || []).map((registration) => Object.assign(fmtReg(registration), {
           teamIconEmoji: emojiById[registration.teamIcon] || '',
         }));
-        const secretOk = !!this.getStoredSecret() || !!t.myReg;
+        const secretOk = !!t.canManage || !!this.getStoredSecret() || !!t.myReg;
         const myReg = t.myReg ? Object.assign(fmtReg(t.myReg), { teamIconEmoji: emojiById[t.myReg.teamIcon] || '' }) : null;
         const activeTab = t.mode === 'auto' && this.data.activeTab === 'captain' ? 'player' : this.data.activeTab;
         this._lastTournamentVersion = tournamentPolling.versionToken(t);
@@ -380,7 +380,7 @@ Page({
     });
   },
 
-  /* 比赛创建者或最高管理员：点击报名名片弹出操作面板（移入替补/移回队员/移除） */
+  /* 比赛创建者或管理员：点击报名名片弹出操作面板（移入替补/移回队员/移除） */
   onMemberTap(e) {
     const t = this.data.t;
     if (!t || this.data.readonly || !this.data.canManage || t.status !== 'registration') return;
@@ -421,7 +421,7 @@ Page({
     });
   },
 
-  /* 比赛创建者或最高管理员：队员 <-> 替补 双向移动 */
+  /* 比赛创建者或管理员：队员 <-> 替补 双向移动 */
   onMoveReg(e) {
     const t = this.data.t;
     const openid = e.currentTarget.dataset.openid;
@@ -583,7 +583,7 @@ Page({
 
   onDelete() {
     const t = this.data.t;
-    if (!t || this.data.readonly || !this.data.canManage) return;
+    if (!t || this.data.readonly || !this.data.canDelete) return;
     wx.showModal({
       title: '确认删除？',
       content: '（删除后无法恢复。）',

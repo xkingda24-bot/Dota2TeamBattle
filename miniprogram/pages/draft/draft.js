@@ -234,7 +234,7 @@ Page({
 
   onDelete() {
     const t = this.data.t;
-    if (!t || this.data.readonly || !this.data.canManage) return;
+    if (!t || this.data.readonly || !this.data.canDelete) return;
     wx.showModal({
       title: '确认删除？',
       content: '（删除后无法恢复。）',

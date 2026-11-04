@@ -359,7 +359,7 @@ Page({
   deleteFromHistory(e) {
     if (this.data.historyBusyId) return;
     const item = this.data.older[Number(e.currentTarget.dataset.index)];
-    if (!item || !item.canManage) return;
+    if (!item || !item.canDelete) return;
     const id = String(item.id || item._id || '');
     if (!id) {
       wx.showToast({ title: '赛事编号缺失，请刷新后重试', icon: 'none' });
@@ -390,8 +390,8 @@ Page({
     const item = this.data.today[e.currentTarget.dataset.index];
     if (!item) return;
     if (item.status === 'registration') {
-      // 已报名或本机已通过暗号 → 直接进入；否则弹窗验证暗号
-      if (item.meRegistered || wx.getStorageSync('dota2_secret_' + item.id)) {
+      // 已报名 / 创建者或管理员 / 本机已通过暗号 → 直接进入；否则弹窗验证暗号
+      if (item.canManage || item.meRegistered || wx.getStorageSync('dota2_secret_' + item.id)) {
         wx.navigateTo({ url: '/pages/register/register?id=' + item.id });
         return;
       }
@@ -416,7 +416,7 @@ Page({
 
   onLongPressTournament(e) {
     const item = this.data.today[e.currentTarget.dataset.index];
-    if (!item || !item.canManage) return;
+    if (!item || !item.canDelete) return;
     wx.showModal({
       title: '删除确认',
       content: '「' + item.name + '」及其报名、选人和赛程数据将被删除，确定继续？',
@@ -441,7 +441,7 @@ Page({
     if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
     const index = Number(e.currentTarget.dataset.index);
     const item = this.data.today[index];
-    if (!item || !item.canManage) return;
+    if (!item || !item.canDelete) return;
 
     const canArchive = !!item.champion;
     if (!canArchive) {
@@ -465,7 +465,7 @@ Page({
 
   archiveToday(index) {
     const item = this.data.today[Number(index)];
-    if (!item || !item.canManage) return;
+    if (!item || !item.canDelete) return;
     wx.showModal({
       title: '归档比赛',
       content: '将「' + item.name + '」归档到历史比赛，确定归档？',
@@ -484,7 +484,7 @@ Page({
 
   deleteToday(index) {
     const item = this.data.today[Number(index)];
-    if (!item || !item.canManage) return;
+    if (!item || !item.canDelete) return;
     const id = String(item.id || item._id || '');
     if (!id) {
       wx.showToast({ title: '赛事编号缺失，请刷新后重试', icon: 'none' });
@@ -511,7 +511,7 @@ Page({
   onSwipeStart(e) {
     const index = Number(e.currentTarget.dataset.index);
     const item = this.data.today[index];
-    if (!item || !item.canManage) return;
+    if (!item || !item.canDelete) return;
     this._swipeStartX = e.touches[0].clientX;
     this._swipeStartY = e.touches[0].clientY;
     this._swipeIndex = index;
@@ -579,7 +579,7 @@ Page({
     const index = Number(e.currentTarget.dataset.index);
     const action = e.currentTarget.dataset.action;
     const item = this.data.today[index];
-    if (!item || !item.canManage) return;
+    if (!item || !item.canDelete) return;
     // 先收起卡片
     this.setData({ ['today[' + index + '].swipeX']: 0, ['today[' + index + '].swipeOpen']: false });
     if (action === 'archive') {

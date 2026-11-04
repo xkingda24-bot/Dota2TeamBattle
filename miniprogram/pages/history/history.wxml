@@ -24,7 +24,7 @@
         </view>
         <view class="sub">时间：{{item.time}} · {{item.N}} 队 · 队长 {{item.captainFilled}}/{{item.captainTotal}} 队员 {{item.playerFilled}}/{{item.playerTotal}}</view>
         <view wx:if="{{item.champion}}" class="sub">冠军：{{item.champion.name}}</view>
-        <button wx:if="{{item.canManage}}" class="btn btn-danger history-delete" data-index="{{index}}" catch:tap="deleteFromHistory" hover-class="btn-pressed">{{deletingId === item.id || deletingId === item._id ? '处理中…' : '删除赛事'}}</button>
+        <button wx:if="{{item.canDelete}}" class="btn btn-danger history-delete" data-index="{{index}}" catch:tap="deleteFromHistory" hover-class="btn-pressed">{{deletingId === item.id || deletingId === item._id ? '处理中…' : '删除赛事'}}</button>
       </view>
     </block>
   </block>
