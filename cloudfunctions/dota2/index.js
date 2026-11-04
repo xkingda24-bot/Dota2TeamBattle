@@ -394,6 +394,7 @@ async function getTournamentRegistrationSnapshot(id, openid) {
         K: true,
         waitLimit: true,
         registrations: true,
+        secret: true,
       })
       .limit(1)
       .get();
@@ -418,6 +419,7 @@ async function getTournamentRegistrationSnapshot(id, openid) {
       isAdmin: isAdminFlag,
       canManage,
       canDelete,
+      secret: canManage ? tournament.secret || '' : '', // 暗号仅本场创建者或管理员可见
       status: tournament.status || '',
       updatedAt: Number(tournament.updatedAt || tournament.createdAt || 0),
       champion: tournament.champion || null,

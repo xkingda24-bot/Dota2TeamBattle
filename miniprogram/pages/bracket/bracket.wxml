@@ -294,6 +294,17 @@
 
     <view wx:if="{{stageView === 'battle' && t.matches.length === 0}}" class="empty">赛程还未生成（需先完成选人）</view>
 
+    <!-- 报名暗号（仅比赛创建者或管理员可见） -->
+    <view class="card" wx:if="{{canManage && !readonly && t.secret}}">
+      <view class="card-title">报名暗号</view>
+      <view class="sub">你是本场创建者或管理员，进入无需验证暗号；可把暗号发给群友报名。</view>
+      <view class="row">
+        <view style="flex:1;font-size:32rpx;font-weight:600;letter-spacing:2rpx;word-break:break-all;">{{t.secret}}</view>
+        <view class="spacer"></view>
+        <view class="btn-small" bindtap="onCopySecret">复制</view>
+      </view>
+    </view>
+
     <!-- 对战阶段管理 -->
     <view class="card" wx:if="{{canManage && !readonly && t.status === 'battle' && t.mode === 'auto'}}">
       <view class="card-title">系统分组管理</view>
