@@ -77,12 +77,6 @@
     <view class="sub">分页查看全部用户，可按 Dota ID、天梯分、用户名或段位排序。</view>
     <view class="btn" bindtap="onOpenUserList">查看用户列表</view>
   </view>
-
-  <!-- 说明 -->
-  <view class="card">
-    <view class="card-title">权限说明</view>
-    <view class="sub">· 所有用户都可以创建比赛，每人每天最多创建 5 场。<br />· 比赛创建者和管理员（最高管理员 / 普通管理员）可以管理该比赛；删除和归档仅限比赛创建者或最高管理员。<br />· 最高管理员可查看全部用户列表并设置普通管理员，所有用户可正常报名、选人、查看赛程。</view>
-  </view>
   </block>
 </view>
 
