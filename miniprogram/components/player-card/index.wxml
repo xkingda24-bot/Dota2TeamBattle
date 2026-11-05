@@ -16,8 +16,10 @@
           <text wx:if="{{dotaCard.displayText}}">{{dotaCard.displayText}}</text>
           <text wx:else>未校验段位</text>
         </view>
-        <text wx:if="{{player.rolesText}}" class="player-card-location">· {{player.rolesText}}</text>
-        <text wx:elif="{{player.roles && player.roles.length}}" class="player-card-location">· {{player.roles}}号位</text>
+        <view wx:if="{{hasRoleChips}}" class="player-card-roles">
+          <text wx:for="{{roleNums}}" wx:key="*this" class="player-card-role-chip">{{item}}</text>
+        </view>
+        <text wx:elif="{{player.rolesText}}" class="player-card-location">· {{player.rolesText}}</text>
       </view>
       <view wx:if="{{player.signature}}" class="player-card-signature">{{player.signature}}</view>
     </view>

@@ -195,6 +195,35 @@ page {
   font-weight: 600;
 }
 
+/* 位置选择：数字方块按钮（1-5 号位多选，个人资料编辑用） */
+.role-nums {
+  display: flex;
+  margin-top: 12rpx;
+}
+.role-num {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  height: 80rpx;
+  box-sizing: border-box;
+  border-radius: 10rpx;
+  background: #1a2130;
+  border: 1rpx solid rgba(224, 181, 111, 0.18);
+  color: #98a0ab;
+  font-size: 32rpx;
+  font-weight: 600;
+}
+.role-nums .role-num + .role-num {
+  margin-left: 10rpx;
+}
+.role-num-active {
+  background: rgba(224, 181, 111, 0.18);
+  border-color: #e8c27c;
+  color: #e8c27c;
+}
+
 /* 弹窗表单字段 */
 .field-label {
   font-size: 26rpx;
