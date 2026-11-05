@@ -236,8 +236,19 @@
   color: #6f7785;
 }
 
+.sheet-picked {
+  margin-top: 26rpx;
+  font-size: 24rpx;
+  line-height: 1.5;
+  color: #98a0ab;
+}
+
+.sheet-picked.is-picked {
+  color: #e8c27c;
+}
+
 .sheet-confirm {
-  margin-top: 30rpx;
+  margin-top: 20rpx;
 }
 
 .sheet-confirm-hover {

@@ -36,7 +36,6 @@ Component({
       const format = SHEET_FORMATS.find((item) => item.value === value);
       if (!format || value === this.data.picked) return;
       this.setData({ picked: value, pickedName: format.name });
-      wx.vibrateShort({ type: 'light', fail: () => {} });
     },
 
     onConfirm() {

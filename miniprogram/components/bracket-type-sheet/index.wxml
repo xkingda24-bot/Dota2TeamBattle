@@ -45,7 +45,8 @@
       </view>
     </view>
 
-    <view class="btn sheet-confirm {{picked ? '' : 'btn-disabled'}}" hover-class="{{picked ? 'sheet-confirm-hover' : 'none'}}" bindtap="onConfirm">{{picked ? '以「' + pickedName + '」生成对阵' : '请先选择赛制'}}</view>
+    <view class="sheet-picked {{picked ? 'is-picked' : ''}}">{{picked ? '已选择：' + pickedName : '请先选择一种赛制'}}</view>
+    <view class="btn sheet-confirm {{picked ? '' : 'btn-disabled'}}" hover-class="{{picked ? 'sheet-confirm-hover' : 'none'}}" bindtap="onConfirm">确定</view>
     <view class="sheet-cancel" bindtap="onCancel">取消</view>
   </view>
 </view>
