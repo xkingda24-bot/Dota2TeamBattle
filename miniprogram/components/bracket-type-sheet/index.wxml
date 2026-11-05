@@ -47,9 +47,9 @@
 
     <view class="sheet-picked {{picked ? 'is-picked' : ''}}">{{picked ? '已选择：' + pickedName : '请先选择一种赛制'}}</view>
     <view class="sheet-actions">
-      <view class="btn btn-plain sheet-btn" hover-class="sheet-btn-hover" bindtap="onCancel">取消</view>
+      <view class="sheet-btn sheet-btn-ghost" hover-class="sheet-btn-hover" bindtap="onCancel">取消</view>
       <view
-        class="btn sheet-btn {{picked ? '' : 'btn-disabled'}}"
+        class="sheet-btn sheet-btn-main {{picked ? '' : 'is-disabled'}}"
         hover-class="{{picked ? 'sheet-btn-hover' : 'none'}}"
         bindtap="onConfirm"
       >确定</view>

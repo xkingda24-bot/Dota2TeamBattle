@@ -252,18 +252,40 @@
   margin-top: 20rpx;
 }
 
-.sheet-actions .btn {
+/* 自定义组件默认样式隔离，app.wxss 的 .btn 系列在这里不生效，按钮样式必须自带 */
+.sheet-btn {
+  display: flex;
   flex: 1;
+  align-items: center;
+  justify-content: center;
   min-width: 0;
   height: 92rpx;
-  margin-top: 0;
-  padding: 0;
   box-sizing: border-box;
-  line-height: 92rpx;
+  border-radius: 10rpx;
+  font-size: 30rpx;
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.4;
 }
 
-.sheet-actions .btn + .btn {
+.sheet-actions .sheet-btn + .sheet-btn {
   margin-left: 16rpx;
+}
+
+.sheet-btn-main {
+  background: linear-gradient(135deg, #e5b96f, #b98a3e);
+  color: #241a08;
+}
+
+.sheet-btn-main.is-disabled {
+  background: #232a38;
+  color: #6d7480;
+}
+
+.sheet-btn-ghost {
+  border: 1rpx solid rgba(224, 181, 111, 0.28);
+  background: #1a2130;
+  color: #dcd6c8;
 }
 
 .sheet-btn-hover {
