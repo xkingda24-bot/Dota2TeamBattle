@@ -49,9 +49,9 @@
         </view>
       </view>
       <view class="row">
-        <view class="btn btn-plain {{grouping ? 'btn-disabled' : ''}}" bindtap="onRegroup">{{grouping ? '重新分组中…' : '重新分组'}}</view>
+        <view class="btn {{grouping ? 'btn-disabled' : ''}}" bindtap="onRegroup">{{grouping ? '重新分组中…' : '重新分组'}}</view>
         <view class="spacer"></view>
-        <view class="btn group-start-bracket {{groupOrderSaving || groupSaving ? 'btn-disabled' : ''}}" bindtap="onStartBracket">生成对阵并开始</view>
+        <view class="btn {{groupOrderSaving || groupSaving ? 'btn-disabled' : ''}}" bindtap="onStartBracket">生成对阵并开始</view>
       </view>
     </view>
 
