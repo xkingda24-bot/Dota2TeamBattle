@@ -17,4 +17,20 @@ function effectiveDailyCount(quotaCount, existingTournamentCount) {
   return Math.max(Number(quotaCount) || 0, Number(existingTournamentCount) || 0);
 }
 
-module.exports = { chinaDayKey, chinaDayRange, createQuotaId, effectiveDailyCount };
+const DAILY_CREATE_LIMIT = 5;
+const SUPER_DAILY_CREATE_LIMIT = 200;
+
+// 每日创建上限：最高管理员 200 场，其余用户 5 场
+function createDailyLimit(isSuperFlag) {
+  return isSuperFlag === true ? SUPER_DAILY_CREATE_LIMIT : DAILY_CREATE_LIMIT;
+}
+
+module.exports = {
+  chinaDayKey,
+  chinaDayRange,
+  createQuotaId,
+  effectiveDailyCount,
+  DAILY_CREATE_LIMIT,
+  SUPER_DAILY_CREATE_LIMIT,
+  createDailyLimit,
+};

@@ -28,7 +28,7 @@ const { mutateTournament, buildRegistrationSummary, isTransactionConflict } = re
 const { ADMIN_USER_LIST_FIELDS } = require('./query-projections');
 const { TOURNAMENT_SUMMARY_FIELDS, summarize } = require('./tournament-summary');
 const { TEAM_LOGO_PRESETS, TEAM_LOGO_IDS } = require('./team-logos');
-const { chinaDayRange, createQuotaId, effectiveDailyCount } = require('./daily-quota');
+const { chinaDayRange, createQuotaId, effectiveDailyCount, createDailyLimit } = require('./daily-quota');
 
 const COLLECTIONS = ['users', 'tournaments', 'config'];
 const BO_LIST = ['BO1', 'BO3', 'BO5'];
@@ -600,8 +600,9 @@ async function requireTournamentManager(event, includeDeleted) {
   return { tournament, openid };
 }
 
-async function getTodayCreateStats(openid, now) {
+async function getTodayCreateStats(openid, now, superFlag) {
   if (!openid) return { todayCreateCount: 0, todayCreateRemaining: 5, todayCreateLimit: 5, dailyLimit: 5 };
+  const limit = createDailyLimit(typeof superFlag === 'boolean' ? superFlag : await isSuper(openid));
   const range = chinaDayRange(now);
   const quotaId = createQuotaId(openid, range.dayKey);
   const quotaResult = await db.collection('config').where({ _id: quotaId }).limit(1).get();
@@ -615,9 +616,9 @@ async function getTodayCreateStats(openid, now) {
   const count = effectiveDailyCount(quotaCount, (tournaments && tournaments.data || []).length);
   return {
     todayCreateCount: count,
-    todayCreateRemaining: Math.max(0, 5 - count),
-    todayCreateLimit: 5,
-    dailyLimit: 5,
+    todayCreateRemaining: Math.max(0, limit - count),
+    todayCreateLimit: limit,
+    dailyLimit: limit,
   };
 }
 
@@ -957,7 +958,7 @@ const actions = {
       getRecentTournamentSummaries(todayFilter, 50, openid, true),
       getRecentTournamentSummaries(olderFilter, 50, openid),
     ]);
-    const createStats = await getTodayCreateStats(openid, Date.now());
+    const createStats = await getTodayCreateStats(openid, Date.now(), isSuperFlag);
     return ok({
       user,
       // 创建入口对所有已登录用户开放；赛事操作权限由每场摘要的 canManage 控制。
@@ -1289,6 +1290,7 @@ const actions = {
     const openid = getOpenId();
     if (!openid) return fail('无法识别当前用户');
     const me = await getUser(openid);
+    const createLimit = createDailyLimit(await isSuper(openid));
     const now = Date.now();
     const range = chinaDayRange(now);
     const quotaId = createQuotaId(openid, range.dayKey);
@@ -1328,7 +1330,7 @@ const actions = {
           .get();
         const existingCount = (existing && existing.data || []).length;
         const used = effectiveDailyCount(quota && quota.count, existingCount);
-        if (used >= 5) return { error: '每位用户每天最多创建 5 场比赛' };
+        if (used >= createLimit) return { error: '每位用户每天最多创建 ' + createLimit + ' 场比赛' };
         const tournament = await transaction.collection('tournaments').add({ data: tournamentData });
         const quotaData = {
           key: 'createQuota',
@@ -1355,9 +1357,9 @@ const actions = {
     return ok({
       id: result.id,
       todayCreateCount: result.count,
-      todayCreateRemaining: Math.max(0, 5 - result.count),
-      todayCreateLimit: 5,
-      dailyLimit: 5,
+      todayCreateRemaining: Math.max(0, createLimit - result.count),
+      todayCreateLimit: createLimit,
+      dailyLimit: createLimit,
     });
   },
 

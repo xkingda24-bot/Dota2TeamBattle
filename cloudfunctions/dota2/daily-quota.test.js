@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { chinaDayRange, createQuotaId, effectiveDailyCount } = require('./daily-quota');
+const { chinaDayRange, createQuotaId, effectiveDailyCount, createDailyLimit } = require('./daily-quota');
 
 const beforeChinaMidnight = Date.UTC(2026, 9, 31, 15, 59, 59);
 const afterChinaMidnight = Date.UTC(2026, 9, 31, 16, 0, 0);
@@ -14,5 +14,8 @@ assert.notStrictEqual(createQuotaId('openid-a', before.dayKey), createQuotaId('o
 assert.notStrictEqual(createQuotaId('openid-a', before.dayKey), createQuotaId('openid-a', after.dayKey));
 assert.strictEqual(effectiveDailyCount(2, 0), 2, 'permanent deletions do not return already consumed quota');
 assert.strictEqual(effectiveDailyCount(1, 2), 2, 'existing same-day matches are counted during migration');
+assert.strictEqual(createDailyLimit(true), 200, 'super admin can create 200 tournaments per day');
+assert.strictEqual(createDailyLimit(false), 5, 'regular users keep the 5 per day limit');
+assert.strictEqual(createDailyLimit(undefined), 5, 'missing flag falls back to the regular limit');
 
 console.log('Daily tournament quota tests passed.');
