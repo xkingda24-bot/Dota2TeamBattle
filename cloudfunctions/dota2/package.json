@@ -4,7 +4,7 @@
   "description": "Dota2 群内比赛管理云函数（报名 / 选人 / 双败赛程）",
   "main": "index.js",
   "scripts": {
-    "test": "node standings.test.js && node bootstrap.test.js && node card-profile.test.js && node user-records.test.js && node admin-users.test.js && node query-projections.test.js && node team-logos.test.js && node test-registration.test.js && node grouping.test.js && node registration.test.js && node tournament-transaction.test.js && node daily-quota.test.js && node registration-secret.test.js && node ../../miniprogram/utils/dota-rank.test.js && node ../../miniprogram/utils/tournament-polling.test.js && node ../../miniprogram/utils/team-logos.test.js && node ../../miniprogram/utils/date-time.test.js"
+    "test": "node standings.test.js && node bracket-single.test.js && node bootstrap.test.js && node card-profile.test.js && node user-records.test.js && node admin-users.test.js && node query-projections.test.js && node team-logos.test.js && node test-registration.test.js && node grouping.test.js && node registration.test.js && node tournament-transaction.test.js && node daily-quota.test.js && node registration-secret.test.js && node ../../miniprogram/utils/dota-rank.test.js && node ../../miniprogram/utils/tournament-polling.test.js && node ../../miniprogram/utils/team-logos.test.js && node ../../miniprogram/utils/date-time.test.js"
   },
   "license": "ISC",
   "dependencies": {

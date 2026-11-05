@@ -1,14 +1,14 @@
 /**
- * 依据已完成的双败赛程计算最终名次。
+ * 依据已完成赛程计算最终名次，兼容双败（TI）与单败两种赛制。
  *
  * 名次只在总决赛完成后生成：
  *   1. 总决赛胜者
  *   2. 总决赛败者
- *   3. 败者组决赛败者（N >= 3）
- *   4. 之后按淘汰所在败者组轮次倒序排列；同轮淘汰的队伍共享名次区间。
+ *   3. 双败：败者组决赛败者（N >= 3）；单败：半决赛败者共享区间（不设三四名决赛）
+ *   4. 之后按淘汰轮次倒序排列；同轮淘汰的队伍共享名次区间。
  *
- * 这个模块不写数据库。每次读取比赛详情时从比赛结果确定性重算，修正结果后
- * 不会留下过期的名次记录。teamId 使用赛程中的 T0、T1……，与现有赛程兼容。
+ * 赛制取自 tournament.bracketType：'single' 表示单败，其余（含历史数据缺失该字段）
+ * 一律按双败处理。这个模块不写数据库，每次读取比赛详情时从比赛结果确定性重算。
  */
 
 function asArray(value) {
@@ -38,9 +38,15 @@ function getWinner(match, a, b) {
   return null;
 }
 
-function stageRank(stage) {
+function stageRank(stage, format) {
+  const raw = String(stage || '');
+  if (format === 'single') {
+    // 单败没有败者组：淘汰轮次越靠后名次越高，UB 编号即轮次序号
+    const ub = raw.match(/^UB(\d+)$/i);
+    return ub ? Number(ub[1]) : -1;
+  }
   if (stage === 'LBF') return 1000000;
-  const m = String(stage || '').match(/^LB(\d+)$/i);
+  const m = raw.match(/^LB(\d+)$/i);
   return m ? Number(m[1]) : -1;
 }
 
@@ -93,6 +99,7 @@ function withRank(record, rank, label, match) {
  */
 function calculateStandings(tournament, resolvedMatches, decoratedTeams) {
   const t = tournament || {};
+  const format = t.bracketType === 'single' ? 'single' : 'double';
   const matches = asArray(resolvedMatches || t.matches);
   if (!matches.length) return null;
 
@@ -155,8 +162,11 @@ function calculateStandings(tournament, resolvedMatches, decoratedTeams) {
   push(winner, 1, '冠军', finalMatch);
   push(loser, 2, '亚军', finalMatch);
 
-  // LBF 败者为季军。N=2 时没有败者组决赛，不能把总决赛败者重复成季军。
-  const lowerFinal = matches.find((match) => match && match.stage === 'LBF' && match.status === 'done');
+  // LBF 败者为季军（仅双败）。N=2 时没有败者组决赛，不能把总决赛败者重复成季军。
+  // 单败不设三四名决赛，季军位由"半决赛败者共享区间"产生，因此这里不单独取季军。
+  const lowerFinal = format === 'single'
+    ? null
+    : matches.find((match) => match && match.stage === 'LBF' && match.status === 'done');
   if (lowerFinal) {
     const lowerA = lowerFinal.teamAInfo;
     const lowerB = lowerFinal.teamBInfo;
@@ -172,7 +182,7 @@ function calculateStandings(tournament, resolvedMatches, decoratedTeams) {
     const loserTeam = getLoser(match, match.teamAInfo, match.teamBInfo);
     const record = addRecord(loserTeam);
     if (!record || used[record.teamId]) return;
-    eliminated.push({ match, record, stageRank: stageRank(match.stage) });
+    eliminated.push({ match, record, stageRank: stageRank(match.stage, format) });
   });
   eliminated.sort((a, b) => b.stageRank - a.stageRank || Number(a.match.id || 0) - Number(b.match.id || 0));
   let rank = lowerFinal ? 4 : 3;
@@ -203,7 +213,8 @@ function calculateStandings(tournament, resolvedMatches, decoratedTeams) {
 
   const rankedCount = items.filter((item) => item.rank != null).length;
   const expectedTeamCount = teams.length || Object.keys(records).length;
-  const requiresLowerFinal = expectedTeamCount > 2;
+  // 双败要求败者组决赛存在才认为赛果完整；单败没有败者组，只要全员有名次即可结算
+  const requiresLowerFinal = format !== 'single' && expectedTeamCount > 2;
   const complete = rankedCount === expectedTeamCount && (!requiresLowerFinal || !!lowerFinal);
   let finalItems = items;
   const requestedOrder = Array.isArray(t.standingsOrder) ? t.standingsOrder : [];

@@ -15,7 +15,7 @@ cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 const db = cloud.database();
 const _ = db.command;
 
-const { buildBracket } = require('./bracket');
+const { buildBracket, buildSingleElimination } = require('./bracket');
 const { calculateStandings } = require('./standings');
 const { validateAutoGroups, validateAutoGroupCaptains, replaceAutoGroupMember } = require('./grouping');
 const { canInitializeSuperAdmin } = require('./bootstrap');
@@ -779,6 +779,7 @@ async function composeTournament(t, myOpenid) {
     N: t.N,
     K: t.K,
     status: t.status,
+    bracketType: t.bracketType === 'single' ? 'single' : 'double',
     champion: t.champion || null,
     creatorName: t.creatorName || '',
     createdBy: t.createdBy || '',
@@ -1697,12 +1698,18 @@ const actions = {
     return ok(true);
   },
 
-  /* 生成对阵、进入对战阶段（比赛创建者或最高管理员） */
+  /* 生成对阵、进入对战阶段（比赛创建者或管理员；赛制在生成时一次选定，之后不可切换） */
   async startBracket(event) {
     const managed = await requireTournamentManager(event, false);
     if (managed.error) return fail(managed.error);
     const t = managed.tournament;
     if (t.status !== 'draft') return fail('当前不在生成对阵阶段');
+    // 缺省按双败，保证未升级的小程序端不传参数时行为不变
+    const requestedType = event && event.bracketType;
+    if (requestedType && requestedType !== 'single' && requestedType !== 'double') {
+      return fail('赛制参数无效');
+    }
+    const bracketType = requestedType === 'single' ? 'single' : 'double';
     let teams;
     if (t.mode === 'auto') {
       // 系统分组：队伍已在分组确认时写入，无选人环节
@@ -1732,13 +1739,14 @@ const actions = {
     }));
     let matches;
     try {
-      matches = buildBracket(bracketTeams);
+      matches = bracketType === 'single' ? buildSingleElimination(bracketTeams) : buildBracket(bracketTeams);
     } catch (e) {
       return fail('生成对阵失败：' + e.message);
     }
     await updateTournamentDoc(t._id, {
       data: {
         status: 'battle',
+        bracketType,
         teams,
         seeding,
         matches,

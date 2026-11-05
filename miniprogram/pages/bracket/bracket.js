@@ -1,15 +1,18 @@
-// pages/bracket/bracket.js - 对战赛程（TI 双败，按比赛 id）
+// pages/bracket/bracket.js - 对战赛程（双败 / 单败，按比赛 id）
 const api = require('../../utils/api');
 const { hasCurrentRankVerification, dotaRankLabel } = require('../../utils/dota-rank');
 const tournamentPolling = require('../../utils/tournament-polling');
 const { TEAM_LOGO_PRESETS } = require('../../utils/team-logos');
 const { getTodayBoundary } = require('../../utils/date-time');
+const { bracketTypeOf, bracketFormatOf, promptBracketType } = require('../../utils/bracket-format');
 
 const BO_LIST = ['BO1', 'BO3', 'BO5'];
 
-function settlementRankLabel(rank, teamCount) {
+function settlementRankLabel(rank, teamCount, formatType) {
   if (rank === 1) return '冠军';
   if (rank === 2) return '亚军';
+  // 单败不设三四名决赛，人工排序只给逐人位次，不伪造"季军"
+  if (formatType === 'single') return '第' + rank + '名';
   if (rank === 3 && teamCount > 2) return '季军';
   return '第' + rank + '名';
 }
@@ -46,7 +49,7 @@ function groupAverageStats(teams) {
   return { max, min, diff: max - min };
 }
 
-function orderSettlementItems(items, order) {
+function orderSettlementItems(items, order, formatType) {
   const byTeamId = {};
   (items || []).forEach((item) => { byTeamId[item.teamId] = item; });
   const ordered = [];
@@ -63,7 +66,7 @@ function orderSettlementItems(items, order) {
   });
   return ordered.map((item, index) => Object.assign({}, item, {
     rank: index + 1,
-    label: settlementRankLabel(index + 1, ordered.length),
+    label: settlementRankLabel(index + 1, ordered.length, formatType),
     orderIndex: index,
   }));
 }
@@ -473,7 +476,7 @@ Page({
         );
         const settlementEditing = !!(this.data.settlementEditing && canManageSettlementOrder);
         if (settlementEditing) {
-          settlementItems = orderSettlementItems(settlementItems, this._settlementDraftIds || []);
+          settlementItems = orderSettlementItems(settlementItems, this._settlementDraftIds || [], bracketTypeOf(t));
           this._settlementDraftIds = settlementItems.map((entry) => entry.teamId);
         } else {
           this._settlementDraftIds = null;
@@ -523,6 +526,7 @@ Page({
         }
 
         const tree = this.buildTreeData(matches);
+        const bracketFormat = bracketFormatOf(t);
         // 晋级图节点里的队伍 openid 是落位编号（T0/T1…），反查 teams 得到真实队长信息
         // 晋级图第一轮（UB1）：标记各队「可设置队名队标」（本队队长或比赛管理者），按钮需携带队长 openid
         const teamBySlot = {};
@@ -588,6 +592,12 @@ Page({
           refreshError: false,
           stageView,
           pageTitle,
+          bracketType: bracketFormat.value,
+          formatName: bracketFormat.name,
+          eliminationHint: bracketFormat.value === 'single'
+            ? '胜者晋级，败者直接淘汰（自动）'
+            : '胜者晋级，败者跌入败者组或淘汰（自动）',
+          seedingTitle: bracketFormat.value === 'single' ? '对阵调整（首轮落位）' : '对阵调整（胜者组第一轮落位）',
           canManage: !!t.canManage,
           ubMatches,
           lbMatches,
@@ -761,20 +771,15 @@ Page({
   onStartBracket() {
     const t = this.data.t;
     if (!t || !this.data.canManage || this.data.readonly || t.status !== 'draft' || this.data.groupSaving || this.data.groupOrderSaving) return;
-    wx.showModal({
-      title: '生成对阵',
-      content: '将按当前落位生成 TI 双败赛程并进入对战阶段，确定？',
-      success: (res) => {
-        if (res.confirm) {
-          api
-            .call('startBracket', { id: t.id })
-            .then(() => {
-              wx.showToast({ title: '赛程已生成', icon: 'success' });
-              this.load();
-            })
-            .catch((err) => wx.showToast({ title: err.message, icon: 'none' }));
-        }
-      },
+    // 生成前先选赛制：双败（TI）或单败；生成后赛制即固定，需要改动只能退回分组重新生成
+    promptBracketType((bracketType) => {
+      api
+        .call('startBracket', { id: t.id, bracketType })
+        .then(() => {
+          wx.showToast({ title: '赛程已生成', icon: 'success' });
+          this.load();
+        })
+        .catch((err) => wx.showToast({ title: err.message, icon: 'none' }));
     });
   },
 
@@ -843,7 +848,7 @@ Page({
     const settlement = this.data.settlement;
     if (!settlement || !settlement.canManageOrder || this.data.settlementSaving) return;
     this._settlementDraftIds = settlement.items.map((entry) => entry.teamId);
-    const items = orderSettlementItems(settlement.items, this._settlementDraftIds);
+    const items = orderSettlementItems(settlement.items, this._settlementDraftIds, bracketTypeOf(this.data.t));
     this.setData({
       settlementEditing: true,
       settlement: Object.assign({}, settlement, groupSettlementItems(items)),
@@ -869,7 +874,7 @@ Page({
     order[target] = current;
     this._settlementDraftIds = order;
     const settlement = this.data.settlement;
-    const items = orderSettlementItems(settlement.items, order);
+    const items = orderSettlementItems(settlement.items, order, bracketTypeOf(this.data.t));
     this.setData({ settlement: Object.assign({}, settlement, groupSettlementItems(items)) });
   },
 
@@ -979,8 +984,10 @@ Page({
     const ubMaxRows = Math.max.apply(null, ubStages.map((s) => ubMatches.filter((m) => m.stage === s).length).concat([1]));
     const lbMaxRows = Math.max.apply(null, lbStages.map((s) => lbMatches.filter((m) => m.stage === s).length).concat([1]));
     const ubH = PAD + ubMaxRows * (NODE_H + GAP);
-    const lbH = PAD + lbMaxRows * (NODE_H + GAP);
-    const H = ubH + ZONE_GAP + lbH + PAD;
+    // 单败没有败者组：不留败者组区高度，避免晋级图底部出现整块空白
+    const hasLower = lbMatches.length > 0;
+    const lbH = hasLower ? PAD + lbMaxRows * (NODE_H + GAP) : 0;
+    const H = ubH + (hasLower ? ZONE_GAP + lbH : 0) + PAD;
     const W = PAD * 2 + (COLS + (gfMatch ? 1 : 0)) * COL_W;
 
     const nodeById = {};

@@ -2,6 +2,7 @@
 const api = require('../../utils/api');
 const tournamentPolling = require('../../utils/tournament-polling');
 const { getTodayBoundary } = require('../../utils/date-time');
+const { promptBracketType } = require('../../utils/bracket-format');
 
 const ROLE_LABELS = ['', '1号位', '2号位', '3号位', '4号位', '5号位'];
 
@@ -211,20 +212,15 @@ Page({
       wx.showToast({ title: '选人还未完成', icon: 'none' });
       return;
     }
-    wx.showModal({
-      title: '生成对阵',
-      content: '将按 TI 双败赛制自动生成全部对阵，并进入对战阶段。确定生成？',
-      success: (res) => {
-        if (res.confirm) {
-          api
-            .call('startBracket', { id: t.id })
-            .then(() => {
-              wx.showToast({ title: '对阵已生成', icon: 'success' });
-              setTimeout(() => wx.redirectTo({ url: '/pages/bracket/bracket?id=' + t.id }), 600);
-            })
-            .catch((err) => wx.showToast({ title: err.message, icon: 'none' }));
-        }
-      },
+    // 先生成前选赛制：双败（TI）或单败；生成后赛制固定，改动只能退回分组重新生成
+    promptBracketType((bracketType) => {
+      api
+        .call('startBracket', { id: t.id, bracketType })
+        .then(() => {
+          wx.showToast({ title: '对阵已生成', icon: 'success' });
+          setTimeout(() => wx.redirectTo({ url: '/pages/bracket/bracket?id=' + t.id }), 600);
+        })
+        .catch((err) => wx.showToast({ title: err.message, icon: 'none' }));
     });
   },
 

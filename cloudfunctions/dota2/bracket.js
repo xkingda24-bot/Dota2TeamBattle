@@ -179,4 +179,86 @@ function buildBracket(teams) {
   return matches;
 }
 
-module.exports = { buildBracket };
+/**
+ * 单败淘汰赛程生成器（单败赛制：输一场即淘汰，不设三四名决赛，也不设名次排位赛）
+ *
+ * 与双败共用同一套 stage 前缀，前端筛选与名次计算可直接复用：
+ *   'UB1' | 'UB2' ... | 'GF'
+ * 最后一轮直接标记为总决赛（isChampionMatch），不产生 UBF；所有 loserNext 恒为 null。
+ *
+ * @param {Array<{openid:string, name:string}>} teams 有序队伍（已按落位排序）
+ * @returns {Array} matches
+ */
+function buildSingleElimination(teams) {
+  if (!Array.isArray(teams) || teams.length < 2) {
+    throw new Error('队伍数量不足（至少 2 支队伍）');
+  }
+
+  const matches = [];
+  const byId = {};
+  let cid = 0;
+  const newId = () => ++cid;
+
+  const teamSource = (team) => ({
+    type: 'team',
+    openid: team.openid,
+    name: team.name,
+    teamIcon: team.teamIcon || '',
+  });
+  const matchSource = (matchId, slot) => ({ type: 'match', matchId, slot });
+
+  function placeIntoMatch(match, src, slot) {
+    if (slot === 'A') match.teamA = src;
+    else match.teamB = src;
+    if (src && src.type === 'match') {
+      const feeder = byId[src.matchId];
+      if (!feeder) return;
+      feeder.next = { matchId: match.id, slot };
+    }
+  }
+
+  // 两两配对；奇数个时最后一个是轮空，直接晋级下一轮
+  function pair(sources, stage, label, isFinal) {
+    const adv = [];
+    for (let i = 0; i + 1 < sources.length; i += 2) {
+      const id = newId();
+      const m = {
+        id,
+        stage,
+        label,
+        teamA: null,
+        teamB: null,
+        bo: 'BO1',
+        status: 'pending',
+        winner: null,
+        scoreA: null,
+        scoreB: null,
+        next: null,
+        loserNext: null,
+        isChampionMatch: !!isFinal,
+      };
+      placeIntoMatch(m, sources[i], 'A');
+      placeIntoMatch(m, sources[i + 1], 'B');
+      byId[id] = m;
+      matches.push(m);
+      adv.push(matchSource(id, 'winner'));
+    }
+    if (sources.length % 2 === 1) adv.push(sources[sources.length - 1]);
+    return adv;
+  }
+
+  let sources = teams.map(teamSource);
+  let roundNo = 1;
+  while (sources.length > 1) {
+    const isFinal = sources.length === 2;
+    const stage = isFinal ? 'GF' : roundNo === 1 ? 'UB1' : 'UB' + roundNo;
+    // 轮次文案：最后一轮=总决赛；剩下 3~4 支队伍的那一轮=半决赛；其余=第 N 轮
+    const label = isFinal ? '总决赛' : sources.length <= 4 ? '半决赛' : '第' + cn(roundNo) + '轮';
+    sources = pair(sources, stage, label, isFinal);
+    roundNo++;
+  }
+
+  return matches;
+}
+
+module.exports = { buildBracket, buildSingleElimination };

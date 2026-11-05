@@ -70,7 +70,7 @@
 
       <!-- 赛程 -->
       <block wx:if="{{ubMatches.length}}">
-        <view class="section">胜者组</view>
+        <view class="section">{{t.bracketType === 'single' ? '淘汰赛' : '胜者组'}}</view>
         <template is="hMatchCard" data="{{...item}}" wx:for="{{ubMatches}}" wx:key="id" />
       </block>
       <block wx:if="{{lbMatches.length}}">
