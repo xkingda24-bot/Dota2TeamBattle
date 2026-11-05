@@ -247,18 +247,25 @@
   color: #e8c27c;
 }
 
-.sheet-confirm {
+.sheet-actions {
+  display: flex;
   margin-top: 20rpx;
 }
 
-.sheet-confirm-hover {
-  opacity: 0.86;
+.sheet-actions .btn {
+  flex: 1;
+  min-width: 0;
+  height: 92rpx;
+  margin-top: 0;
+  padding: 0;
+  box-sizing: border-box;
+  line-height: 92rpx;
 }
 
-.sheet-cancel {
-  margin-top: 6rpx;
-  padding: 14rpx 0 4rpx;
-  text-align: center;
-  font-size: 26rpx;
-  color: #98a0ab;
+.sheet-actions .btn + .btn {
+  margin-left: 16rpx;
+}
+
+.sheet-btn-hover {
+  opacity: 0.86;
 }
