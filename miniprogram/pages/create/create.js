@@ -21,16 +21,16 @@ Page({
     date: '',
     time: '',
     nRange: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
-    nIndex: 6, // 默认 8 个队长
+    nIndex: 6, // 默认 8 支队伍
     kRange: [1, 2, 3, 4, 5],
-    kIndex: 3, // 默认 每队 4 个队友
+    kIndex: 4, // 默认 每组 5 人（与切到系统分组时的推荐值一致）
     waitRange: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
     waitIndex: 10, // 默认 10 个替补
     modeRange: ['队长选人', '系统分组'],
-    modeIndex: 0,
-    mode: 'captain', // captain=队长选人 auto=系统分组
+    modeIndex: 1,
+    mode: 'auto', // 默认系统分组；captain=队长选人 auto=系统分组
     N: 8,
-    K: 4,
+    K: 5,
     waitLimit: 10,
     submitting: false,
   },
