@@ -194,6 +194,7 @@
       <view class="role-num {{rolesActive[3] ? 'role-num-active' : ''}}" data-role="4" bindtap="onToggleRole">4</view>
       <view class="role-num {{rolesActive[4] ? 'role-num-active' : ''}}" data-role="5" bindtap="onToggleRole">5</view>
     </view>
+    <view wx:if="{{pfRoles.length === 5}}" class="sub role-versatile-hint">已选全部位置，名片将显示为「全能」</view>
     <view class="sub role-help">1 核心 · 2 中单 · 3 劣单 · 4/5 辅助</view>
 
     <view class="field-label">个人签名</view>

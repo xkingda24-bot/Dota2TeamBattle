@@ -1,6 +1,7 @@
 // pages/history/history.js - 历史比赛（列表 + 详情）
 const api = require('../../utils/api');
 const { getTodayBoundary } = require('../../utils/date-time');
+const { formatRolesText } = require('../../utils/roles');
 
 const BO_LIST = ['BO1', 'BO3', 'BO5'];
 
@@ -26,8 +27,7 @@ function buildTeamRosters(teams, registrations, cardStyles) {
   (registrations || []).forEach((registration) => {
     if (registration && registration.openid) registrationMap[registration.openid] = registration;
   });
-  const formatRoles = (roles) =>
-    Array.isArray(roles) && roles.length ? roles.map((role) => role + '号位').join('、') : '';
+  const formatRoles = (roles) => formatRolesText(roles, '、');
   const buildMember = (rawMember, isCaptain) => {
     if (!rawMember) return null;
     const rawOpenid = typeof rawMember === 'string' ? rawMember : rawMember.openid;

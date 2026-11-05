@@ -3,11 +3,10 @@ const api = require('../../utils/api');
 const tournamentPolling = require('../../utils/tournament-polling');
 const { getTodayBoundary } = require('../../utils/date-time');
 
-const ROLE_LABELS = ['', '1号位', '2号位', '3号位', '4号位', '5号位'];
+const { formatRolesText } = require('../../utils/roles');
 
 function fmtRoles(roles) {
-  const arr = Array.isArray(roles) ? roles.filter((v) => v >= 1 && v <= 5) : [];
-  return arr.length ? arr.map((v) => ROLE_LABELS[v]).join('/') : '';
+  return formatRolesText(roles, '/');
 }
 
 function fmtPlayer(r, isCaptain) {

@@ -5,6 +5,7 @@ const tournamentPolling = require('../../utils/tournament-polling');
 const { TEAM_LOGO_PRESETS } = require('../../utils/team-logos');
 const { getTodayBoundary } = require('../../utils/date-time');
 const { bracketTypeOf, bracketFormatOf } = require('../../utils/bracket-format');
+const { formatRolesText } = require('../../utils/roles');
 
 const BO_LIST = ['BO1', 'BO3', 'BO5'];
 
@@ -328,8 +329,7 @@ Page({
         });
         const regMap = {};
         (t.registrations || []).forEach((r) => (regMap[r.openid] = r));
-        const fmtRoles = (roles) =>
-          Array.isArray(roles) && roles.length ? roles.map((x) => x + '号位').join('、') : '';
+        const fmtRoles = (roles) => formatRolesText(roles, '、');
         const cardStyles = t.cardStyles || {};
         const getCardStyle = (member) => {
           if (!member) return null;

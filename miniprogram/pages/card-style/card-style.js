@@ -1,7 +1,7 @@
 const api = require('../../utils/api');
 const { DEFAULT_CARD_STYLE, CARD_STYLE_OPTIONS, normalizeCardStyle } = require('../../utils/card-style');
 
-const ROLE_LABELS = ['', '1号位', '2号位', '3号位', '4号位', '5号位'];
+const { formatRolesText } = require('../../utils/roles');
 
 Page({
   data: {
@@ -41,7 +41,7 @@ Page({
         previewPlayer: Object.assign({}, user, {
           nickname: user.nickname,
           mmr: user.mmr,
-          rolesText: roles.map((role) => ROLE_LABELS[role]).join(' / '),
+          rolesText: formatRolesText(roles, ' / '),
           signature: user.signature || '',
         }),
       });

@@ -1,5 +1,6 @@
 const { DEFAULT_CARD_STYLE, normalizeCardStyle } = require('../../utils/card-style');
 const { dotaRankLabel, hasCurrentRankVerification } = require('../../utils/dota-rank');
+const { ROLE_NUMS, VERSATILE_LABEL, normalizeRoles, isVersatileText } = require('../../utils/roles');
 
 Component({
   properties: {
@@ -29,21 +30,26 @@ Component({
     dotaCard: { rankVerified: false, displayText: '', dota2Id: '', rankLabel: '', mmr: null },
     roleNums: [],
     hasRoleChips: false,
+    roleVersatile: false,
   },
 
   methods: {
-    // 位次以数字徽章展示：优先取 roles 数组，缺失时从 rolesText（如「1号位 / 3号位」）解析
+    // 位次以数字徽章展示：优先取 roles 数组，缺失时从 rolesText（如「1号位 / 3号位」）解析。
+    // 五个位次全选时折叠成单个「全能」徽章（仅展示层折叠，存储仍是真实的 1–5）。
     updateRoleChips(player) {
       const source = player || {};
-      let nums = [];
-      if (Array.isArray(source.roles)) {
-        nums = source.roles.map((role) => String(role).trim()).filter((role) => /^[1-5]$/.test(role));
-      }
+      let nums = normalizeRoles(source.roles);
       if (!nums.length && typeof source.rolesText === 'string') {
-        nums = source.rolesText.match(/[1-5]/g) || [];
+        nums = isVersatileText(source.rolesText)
+          ? ROLE_NUMS.slice()
+          : normalizeRoles(source.rolesText.match(/[1-5]/g) || []);
       }
-      nums = Array.from(new Set(nums)).sort((a, b) => Number(a) - Number(b));
-      this.setData({ roleNums: nums, hasRoleChips: nums.length > 0 });
+      const versatile = nums.length === ROLE_NUMS.length;
+      this.setData({
+        roleNums: versatile ? [VERSATILE_LABEL] : nums,
+        hasRoleChips: nums.length > 0,
+        roleVersatile: versatile,
+      });
     },
     updateDotaCard(player) {
       const source = player || {};

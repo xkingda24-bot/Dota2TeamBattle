@@ -223,6 +223,12 @@ page {
   border-color: #e8c27c;
   color: #e8c27c;
 }
+/* 五个位次全选时的提示：名片会折叠显示为「全能」 */
+.role-versatile-hint {
+  margin-top: 10rpx;
+  color: #e8c27c;
+  font-size: 22rpx;
+}
 
 /* 弹窗表单字段 */
 .field-label {

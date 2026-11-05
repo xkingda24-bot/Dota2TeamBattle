@@ -17,7 +17,7 @@
           <text wx:else>未校验段位</text>
         </view>
         <view wx:if="{{hasRoleChips}}" class="player-card-roles">
-          <text wx:for="{{roleNums}}" wx:key="*this" class="player-card-role-chip">{{item}}</text>
+          <text wx:for="{{roleNums}}" wx:key="*this" class="player-card-role-chip {{roleVersatile ? 'player-card-role-chip-versatile' : ''}}">{{item}}</text>
         </view>
         <text wx:elif="{{player.rolesText}}" class="player-card-location">· {{player.rolesText}}</text>
       </view>
