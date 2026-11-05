@@ -4,7 +4,7 @@ const { hasCurrentRankVerification, dotaRankLabel } = require('../../utils/dota-
 const tournamentPolling = require('../../utils/tournament-polling');
 const { TEAM_LOGO_PRESETS } = require('../../utils/team-logos');
 const { getTodayBoundary } = require('../../utils/date-time');
-const { bracketTypeOf, bracketFormatOf, promptBracketType } = require('../../utils/bracket-format');
+const { bracketTypeOf, bracketFormatOf } = require('../../utils/bracket-format');
 
 const BO_LIST = ['BO1', 'BO3', 'BO5'];
 
@@ -125,6 +125,8 @@ Page({
     groupSelection: { teamIndex: -1, openid: '', nickname: '' },
     groupSaving: false,
     groupOrderSaving: false,
+    bracketTypeVisible: false,
+    bracketTypeSaving: false,
     replacementPanel: { show: false, selecting: '', teamIndex: -1, teamName: '', outPlayers: [], inPlayers: [], outIndex: 0, inIndex: 0, incomingLabel: '' },
     replacementSaving: false,
     grouping: false, // 系统分组：一键重新分组提交中
@@ -770,17 +772,32 @@ Page({
 
   onStartBracket() {
     const t = this.data.t;
-    if (!t || !this.data.canManage || this.data.readonly || t.status !== 'draft' || this.data.groupSaving || this.data.groupOrderSaving) return;
+    if (!t || !this.data.canManage || this.data.readonly || t.status !== 'draft' || this.data.groupSaving || this.data.groupOrderSaving || this.data.bracketTypeSaving) return;
     // 生成前先选赛制：双败（TI）或单败；生成后赛制即固定，需要改动只能退回分组重新生成
-    promptBracketType((bracketType) => {
-      api
-        .call('startBracket', { id: t.id, bracketType })
-        .then(() => {
-          wx.showToast({ title: '赛程已生成', icon: 'success' });
-          this.load();
-        })
-        .catch((err) => wx.showToast({ title: err.message, icon: 'none' }));
-    });
+    this.setData({ bracketTypeVisible: true });
+  },
+
+  onCloseBracketType() {
+    this.setData({ bracketTypeVisible: false });
+  },
+
+  onConfirmBracketType(e) {
+    const t = this.data.t;
+    const bracketType = e && e.detail ? e.detail.bracketType : '';
+    if (!t || (bracketType !== 'single' && bracketType !== 'double')) return;
+    if (!this.data.canManage || this.data.readonly || this.data.bracketTypeSaving) return;
+    this.setData({ bracketTypeVisible: false, bracketTypeSaving: true });
+    api
+      .call('startBracket', { id: t.id, bracketType })
+      .then(() => {
+        this.setData({ bracketTypeSaving: false });
+        wx.showToast({ title: '赛程已生成', icon: 'success' });
+        this.load();
+      })
+      .catch((err) => {
+        this.setData({ bracketTypeSaving: false });
+        wx.showToast({ title: err.message, icon: 'none' });
+      });
   },
 
   /* ---------- 队伍抽屉 ---------- */

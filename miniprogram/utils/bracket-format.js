@@ -1,16 +1,18 @@
-// utils/bracket-format.js - 赛制定义与「生成对阵」时的赛制选择
+// utils/bracket-format.js - 赛制定义（赛制选择交互由 components/bracket-type-sheet 承载）
 const BRACKET_FORMATS = [
   {
     value: 'double',
     name: 'TI 双败赛制',
     hint: '输一场进败者组，仍可争冠',
-    actionLabel: 'TI 双败赛制 · 输一场进败者组仍可争冠',
+    badge: 'TI 同款',
+    rankText: '名次：冠军 · 亚军 · 季军（败者组决赛败者）',
   },
   {
     value: 'single',
     name: '单败赛制',
     hint: '输一场即淘汰，不设三四名赛',
-    actionLabel: '单败赛制 · 输一场即淘汰，不设三四名赛',
+    badge: '更快',
+    rankText: '名次：冠军 · 亚军 · 第3-4名（不设三四名赛）',
   },
 ];
 
@@ -27,23 +29,9 @@ function bracketFormatName(tournament) {
   return bracketFormatOf(tournament).name;
 }
 
-/* 生成对阵前让用户选赛制；取消时不回调 */
-function promptBracketType(callback) {
-  if (typeof callback !== 'function') return;
-  wx.showActionSheet({
-    itemList: BRACKET_FORMATS.map((item) => item.actionLabel),
-    success: (res) => {
-      const picked = BRACKET_FORMATS[res.tapIndex];
-      if (picked) callback(picked.value);
-    },
-    fail: () => {},
-  });
-}
-
 module.exports = {
   BRACKET_FORMATS,
   bracketTypeOf,
   bracketFormatOf,
   bracketFormatName,
-  promptBracketType,
 };

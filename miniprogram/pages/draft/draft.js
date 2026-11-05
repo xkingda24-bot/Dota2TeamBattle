@@ -2,7 +2,6 @@
 const api = require('../../utils/api');
 const tournamentPolling = require('../../utils/tournament-polling');
 const { getTodayBoundary } = require('../../utils/date-time');
-const { promptBracketType } = require('../../utils/bracket-format');
 
 const ROLE_LABELS = ['', '1号位', '2号位', '3号位', '4号位', '5号位'];
 
@@ -31,6 +30,8 @@ Page({
     orderChips: [],
     canPick: false,
     pickStateText: '',
+    bracketTypeVisible: false,
+    bracketTypeSaving: false,
   },
 
   onLoad(options) {
@@ -207,21 +208,36 @@ Page({
 
   onStartBracket() {
     const t = this.data.t;
-    if (!t || this.data.readonly || !this.data.canManage || !t.draftInfo) return;
+    if (!t || this.data.readonly || !this.data.canManage || !t.draftInfo || this.data.bracketTypeSaving) return;
     if (!t.draftInfo.done) {
       wx.showToast({ title: '选人还未完成', icon: 'none' });
       return;
     }
     // 先生成前选赛制：双败（TI）或单败；生成后赛制固定，改动只能退回分组重新生成
-    promptBracketType((bracketType) => {
-      api
-        .call('startBracket', { id: t.id, bracketType })
-        .then(() => {
-          wx.showToast({ title: '对阵已生成', icon: 'success' });
-          setTimeout(() => wx.redirectTo({ url: '/pages/bracket/bracket?id=' + t.id }), 600);
-        })
-        .catch((err) => wx.showToast({ title: err.message, icon: 'none' }));
-    });
+    this.setData({ bracketTypeVisible: true });
+  },
+
+  onCloseBracketType() {
+    this.setData({ bracketTypeVisible: false });
+  },
+
+  onConfirmBracketType(e) {
+    const t = this.data.t;
+    const bracketType = e && e.detail ? e.detail.bracketType : '';
+    if (!t || (bracketType !== 'single' && bracketType !== 'double')) return;
+    if (this.data.readonly || !this.data.canManage || this.data.bracketTypeSaving) return;
+    this.setData({ bracketTypeVisible: false, bracketTypeSaving: true });
+    api
+      .call('startBracket', { id: t.id, bracketType })
+      .then(() => {
+        this.setData({ bracketTypeSaving: false });
+        wx.showToast({ title: '对阵已生成', icon: 'success' });
+        setTimeout(() => wx.redirectTo({ url: '/pages/bracket/bracket?id=' + t.id }), 600);
+      })
+      .catch((err) => {
+        this.setData({ bracketTypeSaving: false });
+        wx.showToast({ title: err.message, icon: 'none' });
+      });
   },
 
   onOpenStageManagement() {

@@ -5,6 +5,7 @@
   "usingComponents": {
     "nav-bar": "/components/nav-bar/index",
     "player-card": "/components/player-card/index",
-    "tournament-flow": "/components/tournament-flow/index"
+    "tournament-flow": "/components/tournament-flow/index",
+    "bracket-type-sheet": "/components/bracket-type-sheet/index"
   }
 }

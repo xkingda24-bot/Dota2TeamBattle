@@ -99,3 +99,6 @@
     <view class="btn btn-plain" bindtap="goBack">返回主页</view>
   </view>
 </view>
+
+<!-- 生成对阵前选择赛制 -->
+<bracket-type-sheet visible="{{bracketTypeVisible}}" bind:confirm="onConfirmBracketType" bind:cancel="onCloseBracketType" />

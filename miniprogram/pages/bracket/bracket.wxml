@@ -506,3 +506,6 @@
     </view>
   </view>
 </template>
+
+<!-- 生成对阵前选择赛制 -->
+<bracket-type-sheet visible="{{bracketTypeVisible}}" bind:confirm="onConfirmBracketType" bind:cancel="onCloseBracketType" />

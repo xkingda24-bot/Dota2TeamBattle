@@ -1,0 +1,51 @@
+<!--components/bracket-type-sheet/index.wxml - 赛制选择底部弹层-->
+<view class="sheet-mask {{visible ? 'is-open' : ''}}" catchtouchmove="noop" bindtap="onCancel">
+  <view class="sheet" catchtap="noop">
+    <view class="sheet-handle"></view>
+    <view class="sheet-title">选择赛制</view>
+    <view class="sheet-sub">生成后不可更改，换赛制需退回分组重来</view>
+
+    <view class="format-list">
+      <view
+        class="format-card {{picked === item.value ? 'is-picked' : ''}}"
+        wx:for="{{formats}}"
+        wx:key="value"
+        data-value="{{item.value}}"
+        bindtap="onPick"
+        hover-class="format-card-hover"
+      >
+        <view class="format-head">
+          <view class="format-name">{{item.name}}</view>
+          <view class="format-badge">{{item.badge}}</view>
+          <view class="format-radio"></view>
+        </view>
+        <view class="format-hint">{{item.hint}}</view>
+        <view class="format-figure">
+          <view class="format-lanes">
+            <view class="lane-row">
+              <view class="lane-label">{{item.value === 'single' ? '淘汰赛' : '胜者组'}}</view>
+              <view class="lane-segs seg-gold">
+                <view class="seg seg-3"></view>
+                <view class="seg seg-2"></view>
+                <view class="seg seg-1"></view>
+              </view>
+            </view>
+            <view class="lane-row" wx:if="{{item.value !== 'single'}}">
+              <view class="lane-label lane-label-dim">败者组</view>
+              <view class="lane-segs seg-dim">
+                <view class="seg seg-3"></view>
+                <view class="seg seg-2"></view>
+                <view class="seg seg-1"></view>
+              </view>
+            </view>
+          </view>
+          <view class="final-box">总决赛</view>
+        </view>
+        <view class="format-rank">{{item.rankText}}</view>
+      </view>
+    </view>
+
+    <view class="btn sheet-confirm {{picked ? '' : 'btn-disabled'}}" hover-class="{{picked ? 'sheet-confirm-hover' : 'none'}}" bindtap="onConfirm">{{picked ? '以「' + pickedName + '」生成对阵' : '请先选择赛制'}}</view>
+    <view class="sheet-cancel" bindtap="onCancel">取消</view>
+  </view>
+</view>
