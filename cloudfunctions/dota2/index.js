@@ -15,7 +15,7 @@ cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 const db = cloud.database();
 const _ = db.command;
 
-const { buildBracket, buildSingleElimination } = require('./bracket');
+const { buildBracket, buildSingleElimination, resolveSeeding } = require('./bracket');
 const { calculateStandings } = require('./standings');
 const { validateAutoGroups, validateAutoGroupCaptains, replaceAutoGroupMember } = require('./grouping');
 const { canInitializeSuperAdmin } = require('./bootstrap');
@@ -1731,7 +1731,9 @@ const actions = {
         players: (picks[i] || []).map((p) => playerRegMap[p] || { openid: p, nickname: '队员' }),
       }));
     }
-    const seeding = Array.isArray(t.seeding) && t.seeding.length === t.N ? t.seeding : shuffle(teams.map((_, i) => i));
+    // 落位顺序：合法则按落位表（管理员调整过或点过「随机排位」），
+    // 否则退回队伍原始顺序 —— 系统分组按组号 1..N，所以首轮就是「第1组打第2组」「第3组打第4组」……
+    const seeding = resolveSeeding(teams.length, t.seeding);
     const ordered = seeding.map((idx) => teams[idx]);
     const bracketTeams = ordered.map((team, i) => ({
       openid: 'T' + i,

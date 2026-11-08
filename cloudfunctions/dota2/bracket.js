@@ -261,4 +261,29 @@ function buildSingleElimination(teams) {
   return matches;
 }
 
-module.exports = { buildBracket, buildSingleElimination };
+/**
+ * 解析落位顺序：落位表合法则原样使用，否则退回队伍原始顺序。
+ *
+ * 队伍原始顺序的含义：系统分组模式下 teams 按组号 1..N 写入（第1组、第2组……），
+ * 队长模式下按队长顺序写入。因此默认首轮就是「第1组打第2组」「第3组打第4组」……
+ * 只有管理员显式「随机排位」才会打乱这个顺序。
+ *
+ * @param {number} teamCount 队伍数
+ * @param {Array<number>|null} seeding 落位表：seeding[位次] = 队伍下标
+ * @returns {Array<number>} 队伍下标顺序，长度等于队伍数
+ */
+function resolveSeeding(teamCount, seeding) {
+  const n = Number(teamCount) || 0;
+  const valid = Array.isArray(seeding) && seeding.length === n &&
+    seeding.every((idx) => Number.isInteger(idx) && idx >= 0 && idx < n) &&
+    new Set(seeding).size === n;
+  return valid ? seeding.slice() : Array.from({ length: n }, (_, i) => i);
+}
+
+/** 按落位顺序取队伍数组；首轮由此相邻两两配对 */
+function orderTeamsBySeeding(teams, seeding) {
+  const list = Array.isArray(teams) ? teams : [];
+  return resolveSeeding(list.length, seeding).map((idx) => list[idx]);
+}
+
+module.exports = { buildBracket, buildSingleElimination, resolveSeeding, orderTeamsBySeeding };

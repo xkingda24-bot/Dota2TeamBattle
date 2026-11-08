@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { buildSingleElimination } = require('./bracket');
+const { buildSingleElimination, buildBracket, resolveSeeding, orderTeamsBySeeding } = require('./bracket');
 const { calculateStandings } = require('./standings');
 
 function makeTeams(count) {
@@ -164,6 +164,51 @@ for (let teamCount = 2; teamCount <= 16; teamCount++) {
   const legacy = Object.assign({}, tournament, { bracketType: undefined });
   const result = calculateStandings(legacy, matches, legacy.teams);
   assert(result, '缺少 bracketType 时仍应按双败结算');
+}
+
+/* 落位解析：没有落位表时退回队伍原始顺序（系统分组按组号），不随机打乱 */
+{
+  const natural = [0, 1, 2, 3, 4, 5, 6, 7];
+  assert.deepStrictEqual(resolveSeeding(8, null), natural, '缺少落位表时应按队伍原始顺序');
+  assert.deepStrictEqual(resolveSeeding(8, undefined), natural, '落位表为 undefined 时同样退回原始顺序');
+  const manual = [3, 2, 1, 0, 7, 6, 5, 4];
+  assert.deepStrictEqual(resolveSeeding(8, manual), manual, '合法落位表必须原样使用');
+  assert.deepStrictEqual(resolveSeeding(8, [0, 0, 1, 2, 3, 4, 5, 6]), natural, '重复落位视为非法');
+  assert.deepStrictEqual(resolveSeeding(8, [0, 1, 2]), natural, '长度不符视为非法');
+  assert.deepStrictEqual(resolveSeeding(8, [0, 1, 2, 3, 4, 5, 6, 8]), natural, '越界落位视为非法');
+}
+
+/* 首轮配对顺序：从上到下 = 第1支打第2支、第3支打第4支…… 双败与单败口径一致 */
+{
+  const ordered = orderTeamsBySeeding(makeTeams(8), null);
+  const expected = [
+    ['队伍 1', '队伍 2'],
+    ['队伍 3', '队伍 4'],
+    ['队伍 5', '队伍 6'],
+    ['队伍 7', '队伍 8'],
+  ];
+  const pairsOf = (matches) => matches
+    .filter((match) => match.stage === 'UB1')
+    .sort((a, b) => a.id - b.id)
+    .map((match) => [match.teamA.name, match.teamB.name]);
+  assert.deepStrictEqual(pairsOf(buildBracket(ordered)), expected, '双败首轮应按队伍顺序相邻配对');
+  assert.deepStrictEqual(pairsOf(buildSingleElimination(ordered)), expected, '单败首轮应按队伍顺序相邻配对');
+}
+
+/* 奇数队伍：末位落位轮空，直接进入下一轮胜者组 */
+{
+  const matches = buildBracket(makeTeams(5));
+  const firstRound = matches
+    .filter((match) => match.stage === 'UB1')
+    .sort((a, b) => a.id - b.id)
+    .map((match) => [match.teamA.name, match.teamB.name]);
+  assert.deepStrictEqual(firstRound, [['队伍 1', '队伍 2'], ['队伍 3', '队伍 4']], '5 支队伍时首轮只配两场');
+  const byeSides = matches.filter((match) => ['A', 'B'].some((slot) => {
+    const src = match['team' + slot];
+    return src && src.type === 'team' && src.name === '队伍 5';
+  }));
+  assert.strictEqual(byeSides.length, 1, '队伍 5 只应出现在一场比赛里');
+  assert.strictEqual(byeSides[0].stage, 'UBF', '末位落位轮空后应在胜者组决赛登场');
 }
 
 console.log('Single elimination bracket tests passed for structure, 2-16 teams standings, and single-format compatibility.');

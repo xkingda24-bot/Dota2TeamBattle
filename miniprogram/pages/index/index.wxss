@@ -26,6 +26,31 @@
 .setup-desc { margin-top:5rpx; color:#9aa4b3; font-size:21rpx; }
 .setup-arrow { color:#d5b26e; font-size:42rpx; font-weight:200; line-height:1; }
 
+.season-points-banner {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  min-height:156rpx;
+  margin-top:20rpx;
+  padding:20rpx 24rpx;
+  border:1rpx solid rgba(224,181,111,.2);
+  border-radius:16rpx;
+  background:radial-gradient(ellipse at 100% 0,rgba(214,164,78,.17),transparent 48%),linear-gradient(120deg,#1a2431,#121923 72%);
+  box-shadow:0 10rpx 28rpx rgba(0,0,0,.16),inset 0 0 24rpx rgba(226,177,94,.035);
+}
+.season-points-banner-copy { min-width:0; }
+.season-points-kicker { color:#b08b52; font-size:18rpx; letter-spacing:3rpx; }
+.season-points-title { margin-top:7rpx; color:#f0dfbc; font-size:29rpx; font-weight:700; letter-spacing:1rpx; }
+.season-points-summary { display:flex; align-items:baseline; flex-wrap:wrap; gap:7rpx; margin-top:8rpx; }
+.season-points-value { color:#f0cd7e; font-size:34rpx; font-weight:700; font-variant-numeric:tabular-nums; line-height:1.1; }
+.season-points-unit { color:#d1b46f; font-size:19rpx; }
+.season-points-rank { margin-left:8rpx; color:#d8d0bd; font-size:21rpx; }
+.season-points-desc { margin-top:5rpx; color:#9ca5b1; font-size:19rpx; }
+.season-points-banner-side { display:flex; flex:none; align-items:center; margin-left:12rpx; }
+.season-points-badge { display:flex; align-items:center; justify-content:center; width:58rpx; height:58rpx; border:1rpx solid rgba(224,181,111,.34); border-radius:50%; color:#f0d394; background:rgba(224,181,111,.1); font-size:22rpx; font-weight:700; }
+.season-points-arrow { margin-left:14rpx; color:#d5b26e; font-size:42rpx; font-weight:300; line-height:1; }
+.season-points-banner-pressed { opacity:.76; transform:scale(.99); }
+
 .section-head { display:flex; align-items:flex-end; justify-content:space-between; margin:38rpx 4rpx 18rpx; }
 .section-title { margin-top:8rpx; color:#f0f1f3; font-size:34rpx; font-weight:700; }
 .section-count { margin-left:9rpx; color:#d6b36c; font-size:25rpx; font-weight:500; }

@@ -2,6 +2,7 @@
 const api = require('../../utils/api');
 const { formatDateTime, getTodayBoundary } = require('../../utils/date-time');
 const { normalizeRankTier, dotaRankLabel, leaderboardRank } = require('../../utils/dota-rank');
+const tournamentEntry = require('../../utils/tournament-entry');
 
 Page({
   data: {
@@ -15,6 +16,14 @@ Page({
     todayCreateLimit: 5,
     today: [],
     older: [],
+    // 积分入口常驻主页；服务不可用时仍显示状态，避免功能被静默隐藏。
+    seasonPointsVisible: true,
+    seasonPointsEnabled: false,
+    seasonPointsTitle: '2026 Q4 赛季积分',
+    seasonPointsQuarter: 'Q4',
+    seasonPointsValue: '—',
+    seasonPointsRankText: '正在读取赛季数据…',
+    seasonPointsStatus: '积分服务连接中',
     historyExpanded: false,
     historyBusyId: '',
     // 暗号验证弹窗
@@ -45,7 +54,37 @@ Page({
 
   onShow() {
     this._rpxScale = wx.getSystemInfoSync().windowWidth / 750;
+    this.loadSeasonPointsFeature();
     this.load();
+  },
+
+  loadSeasonPointsFeature() {
+    return api.callFunction('seasonPoints', 'getHomeSummary', {})
+      .then((config) => {
+        const seasonId = String(config && config.currentSeasonId || '');
+        const match = seasonId.match(/^(\d{4})Q([1-4])$/);
+        const me = config && config.me || {};
+        const enabled = !!(config && config.enabled);
+        const rank = Number(me.rank) || 0;
+        const totalPlayers = Number(me.totalPlayers) || 0;
+        this.setData({
+          seasonPointsEnabled: enabled,
+          seasonPointsTitle: match ? match[1] + ' Q' + match[2] + ' 赛季积分' : '赛季积分',
+          seasonPointsQuarter: match ? 'Q' + match[2] : '',
+          seasonPointsValue: enabled ? String(Number(me.points) || 0) : '—',
+          seasonPointsRankText: !enabled
+            ? '赛季积分暂未开放'
+            : rank ? '第 ' + rank + ' 名 / ' + totalPlayers + ' 位玩家'
+            : '暂未上榜 · 已结算 ' + (Number(me.settledMatches) || 0) + ' 场',
+          seasonPointsStatus: enabled ? '与天梯分独立计算' : '等待赛季积分服务开启',
+        });
+      })
+      .catch(() => this.setData({
+        seasonPointsEnabled: false,
+        seasonPointsValue: '—',
+        seasonPointsRankText: '赛季积分服务暂不可用',
+        seasonPointsStatus: '部署积分服务后显示真实数据',
+      }));
   },
 
   onPullDownRefresh() {
@@ -346,14 +385,43 @@ Page({
     wx.navigateTo({ url: '/pages/create/create' });
   },
 
+  goSeasonPoints() {
+    if (!this.data.seasonPointsEnabled) {
+      wx.showToast({ title: this.data.seasonPointsStatus || '赛季积分暂不可用', icon: 'none' });
+      return;
+    }
+    wx.navigateTo({ url: '/pages/season-points/season-points' });
+  },
+
   toggleHistory() {
     this.setData({ historyExpanded: !this.data.historyExpanded });
   },
 
-  goHistoryDetail(e) {
-    const item = this.data.older[Number(e.currentTarget.dataset.index)];
+  /* 历史比赛条目与「今天的比赛」走同一个入口，点进去就是同一个比赛页面。 */
+  goHistoryTournament(e) {
+    this.openTournament(this.data.older[Number(e.currentTarget.dataset.index)]);
+  },
+
+  /* 统一入口：按比赛当前状态决定落到报名页、选人页还是比赛页。 */
+  openTournament(item) {
     if (!item) return;
-    wx.navigateTo({ url: '/pages/history/history?id=' + (item.id || item._id) });
+    const id = tournamentEntry.resolveId(item);
+    const url = tournamentEntry.buildUrl(item);
+    if (!id || !url) {
+      wx.showToast({ title: '赛事编号缺失，请刷新后重试', icon: 'none' });
+      return;
+    }
+    if (!tournamentEntry.requiresSecret(item, !!wx.getStorageSync('dota2_secret_' + id))) {
+      wx.navigateTo({ url });
+      return;
+    }
+    this.setData({
+      secretModal: true,
+      secretTargetId: id,
+      secretTargetName: item.name,
+      secretInput: '',
+      secretChecking: false,
+    });
   },
 
   deleteFromHistory(e) {
@@ -387,31 +455,7 @@ Page({
   goTournament(e) {
     // 刚完成滑动操作时忽略本次点击（避免滑完误触进入）
     if (Date.now() < (this._blockCardTapUntil || 0)) return;
-    const item = this.data.today[e.currentTarget.dataset.index];
-    if (!item) return;
-    if (item.status === 'registration') {
-      // 已报名 / 创建者或管理员 / 本机已通过暗号 → 直接进入；否则弹窗验证暗号
-      if (item.canManage || item.meRegistered || wx.getStorageSync('dota2_secret_' + item.id)) {
-        wx.navigateTo({ url: '/pages/register/register?id=' + item.id });
-        return;
-      }
-      this.setData({
-        secretModal: true,
-        secretTargetId: item.id,
-        secretTargetName: item.name,
-        secretInput: '',
-        secretChecking: false,
-      });
-    } else if (item.status === 'draft') {
-      // 系统分组模式无选人环节，分组完成直接进对战页
-      if (item.mode === 'auto') {
-        wx.navigateTo({ url: '/pages/bracket/bracket?id=' + item.id });
-        return;
-      }
-      wx.navigateTo({ url: '/pages/draft/draft?id=' + item.id });
-    } else {
-      wx.navigateTo({ url: '/pages/bracket/bracket?id=' + item.id });
-    }
+    this.openTournament(this.data.today[e.currentTarget.dataset.index]);
   },
 
   onLongPressTournament(e) {
@@ -474,8 +518,10 @@ Page({
         api
           .call('finishTournament', { id: item.id })
           .then(() => {
-            wx.showToast({ title: '已归档', icon: 'success' });
             this.load();
+            return api.callFunction('seasonPoints', 'settleTournament', { tournamentId: item.id })
+              .then(() => wx.showToast({ title: '已归档并结算积分', icon: 'success' }))
+              .catch((err) => wx.showToast({ title: '赛事已归档，积分待补算：' + (err.message || '服务暂不可用'), icon: 'none' }));
           })
           .catch((err) => wx.showToast({ title: err.message || '归档失败', icon: 'none' }));
       },

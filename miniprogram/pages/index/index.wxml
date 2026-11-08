@@ -26,6 +26,24 @@
     <view class="setup-arrow">›</view>
   </view>
 
+  <!-- 赛季积分入口：独立于赛事列表，避免今日赛事为空时被误认为没有入口 -->
+  <view wx:if="{{seasonPointsVisible}}" class="season-points-banner" bindtap="goSeasonPoints" hover-class="season-points-banner-pressed">
+    <view class="season-points-banner-copy">
+      <view class="season-points-kicker">SEASON RANKING</view>
+      <view class="season-points-title">{{seasonPointsTitle}}</view>
+      <view class="season-points-summary">
+        <text class="season-points-value">{{seasonPointsValue}}</text>
+        <text class="season-points-unit">分</text>
+        <text class="season-points-rank">{{seasonPointsRankText}}</text>
+      </view>
+      <view class="season-points-desc">{{seasonPointsStatus}}</view>
+    </view>
+    <view class="season-points-banner-side">
+      <view class="season-points-badge">{{seasonPointsQuarter}}</view>
+      <view class="season-points-arrow">›</view>
+    </view>
+  </view>
+
   <view class="section-head">
     <view>
       <view class="section-kicker">MATCH CENTER</view>
@@ -128,7 +146,7 @@
     </view>
     <view wx:if="{{historyExpanded}}" class="history-body">
       <view wx:if="{{older.length === 0}}" class="history-empty">暂无历史赛事</view>
-      <view wx:for="{{older}}" wx:for-item="item" wx:key="id" class="history-item" data-index="{{index}}" bindtap="goHistoryDetail">
+      <view wx:for="{{older}}" wx:for-item="item" wx:key="id" class="history-item" data-index="{{index}}" bindtap="goHistoryTournament">
         <view class="history-item-main">
           <view class="history-item-top">
             <view class="history-item-title">{{item.name}}</view>

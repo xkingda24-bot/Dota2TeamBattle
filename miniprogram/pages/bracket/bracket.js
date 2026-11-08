@@ -88,6 +88,7 @@ Page({
     notFound: false,
     refreshError: false,
     canManage: false,
+    canDelete: false,
     settlement: null,
     settlementReady: false,
     settlementEditing: false,
@@ -137,8 +138,10 @@ Page({
     this.id = (options && options.id) || '';
     this._flowAnchor = options && options.anchor;
     this._requestedView = options && ['draft', 'battle', 'settlement'].indexOf(options.view) >= 0 ? options.view : '';
+    // 显式只读参数只作为内部能力保留；已归档比赛在 load() 里同样按只读处理。
+    this._readonlyOption = !!(options && options.readonly === '1');
     this.setData({
-      readonly: !!(options && options.readonly === '1'),
+      readonly: this._readonlyOption,
       stageView: this._requestedView,
     });
   },
@@ -316,6 +319,9 @@ Page({
     return api
       .call('tournament', data)
       .then((t) => {
+        // 已归档的比赛数据是历史快照：与历史详情页一致的只读语义，但仍展示完整结算与感言。
+        const readonly = this._readonlyOption || !!t.archivedAt;
+        if (this.data.readonly !== readonly) this.setData({ readonly });
         this._lastTournamentVersion = tournamentPolling.versionToken(t);
         this._lastFullSyncAt = Date.now();
         const emojiById = {};
@@ -545,8 +551,8 @@ Page({
           };
           nd.teamACaptain = capOf(nd.teamAInfo);
           nd.teamBCaptain = capOf(nd.teamBInfo);
-          nd.canEditA = !!t.canManage || !!(nd.teamACaptain && nd.teamACaptain.openid === t.myOpenid);
-          nd.canEditB = !!t.canManage || !!(nd.teamBCaptain && nd.teamBCaptain.openid === t.myOpenid);
+          nd.canEditA = !this.data.readonly && (!!t.canManage || !!(nd.teamACaptain && nd.teamACaptain.openid === t.myOpenid));
+          nd.canEditB = !this.data.readonly && (!!t.canManage || !!(nd.teamBCaptain && nd.teamBCaptain.openid === t.myOpenid));
         });
         const canReplacePlayers = !!(
           t.canManage && !this.data.readonly && (t.status === 'draft' || t.status === 'battle') &&
@@ -601,6 +607,9 @@ Page({
             : '胜者晋级，败者跌入败者组或淘汰（自动）',
           seedingTitle: bracketFormat.value === 'single' ? '对阵调整（首轮落位）' : '对阵调整（胜者组第一轮落位）',
           canManage: !!t.canManage,
+          // wxml 里的「比赛管理操作」卡片/归档按钮/删除按钮读的是页面级 canDelete，
+          // 之前只 setData 了 canManage，导致该卡片永远不渲染（归档入口不可见）。
+          canDelete: !!t.canDelete,
           ubMatches,
           lbMatches,
           gf,
@@ -1426,7 +1435,7 @@ Page({
 
   onFinish() {
     const t = this.data.t;
-    if (!t || this.data.readonly || !t.canDelete) return;
+    if (!t || this.data.readonly || !t.canDelete || t.archivedAt) return;
     const isFinished = t.status === 'finished';
     wx.showModal({
       title: isFinished ? '归档比赛' : '结束并归档',
@@ -1438,8 +1447,10 @@ Page({
           api
             .call('finishTournament', { id: t.id })
             .then(() => {
-              wx.showToast({ title: '已归档', icon: 'success' });
               this.load();
+              return api.callFunction('seasonPoints', 'settleTournament', { tournamentId: t.id })
+                .then(() => wx.showToast({ title: '已归档并结算积分', icon: 'success' }))
+                .catch((err) => wx.showToast({ title: '赛事已归档，积分待补算：' + (err.message || '服务暂不可用'), icon: 'none' }));
             })
             .catch((err) => wx.showToast({ title: err.message, icon: 'none' }));
         }
@@ -1449,7 +1460,8 @@ Page({
 
   onDelete() {
     const t = this.data.t;
-    if (!t || this.data.readonly || !t.canDelete) return;
+    // 删除不受只读限制：已归档比赛仍允许创建者或超管删除（与主页历史条目的删除入口一致）。
+    if (!t || !t.canDelete) return;
     wx.showModal({
       title: '确认删除？',
       content: '（删除后无法恢复。）',

@@ -5,9 +5,9 @@
     "pages/register/register",
     "pages/draft/draft",
     "pages/bracket/bracket",
-    "pages/history/history",
     "pages/staff/staff",
-    "pages/card-style/card-style"
+    "pages/card-style/card-style",
+    "pages/season-points/season-points"
   ],
   "window": {
     "backgroundColor": "#131821",
