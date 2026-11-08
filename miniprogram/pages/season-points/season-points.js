@@ -42,6 +42,10 @@ function buildSeasonView(data, fallbackSeasonId) {
   const records = Array.isArray(data && data.records) ? data.records : [];
   const seasonSummaries = Array.isArray(data && data.seasons) ? data.seasons : [];
   const seasonStatusByCode = new Map(seasonSummaries.map((item) => [item.code, item.status]));
+  const boardPage = data && data.leaderboardPage || {};
+  const totalPages = Math.max(1, Number(boardPage.totalPages) || 1);
+  const page = Math.min(Math.max(Number(boardPage.page) || 1, 1), totalPages);
+  const pageSize = Math.max(1, Number(boardPage.pageSize) || 10);
   return {
     seasons: SEASONS.map((item) => Object.assign({}, item, {
       status: seasonStatusText(seasonStatusByCode.get(item.code)),
@@ -58,13 +62,22 @@ function buildSeasonView(data, fallbackSeasonId) {
     myNickname: String(me.nickname || '未设置昵称'),
     mmr: me.mmr == null ? '—' : String(me.mmr),
     showMyRankRow: !me.rank || Number(me.rank) > 3,
-    leaderboard: leaderboard.map((item) => ({
+    // 积分榜每条渲染成玩家名片，服务端按 10 条一页返回
+    leaderboard: leaderboard.map((item, index) => ({
+      seq: (page - 1) * pageSize + index + 1,
       place: item.rank,
-      nickname: String(item.nickname || '玩家'),
-      avatar: String(item.nickname || '玩').slice(0, 1),
-      mmr: item.mmr == null ? '—' : String(item.mmr),
-      points: formatPoints(item.points),
+      isMine: !!item.isMine,
+      player: item.player || { openid: '', nickname: String(item.nickname || '玩家'), mmr: item.mmr },
     })),
+    leaderboardPage: {
+      page,
+      pageSize,
+      totalPages,
+      canPrev: page > 1,
+      canNext: page < totalPages,
+      pageText: '第 ' + page + ' / ' + totalPages + ' 页',
+      summaryText: '共 ' + (Number(boardPage.totalPlayers) || Number(me.totalPlayers) || 0) + ' 位玩家 · 每页 ' + pageSize + ' 人',
+    },
     records: records.map((item) => ({
       date: formatDate(item.date),
       title: String(item.title || '赛事结算'),
@@ -91,6 +104,7 @@ Page({
     mmr: '—',
     showMyRankRow: true,
     leaderboard: [],
+    leaderboardPage: { page: 1, pageSize: 10, totalPages: 1, canPrev: false, canNext: false, pageText: '第 1 / 1 页', summaryText: '' },
     records: [],
     activeTab: 'leaderboard',
     loading: true,
@@ -109,11 +123,11 @@ Page({
     this.loadSeasonPage(seasonId);
   },
 
-  loadSeasonPage(seasonId) {
+  loadSeasonPage(seasonId, page) {
     const requestId = (this._seasonRequestId || 0) + 1;
     this._seasonRequestId = requestId;
     this.setData({ loading: true, loadError: '' });
-    return api.callFunction('seasonPoints', 'getSeasonPage', { seasonId })
+    return api.callFunction('seasonPoints', 'getSeasonPage', { seasonId, page: Math.max(1, Number(page) || 1) })
       .then((result) => {
         if (requestId !== this._seasonRequestId) return;
         this.setData(Object.assign({ loading: false, hasLoaded: true, loadError: '' }, buildSeasonView(result, seasonId)));
@@ -125,7 +139,15 @@ Page({
   },
 
   retryLoad() {
-    this.loadSeasonPage(this.data.selectedSeason);
+    this.loadSeasonPage(this.data.selectedSeason, this.data.leaderboardPage.page);
+  },
+
+  onLeaderboardPage(event) {
+    const direction = Number(event.currentTarget.dataset.dir) || 0;
+    const board = this.data.leaderboardPage || {};
+    const target = (Number(board.page) || 1) + direction;
+    if (!direction || target < 1 || target > (Number(board.totalPages) || 1)) return;
+    this.loadSeasonPage(this.data.selectedSeason, target);
   },
 
   onSelectSeason(event) {

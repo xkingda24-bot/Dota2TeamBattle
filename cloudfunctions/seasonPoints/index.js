@@ -17,7 +17,7 @@ cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 const db = cloud.database();
 const _ = db.command;
 const COLLECTIONS = ['seasonConfigs', 'seasonRules', 'seasonSettlements', 'seasonPointLedger', 'seasonAccounts'];
-const PAGE_SIZE = 20;
+const CARD_PAGE_SIZE = 10; // 积分榜一页 10 张玩家名片
 const BACKFILL_BATCH_SIZE = 1;
 const SKIPPABLE_BACKFILL_CODES = new Set([
   'INVALID_TOURNAMENT', 'INELIGIBLE_TOURNAMENT', 'UNSUPPORTED_TEAM_COUNT', 'INCOMPLETE_STANDINGS',
@@ -285,6 +285,27 @@ function displayPoints(units) {
   return Number.isInteger(points) ? points : Number(points.toFixed(1));
 }
 
+/** 把用户档案收敛成名片组件需要的字段；缺失的字段回退到赛季账户里的快照。 */
+function buildCardPlayer(profile, account) {
+  const source = profile || {};
+  const fallback = account || {};
+  return {
+    openid: String(fallback.openid || ''),
+    nickname: String(source.nickname || fallback.nickname || '玩家'),
+    signature: String(source.signature || ''),
+    roles: Array.isArray(source.roles) ? source.roles : [],
+    rolesText: String(source.rolesText || ''),
+    dota2Id: source.dota2Id == null ? '' : String(source.dota2Id),
+    dota2RankTier: source.dota2RankTier == null ? null : source.dota2RankTier,
+    dota2RankVerified: source.dota2RankVerified,
+    dota2RankVerifiedAt: source.dota2RankVerifiedAt || source.dota2VerifiedAt || 0,
+    mmr: source.mmr == null
+      ? (fallback.mmr == null ? null : Number(fallback.mmr))
+      : Number(source.mmr),
+    cardStyle: source.cardStyle || null,
+  };
+}
+
 function seasonStatus(season, timestamp) {
   const now = Number(timestamp) || Date.now();
   return now >= season.startAt && now < season.endAt ? 'active' : now < season.startAt ? 'upcoming' : 'closed';
@@ -343,19 +364,24 @@ async function getSeasonPage(openid, event) {
     return String(a.nickname || '').localeCompare(String(b.nickname || ''), 'zh-CN');
   });
   const myUnits = Number(myAccount && myAccount.balanceUnits) || 0;
-  const myRankIndex = myAccount ? sorted.findIndex((item) => (Number(item.balanceUnits) || 0) === myUnits) : -1;
-  const myRank = myRankIndex < 0 ? null : sorted.filter((item) => (Number(item.balanceUnits) || 0) > myUnits).length + 1;
-  const visibleAccounts = sorted.slice(0, PAGE_SIZE);
-  const profileMap = await getUsersByOpenids(visibleAccounts.map((item) => item.openid).concat(openid));
-  const leaderboard = visibleAccounts.map((item) => {
+  const myRankIndex = myAccount ? sorted.findIndex((item) => String(item.openid) === String(openid)) : -1;
+  const myRank = myRankIndex < 0 ? null : myRankIndex + 1;
+  const totalPlayers = allAccounts.length;
+  const totalPages = Math.max(1, Math.ceil(totalPlayers / CARD_PAGE_SIZE));
+  const page = Math.min(Math.max(Math.floor(Number(event.page) || 1), 1), totalPages);
+  const pageStart = (page - 1) * CARD_PAGE_SIZE;
+  const pageAccounts = sorted.slice(pageStart, pageStart + CARD_PAGE_SIZE);
+  const profileMap = await getUsersByOpenids(pageAccounts.map((item) => item.openid).concat(openid));
+  const leaderboard = pageAccounts.map((item, index) => {
     const profile = profileMap[item.openid] || {};
-    const units = Number(item.balanceUnits) || 0;
     return {
-      rank: sorted.filter((candidate) => (Number(candidate.balanceUnits) || 0) > units).length + 1,
-      nickname: String(profile.nickname || item.nickname || '玩家'),
-      mmr: profile.mmr == null ? item.mmr == null ? null : Number(item.mmr) : Number(profile.mmr),
+      // 名次按排序后的连续位置给出，避免并列积分时整页都是「1」
+      rank: pageStart + index + 1,
       points: displayPoints(item.balanceUnits),
+      mmr: profile.mmr == null ? (item.mmr == null ? null : Number(item.mmr)) : Number(profile.mmr),
       isMine: item.openid === openid,
+      // 名片组件需要完整的人物字段，这里只带必要的展示字段，避免把整份用户文档传回前端
+      player: buildCardPlayer(profile, item),
     };
   });
   const profile = profileMap[openid] || await getUserRecord(openid) || {};
@@ -387,6 +413,12 @@ async function getSeasonPage(openid, event) {
       settledMatches: Number(myAccount && myAccount.settledMatches) || 0,
     },
     leaderboard,
+    leaderboardPage: {
+      page,
+      pageSize: CARD_PAGE_SIZE,
+      totalPages,
+      totalPlayers,
+    },
     canBackfill: await isSuperAdmin(openid),
     records: ledger.map((item) => ({
       date: Number(item.eventAt || item.createdAt) || 0,

@@ -83,24 +83,26 @@
     </view>
     <view class="leaderboard-head">
       <text class="col-place">排名</text>
-      <text class="col-player">玩家</text>
-      <text class="col-mmr">天梯</text>
-      <text class="col-points">积分</text>
+      <text class="col-player">玩家名片</text>
+      <text class="col-points">每页 10 人</text>
     </view>
     <view
       wx:for="{{leaderboard}}"
-      wx:key="place"
-      class="leaderboard-row {{item.isMine ? 'leaderboard-row-mine' : ''}}"
+      wx:key="seq"
+      class="leader-card-row {{item.isMine ? 'leader-card-row-mine' : ''}}"
     >
-      <view class="place-cell">
-        <text class="place-number place-number-{{item.place}}">{{item.place}}</text>
+      <view class="leader-rank">
+        <text class="leader-rank-number leader-rank-top{{item.place <= 3 ? item.place : ''}}">{{item.place}}</text>
       </view>
-      <view class="player-cell">
-        <view class="leader-avatar leader-avatar-{{item.place}}">{{item.avatar}}</view>
-        <text class="leader-name">{{item.nickname}}</text>
+      <view class="leader-card-wrap">
+        <player-card player="{{item.player}}" compact="{{true}}" />
       </view>
-      <text class="leader-mmr">{{item.mmr}}</text>
-      <text class="leader-points">{{item.points}}</text>
+    </view>
+
+    <view wx:if="{{leaderboardPage.totalPages > 1}}" class="board-pager">
+      <view class="pager-btn {{leaderboardPage.canPrev ? '' : 'pager-btn-disabled'}}" data-dir="-1" bindtap="onLeaderboardPage" hover-class="season-choice-pressed">上一页</view>
+      <text class="pager-info">{{leaderboardPage.pageText}}</text>
+      <view class="pager-btn {{leaderboardPage.canNext ? '' : 'pager-btn-disabled'}}" data-dir="1" bindtap="onLeaderboardPage" hover-class="season-choice-pressed">下一页</view>
     </view>
 
     <view wx:if="{{showMyRankRow}}" class="my-rank-row">
@@ -115,7 +117,7 @@
       <view class="my-rank-points">{{myPoints}}</view>
     </view>
     <view wx:if="{{leaderboard.length === 0}}" class="season-empty">本赛季暂无已结算积分</view>
-    <view wx:else class="demo-footnote">共 {{totalPlayers}} 位玩家 · 名次按积分排序</view>
+    <view wx:else class="demo-footnote">{{leaderboardPage.summaryText}} · 名次按积分排序</view>
   </view>
 
   <view wx:elif="{{activeTab === 'records'}}" class="season-panel">
