@@ -21,6 +21,10 @@
         </view>
         <text wx:elif="{{player.rolesText}}" class="player-card-location">· {{player.rolesText}}</text>
       </view>
+      <view wx:if="{{seasonPointsReady}}" class="player-card-season-points">
+        <text class="player-card-season-label">赛季积分</text>
+        <text class="player-card-season-value">{{seasonPoints}}</text>
+      </view>
       <view wx:if="{{player.signature}}" class="player-card-signature">{{player.signature}}</view>
     </view>
   </view>

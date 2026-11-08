@@ -77,6 +77,14 @@
     <view class="sub">分页查看全部用户，可按 Dota ID、天梯分、用户名或段位排序。</view>
     <view class="btn" bindtap="onOpenUserList">查看用户列表</view>
   </view>
+
+  <view class="card" wx:if="{{isSuper}}">
+    <view class="card-title">赛季积分历史补算</view>
+    <view class="sub">扫描已归档赛事并按当前规则补充积分流水；同一赛事重复运行不会重复发分。</view>
+    <view wx:if="seasonBackfillProgress" class="sub season-backfill-progress">{{seasonBackfillProgress}}</view>
+    <view wx:if="{{seasonBackfillBusy}}" class="btn" bindtap="pauseSeasonBackfill">暂停历史补算</view>
+    <view wx:else class="btn" bindtap="onBackfillSeasonPoints">{{seasonBackfillCursor ? '继续补算历史赛事' : '开始补算历史赛事'}}</view>
+  </view>
   </block>
 </view>
 

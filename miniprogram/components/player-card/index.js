@@ -1,6 +1,7 @@
 const { DEFAULT_CARD_STYLE, normalizeCardStyle } = require('../../utils/card-style');
 const { dotaRankLabel, hasCurrentRankVerification } = require('../../utils/dota-rank');
 const { ROLE_NUMS, VERSATILE_LABEL, normalizeRoles, isVersatileText } = require('../../utils/roles');
+const { getSeasonPoints } = require('../../utils/season-points-cache');
 
 Component({
   properties: {
@@ -10,6 +11,7 @@ Component({
       observer(value) {
         this.updateDotaCard(value);
         this.updateRoleChips(value);
+        this.updateSeasonPoints(value);
       },
     },
     cardStyle: {
@@ -28,6 +30,8 @@ Component({
   data: {
     normalizedStyle: DEFAULT_CARD_STYLE,
     dotaCard: { rankVerified: false, displayText: '', dota2Id: '', rankLabel: '', mmr: null },
+    seasonPointsReady: false,
+    seasonPoints: '0',
     roleNums: [],
     hasRoleChips: false,
     roleVersatile: false,
@@ -49,6 +53,21 @@ Component({
         roleNums: versatile ? [VERSATILE_LABEL] : nums,
         hasRoleChips: nums.length > 0,
         roleVersatile: versatile,
+      });
+    },
+    updateSeasonPoints(player) {
+      const openid = String(player && player.openid || '').trim();
+      const requestId = (this._seasonPointsRequestId || 0) + 1;
+      this._seasonPointsRequestId = requestId;
+      this.setData({ seasonPointsReady: false, seasonPoints: '0' });
+      if (!openid) return;
+      getSeasonPoints(openid).then((points) => {
+        if (requestId !== this._seasonPointsRequestId || points === null) return;
+        const value = Number(points) || 0;
+        this.setData({
+          seasonPointsReady: true,
+          seasonPoints: Number.isInteger(value) ? String(value) : value.toFixed(1),
+        });
       });
     },
     updateDotaCard(player) {
@@ -79,6 +98,7 @@ Component({
       this.setData({ normalizedStyle: normalizeCardStyle(this.data.cardStyle) });
       this.updateDotaCard(this.data.player);
       this.updateRoleChips(this.data.player);
+      this.updateSeasonPoints(this.data.player);
     },
   },
 });

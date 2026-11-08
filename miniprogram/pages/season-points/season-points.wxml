@@ -1,0 +1,188 @@
+<nav-bar title="赛季积分" />
+
+<view class="season-page">
+  <view class="season-heading">
+    <view class="season-kicker">SEASON RANKING</view>
+    <view class="season-title-row">
+      <view class="season-title">赛季积分</view>
+      <view class="demo-tag">真实赛果结算</view>
+    </view>
+    <view class="season-subtitle">记录赛事表现，与天梯分独立计算</view>
+  </view>
+
+  <view class="season-picker" aria-label="选择赛季">
+    <view
+      wx:for="{{seasons}}"
+      wx:key="code"
+      class="season-choice {{selectedSeason === item.code ? 'season-choice-active' : ''}}"
+      data-season="{{item.code}}"
+      bindtap="onSelectSeason"
+      hover-class="season-choice-pressed"
+    >
+      <text class="season-choice-quarter">{{item.short}}</text>
+      <text class="season-choice-status">{{item.status}}</text>
+    </view>
+  </view>
+
+  <view class="season-dates">
+    <view class="season-live-dot {{seasonStatus === '进行中' ? 'season-live-dot-on' : ''}}"></view>
+    <text class="season-dates-title">{{seasonLabel}} · {{seasonStatus}}</text>
+    <text class="season-dates-range">{{seasonPeriod}}</text>
+  </view>
+
+  <view wx:if="{{loading}}" class="season-state">
+    <view class="season-state-title">正在读取赛季数据</view>
+    <view class="season-state-desc">积分只根据已归档赛事结算</view>
+  </view>
+  <view wx:elif="{{loadError}}" class="season-state season-state-error">
+    <view class="season-state-title">赛季数据暂不可用</view>
+    <view class="season-state-desc">{{loadError}}</view>
+    <view class="season-retry" bindtap="retryLoad" hover-class="season-choice-pressed">重新加载</view>
+  </view>
+
+  <view wx:if="{{hasLoaded}}" class="points-card">
+    <view class="points-card-top">
+      <view class="points-card-identity">
+        <view class="points-avatar">我</view>
+        <view class="points-player-copy">
+          <view class="points-card-label">我的赛季名片</view>
+          <view class="points-player-name">{{myNickname}}</view>
+        </view>
+      </view>
+      <view class="sample-label">实时数据</view>
+    </view>
+
+    <view class="points-metrics">
+      <view class="points-metric points-metric-primary">
+        <view class="points-metric-label">{{seasonLabel}} 积分</view>
+        <view class="points-metric-value">{{myPoints}}<text class="points-unit">分</text></view>
+      </view>
+      <view class="metric-divider"></view>
+      <view class="points-metric">
+        <view class="points-metric-label">天梯分</view>
+        <view class="mmr-value">{{mmr}}</view>
+      </view>
+    </view>
+
+    <view class="points-card-bottom">
+      <text>本季排名 <text class="points-rank">#{{myRank}}</text> / {{totalPlayers}}</text>
+      <text>已结算 {{completedMatches}} 场</text>
+    </view>
+  </view>
+
+  <view class="season-tabs" role="tablist" aria-label="赛季积分内容">
+    <view class="season-tab {{activeTab === 'leaderboard' ? 'season-tab-active' : ''}}" data-tab="leaderboard" bindtap="onSelectTab">积分榜</view>
+    <view class="season-tab {{activeTab === 'records' ? 'season-tab-active' : ''}}" data-tab="records" bindtap="onSelectTab">积分流水</view>
+    <view class="season-tab {{activeTab === 'rules' ? 'season-tab-active' : ''}}" data-tab="rules" bindtap="onSelectTab">规则</view>
+  </view>
+
+  <view wx:if="{{activeTab === 'leaderboard'}}" class="season-panel">
+    <view class="panel-heading-row">
+      <view class="panel-heading">本季排行榜</view>
+      <view class="panel-caption">按赛季积分排序</view>
+    </view>
+    <view class="leaderboard-head">
+      <text class="col-place">排名</text>
+      <text class="col-player">玩家</text>
+      <text class="col-mmr">天梯</text>
+      <text class="col-points">积分</text>
+    </view>
+    <view
+      wx:for="{{leaderboard}}"
+      wx:key="place"
+      class="leaderboard-row {{item.isMine ? 'leaderboard-row-mine' : ''}}"
+    >
+      <view class="place-cell">
+        <text class="place-number place-number-{{item.place}}">{{item.place}}</text>
+      </view>
+      <view class="player-cell">
+        <view class="leader-avatar leader-avatar-{{item.place}}">{{item.avatar}}</view>
+        <text class="leader-name">{{item.nickname}}</text>
+      </view>
+      <text class="leader-mmr">{{item.mmr}}</text>
+      <text class="leader-points">{{item.points}}</text>
+    </view>
+
+    <view wx:if="{{showMyRankRow}}" class="my-rank-row">
+      <view class="my-rank-place">{{myRankText}}</view>
+      <view class="my-rank-player">
+        <view class="my-rank-avatar">我</view>
+        <view>
+          <view class="my-rank-name">{{myNickname}}</view>
+          <view class="my-rank-meta">天梯 {{mmr}}</view>
+        </view>
+      </view>
+      <view class="my-rank-points">{{myPoints}}</view>
+    </view>
+    <view wx:if="{{leaderboard.length === 0}}" class="season-empty">本赛季暂无已结算积分</view>
+    <view wx:else class="demo-footnote">共 {{totalPlayers}} 位玩家 · 名次按积分排序</view>
+  </view>
+
+  <view wx:elif="{{activeTab === 'records'}}" class="season-panel">
+    <view class="panel-heading-row">
+      <view class="panel-heading">积分流水</view>
+      <view class="panel-caption">最近的赛事结算</view>
+    </view>
+    <view wx:for="{{records}}" wx:key="date" class="record-row">
+      <view class="record-mark"></view>
+      <view class="record-main">
+        <view class="record-title">{{item.title}}</view>
+        <view class="record-meta">{{item.date}} · {{item.detail}}</view>
+      </view>
+      <view class="record-delta {{item.negative ? 'record-delta-negative' : ''}}">{{item.delta}}</view>
+    </view>
+    <view wx:if="{{records.length === 0}}" class="season-empty">暂无积分流水</view>
+    <view wx:else class="demo-footnote">每条记录关联已归档赛事和结算名次</view>
+  </view>
+
+  <view wx:else class="season-panel rules-panel">
+    <view class="panel-heading-row">
+      <view class="panel-heading">积分规则</view>
+      <view class="panel-caption">2026 赛季规则预览</view>
+    </view>
+    <view class="rule-row">
+      <view class="rule-mark">01</view>
+      <view class="rule-copy">
+        <view class="rule-title">按赛事最终名次结算</view>
+        <view class="rule-desc">赛事归档后，按该队每位正式参赛成员分别记分；同一赛事不会重复发分。</view>
+      </view>
+    </view>
+    <view class="rule-row">
+      <view class="rule-mark">02</view>
+      <view class="rule-copy">
+        <view class="rule-title">赛季按自然季度划分</view>
+        <view class="rule-desc">2026 Q1 至 Q4 分别统计；以赛事归档时间归属季度，历史赛季可查询。</view>
+      </view>
+    </view>
+    <view class="rule-row">
+      <view class="rule-mark">03</view>
+      <view class="rule-copy">
+        <view class="rule-title">积分和天梯分互不换算</view>
+        <view class="rule-desc">天梯分用于实力展示与现有分队流程；赛季积分只用于赛季排名，不改变天梯分。</view>
+      </view>
+    </view>
+    <view class="rule-row">
+      <view class="rule-mark">04</view>
+      <view class="rule-copy">
+        <view class="rule-title">第三、第四名同按季军分值</view>
+        <view class="rule-desc">每队参赛人数不一致时暂不自动结算；原表未定义的“平摊额”不计入本版规则。</view>
+      </view>
+    </view>
+    <view class="score-table-title">名次分值示意</view>
+    <view wx:for="{{scoreRules}}" wx:key="teams" class="score-rule-row">
+      <view class="score-rule-head">
+        <text class="score-rule-teams">{{item.teams}}</text>
+        <text class="score-rule-net">名次分合计 0</text>
+      </view>
+      <view class="score-rule-values">
+        <view class="score-rule-value"><text>冠军</text><text class="score-rule-number">{{item.champion}}</text></view>
+        <view class="score-rule-value"><text>亚军</text><text class="score-rule-number">{{item.runnerUp}}</text></view>
+        <view class="score-rule-value"><text>季军各</text><text class="score-rule-number">{{item.third}}</text></view>
+        <view class="score-rule-value"><text>其他</text><text class="score-rule-number">{{item.others}}</text></view>
+      </view>
+    </view>
+    <view class="rule-note">当前只自动结算 4、8、16 队的已归档赛事；其他队伍数需要后续明确新规则。</view>
+  </view>
+
+  <view class="season-page-footer">GLHF <text>·</text> GOOD LUCK, HAVE FUN</view>
+</view>
