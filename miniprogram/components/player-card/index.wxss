@@ -27,9 +27,12 @@
 .player-card-meta { display: flex; align-items: center; justify-content: flex-end; gap: 14rpx; margin-top: 0; color: rgba(223, 208, 177, .83); font-size: 22rpx; }
 .player-card-dota { flex: 0 1 auto; min-width: 0; margin-top: 0; color: rgba(230, 214, 183, .9); font-size: 21rpx; line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .player-card-location { flex-shrink: 0; white-space: nowrap; }
-.player-card-season-points { display: flex; justify-content: flex-end; align-items: baseline; gap: 7rpx; margin-top: 4rpx; color: rgba(222, 204, 164, .78); font-size: 18rpx; line-height: 1.2; }
+/* 赛季参与场次 + 赛季积分与签名同一排：积分信息在左、签名在右，签名过长时省略 */
+.player-card-footer { display: flex; align-items: baseline; justify-content: flex-end; gap: 10rpx; margin-top: 4rpx; min-width: 0; }
+.player-card-season-stats { display: flex; align-items: baseline; gap: 5rpx; flex: none; white-space: nowrap; color: rgba(222, 204, 164, .78); font-size: 18rpx; line-height: 1.2; }
 .player-card-season-label { color: rgba(222, 204, 164, .58); }
 .player-card-season-value { color: #f0cd7e; font-size: 22rpx; font-weight: 700; font-variant-numeric: tabular-nums; }
+.player-card-season-dot { margin: 0 3rpx; color: rgba(222, 204, 164, .42); }
 /* 位次数字徽章：组件样式隔离，样式必须自带 */
 .player-card-roles { display: flex; align-items: center; flex-shrink: 0; }
 .player-card-role-chip {
@@ -52,13 +55,13 @@
 .player-card-roles .player-card-role-chip:first-child { margin-left: 0; }
 /* 「全能」徽章：五个位次全选时折叠成一个，去掉方块固定宽，按文字自适应 */
 .player-card-role-chip-versatile { min-width: 0; padding: 0 10rpx; letter-spacing: 2rpx; }
-.player-card-signature { margin-top: 3rpx; max-width: 100%; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: rgba(235, 229, 216, .72); font-size: 21rpx; }
+.player-card-signature { flex: 0 1 auto; min-width: 0; margin-top: 0; max-width: 100%; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: rgba(235, 229, 216, .72); font-size: 21rpx; }
 .player-card-compact { min-height: 84rpx; padding: 10rpx 14rpx; }
 .player-card-compact .player-card-name { font-size: 32rpx; }
 .player-card-compact .player-card-dota { font-size: 19rpx; }
 .player-card-compact .player-card-meta { margin-top: 0; font-size: 20rpx; }
-.player-card-compact .player-card-signature { margin-top: 2rpx; }
-.player-card-compact .player-card-season-points { margin-top: 2rpx; font-size: 16rpx; }
+.player-card-compact .player-card-footer { margin-top: 2rpx; gap: 8rpx; }
+.player-card-compact .player-card-season-stats { font-size: 16rpx; }
 .player-card-compact .player-card-season-value { font-size: 19rpx; }
 .player-card-compact .player-card-role-chip { min-width: 26rpx; height: 26rpx; padding: 0 5rpx; font-size: 19rpx; }
 .player-card-compact .player-card-role-chip-versatile { min-width: 0; padding: 0 8rpx; letter-spacing: 1rpx; }

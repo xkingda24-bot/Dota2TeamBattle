@@ -1,7 +1,7 @@
 const { DEFAULT_CARD_STYLE, normalizeCardStyle } = require('../../utils/card-style');
 const { dotaRankLabel, hasCurrentRankVerification } = require('../../utils/dota-rank');
 const { ROLE_NUMS, VERSATILE_LABEL, normalizeRoles, isVersatileText } = require('../../utils/roles');
-const { getSeasonPoints } = require('../../utils/season-points-cache');
+const { getSeasonCardStats } = require('../../utils/season-points-cache');
 
 Component({
   properties: {
@@ -32,6 +32,7 @@ Component({
     dotaCard: { rankVerified: false, displayText: '', dota2Id: '', rankLabel: '', mmr: null },
     seasonPointsReady: false,
     seasonPoints: '0',
+    seasonMatches: '0',
     roleNums: [],
     hasRoleChips: false,
     roleVersatile: false,
@@ -59,14 +60,15 @@ Component({
       const openid = String(player && player.openid || '').trim();
       const requestId = (this._seasonPointsRequestId || 0) + 1;
       this._seasonPointsRequestId = requestId;
-      this.setData({ seasonPointsReady: false, seasonPoints: '0' });
+      this.setData({ seasonPointsReady: false, seasonPoints: '0', seasonMatches: '0' });
       if (!openid) return;
-      getSeasonPoints(openid).then((points) => {
-        if (requestId !== this._seasonPointsRequestId || points === null) return;
-        const value = Number(points) || 0;
+      getSeasonCardStats(openid).then((stats) => {
+        if (requestId !== this._seasonPointsRequestId || !stats) return;
+        const value = Number(stats.points) || 0;
         this.setData({
           seasonPointsReady: true,
           seasonPoints: Number.isInteger(value) ? String(value) : value.toFixed(1),
+          seasonMatches: String(Number(stats.matches) || 0),
         });
       });
     },

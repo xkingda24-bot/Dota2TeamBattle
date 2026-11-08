@@ -21,11 +21,17 @@
         </view>
         <text wx:elif="{{player.rolesText}}" class="player-card-location">· {{player.rolesText}}</text>
       </view>
-      <view wx:if="{{seasonPointsReady}}" class="player-card-season-points">
-        <text class="player-card-season-label">赛季积分</text>
-        <text class="player-card-season-value">{{seasonPoints}}</text>
+      <view wx:if="{{seasonPointsReady || player.signature}}" class="player-card-footer">
+        <view wx:if="{{seasonPointsReady}}" class="player-card-season-stats">
+          <text class="player-card-season-label">赛季参与</text>
+          <text class="player-card-season-value">{{seasonMatches}}</text>
+          <text class="player-card-season-label">场</text>
+          <text class="player-card-season-dot">·</text>
+          <text class="player-card-season-label">赛季积分</text>
+          <text class="player-card-season-value">{{seasonPoints}}</text>
+        </view>
+        <view wx:if="{{player.signature}}" class="player-card-signature">{{player.signature}}</view>
       </view>
-      <view wx:if="{{player.signature}}" class="player-card-signature">{{player.signature}}</view>
     </view>
   </view>
 </view>

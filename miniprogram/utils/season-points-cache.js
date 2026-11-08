@@ -40,27 +40,36 @@ function flushQueue() {
           batch.forEach((openid) => settle(openid, null, seasonId));
           return;
         }
-        batch.forEach((openid, index) => settle(openid, result.points[index], seasonId));
+        batch.forEach((openid, index) => settle(openid, {
+          points: result.points[index],
+          matches: Array.isArray(result.matches) ? result.matches[index] : 0,
+        }, seasonId));
       })
       .catch(() => batch.forEach((openid) => settle(openid, null, seasonId)));
   });
 }
 
-function settle(openid, points, seasonId) {
+function settle(openid, stats, seasonId) {
   const key = cacheKey(seasonId, openid);
   pending.delete(key);
-  const cachedPoints = points === null || !Number.isFinite(Number(points)) ? null : Number(points);
-  cache.set(key, { points: cachedPoints, expiresAt: Date.now() + CACHE_TTL_MS });
+  const cached = stats === null
+    ? null
+    : {
+      points: Number.isFinite(Number(stats.points)) ? Number(stats.points) : null,
+      matches: Number.isFinite(Number(stats.matches)) ? Number(stats.matches) : 0,
+    };
+  cache.set(key, { stats: cached, expiresAt: Date.now() + CACHE_TTL_MS });
   const resolve = pendingResolvers.get(key);
   if (resolve) {
     pendingResolvers.delete(key);
-    resolve(cachedPoints);
+    resolve(cached);
   }
 }
 
 const pendingResolvers = new Map();
 
-function getSeasonPoints(openidValue) {
+/** 返回 { points, matches } 或 null（未启用/读取失败）。 */
+function getSeasonCardStats(openidValue) {
   const openid = String(openidValue || '').trim();
   if (!openid) return Promise.resolve(null);
   const seasonId = currentSeasonId();
@@ -70,7 +79,7 @@ function getSeasonPoints(openidValue) {
   }
   const key = cacheKey(seasonId, openid);
   const cached = cache.get(key);
-  if (cached && cached.expiresAt > Date.now()) return Promise.resolve(cached.points);
+  if (cached && cached.expiresAt > Date.now()) return Promise.resolve(cached.stats);
   if (cached) cache.delete(key);
   if (pending.has(key)) return pending.get(key);
 
@@ -84,9 +93,13 @@ function getSeasonPoints(openidValue) {
   return promise;
 }
 
+function getSeasonPoints(openidValue) {
+  return getSeasonCardStats(openidValue).then((stats) => (stats ? stats.points : null));
+}
+
 function clearSeasonPointsCache() {
   cache.clear();
   cacheSeasonId = currentSeasonId();
 }
 
-module.exports = { getSeasonPoints, clearSeasonPointsCache };
+module.exports = { getSeasonCardStats, getSeasonPoints, clearSeasonPointsCache };

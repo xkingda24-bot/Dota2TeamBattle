@@ -411,7 +411,13 @@ async function getCardPoints(event) {
   const result = await db.collection('seasonConfigs').where({ seasonId: season.seasonId }).limit(1).get();
   const config = result.data && result.data[0];
   if (!config || !config.enabled || !unique.length) {
-    return { seasonId: season.seasonId, seasonLabel: season.label, enabled: !!(config && config.enabled), points: unique.map(() => 0) };
+    return {
+      seasonId: season.seasonId,
+      seasonLabel: season.label,
+      enabled: !!(config && config.enabled),
+      points: unique.map(() => 0),
+      matches: unique.map(() => 0),
+    };
   }
 
   const accounts = await db.collection('seasonAccounts')
@@ -419,11 +425,14 @@ async function getCardPoints(event) {
     .limit(100)
     .get();
   const pointsByOpenid = new Map((accounts.data || []).map((account) => [String(account.openid), displayPoints(account.balanceUnits)]));
+  const matchesByOpenid = new Map((accounts.data || []).map((account) => [String(account.openid), Number(account.settledMatches) || 0]));
   return {
     seasonId: season.seasonId,
     seasonLabel: config.displayName || season.label,
     enabled: true,
     points: unique.map((openid) => pointsByOpenid.has(openid) ? pointsByOpenid.get(openid) : 0),
+    // 赛季参与场次（已结算的场数），名片上与积分同一排展示
+    matches: unique.map((openid) => matchesByOpenid.get(openid) || 0),
   };
 }
 
