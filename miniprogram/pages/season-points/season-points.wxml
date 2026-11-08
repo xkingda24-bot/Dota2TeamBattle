@@ -65,7 +65,7 @@
     </view>
 
     <view class="points-card-bottom">
-      <text>本季排名 <text class="points-rank">#{{myRank}}</text> / {{totalPlayers}}</text>
+      <text>本季排名 <text class="points-rank">#{{myRank === null || myRank === undefined ? '--' : myRank}}</text> / {{totalPlayers}}</text>
       <text>已结算 {{completedMatches}} 场</text>
     </view>
   </view>
