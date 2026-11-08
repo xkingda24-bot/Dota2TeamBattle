@@ -75,7 +75,7 @@ Page({
           seasonPointsRankText: !enabled
             ? '赛季积分暂未开放'
             : rank ? '第 ' + rank + ' 名 / ' + totalPlayers + ' 位玩家'
-            : '暂未上榜 · 已结算 ' + (Number(me.settledMatches) || 0) + ' 场',
+            : '暂未上榜',
           seasonPointsStatus: enabled ? '与天梯分独立计算' : '等待赛季积分服务开启',
         });
       })
