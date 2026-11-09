@@ -393,6 +393,37 @@ async function getSeasonSummaries() {
   }));
 }
 
+/**
+ * 我的名次：按与榜单完全相同的 (积分降序, 昵称升序, _id 升序) 顺序数出前面有多少人。
+ * 同分块逐页取回后按 openid 定位，避免依赖数据库字符串比较和前端 localeCompare 的排序差异。
+ */
+async function rankOfAccount(seasonId, account, units, totalPlayers) {
+  const openid = String(account && account.openid || '');
+  if (!openid) return null;
+  try {
+    const greater = await db.collection('seasonAccounts').where({ seasonId, balanceUnits: _.gt(units) }).count();
+    const aheadBeforeBlock = Number(greater && greater.total) || 0;
+    const blockLimit = Math.min(Math.max(totalPlayers, 1), 1000);
+    for (let offset = 0; offset < blockLimit; offset += 100) {
+      const block = await db.collection('seasonAccounts')
+        .where({ seasonId, balanceUnits: units })
+        .orderBy('nickname', 'asc')
+        .orderBy('_id', 'asc')
+        .skip(offset)
+        .limit(100)
+        .get();
+      const rows = block.data || [];
+      const index = rows.findIndex((item) => String(item.openid || '') === openid);
+      if (index >= 0) return aheadBeforeBlock + offset + index + 1;
+      if (rows.length < 100) break;
+    }
+    return null;
+  } catch (error) {
+    // 名次只是展示信息，算不出来不能连累整页榜单
+    return null;
+  }
+}
+
 async function getSeasonPage(openid, event) {
   const requestedSeason = normalizeSeasonId(event.seasonId);
   if (event.seasonId && !requestedSeason) throw new Error('赛季编号无效');
@@ -410,33 +441,24 @@ async function getSeasonPage(openid, event) {
     myAccount = null;
   }
 
-  const allAccounts = [];
-  for (let offset = 0; offset < 1000; offset += 100) {
-    const page = await db.collection('seasonAccounts')
-      .where({ seasonId })
-      .orderBy('_id', 'asc')
-      .skip(offset)
-      .limit(100)
-      .get();
-    const records = page.data || [];
-    allAccounts.push(...records);
-    if (records.length < 100) break;
-  }
-  if (allAccounts.length >= 1000) throw new Error('本赛季玩家数达到当前排行榜扫描上限，请联系管理员');
-
-  const sorted = allAccounts.slice().sort((a, b) => {
-    const scoreDifference = (Number(b.balanceUnits) || 0) - (Number(a.balanceUnits) || 0);
-    if (scoreDifference) return scoreDifference;
-    return String(a.nickname || '').localeCompare(String(b.nickname || ''), 'zh-CN');
-  });
-  const myUnits = Number(myAccount && myAccount.balanceUnits) || 0;
-  const myRankIndex = myAccount ? sorted.findIndex((item) => String(item.openid) === String(openid)) : -1;
-  const myRank = myRankIndex < 0 ? null : myRankIndex + 1;
-  const totalPlayers = allAccounts.length;
+  // 分页交给数据库：昵称已在结算时冗余进 seasonAccounts，可以按 (积分降序, 昵称升序, _id 升序)
+  // 排序后用 skip/limit 取一页，不再把全赛季账户读进内存排序。
+  const countResult = await db.collection('seasonAccounts').where({ seasonId }).count();
+  const totalPlayers = Number(countResult && countResult.total) || 0;
   const totalPages = Math.max(1, Math.ceil(totalPlayers / CARD_PAGE_SIZE));
   const page = Math.min(Math.max(Math.floor(Number(event.page) || 1), 1), totalPages);
   const pageStart = (page - 1) * CARD_PAGE_SIZE;
-  const pageAccounts = sorted.slice(pageStart, pageStart + CARD_PAGE_SIZE);
+  const pageResult = await db.collection('seasonAccounts')
+    .where({ seasonId })
+    .orderBy('balanceUnits', 'desc')
+    .orderBy('nickname', 'asc')
+    .orderBy('_id', 'asc')
+    .skip(pageStart)
+    .limit(CARD_PAGE_SIZE)
+    .get();
+  const pageAccounts = pageResult.data || [];
+  const myUnits = Number(myAccount && myAccount.balanceUnits) || 0;
+  const myRank = myAccount ? await rankOfAccount(seasonId, myAccount, myUnits, totalPlayers) : null;
   const profileMap = await getUsersByOpenids(pageAccounts.map((item) => item.openid).concat(openid));
   const leaderboard = pageAccounts.map((item, index) => {
     const profile = profileMap[item.openid] || {};
@@ -475,7 +497,7 @@ async function getSeasonPage(openid, event) {
       mmr: profile.mmr == null ? (myAccount ? (myAccount.mmr == null ? null : Number(myAccount.mmr)) : null) : Number(profile.mmr),
       points: displayPoints(myUnits),
       rank: myRank,
-      totalPlayers: allAccounts.length,
+      totalPlayers,
       settledMatches: Number(myAccount && myAccount.settledMatches) || 0,
     },
     leaderboard,
