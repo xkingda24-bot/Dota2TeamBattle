@@ -133,6 +133,53 @@
       </view>
     </scroll-view>
 
+    <!-- 名次赛（单败排位赛）：被淘汰的每一组再打一场，决定这一档的前后名次 -->
+    <block wx:if="{{stageView === 'battle' && placementMatches.length > 0}}">
+      <view class="tree-head">
+        <view class="tree-title">名次赛</view>
+      </view>
+      <view class="card match-card" wx:for="{{placementMatches}}" wx:key="id" wx:for-item="pm">
+        <view class="row">
+          <view class="match-label">{{pm.label}}</view>
+          <view class="spacer"></view>
+          <view class="tag {{pm.status === 'done' ? 'tag-green' : 'tag-blue'}}">{{pm.status === 'done' ? '已结束' : '待打'}}</view>
+        </view>
+        <view class="sub" wx:if="{{pm.placementNote}}">{{pm.placementNote}}</view>
+        <view class="vs-row">
+          <view class="team-col">
+            <view class="team team-clickable {{pm.status === 'done' && pm.winner === pm.teamAInfo.openid ? 'team-win' : ''}}" data-mid="{{pm.id}}" data-side="A" bindtap="showMembers"><text wx:if="{{pm.teamAInfo.teamIconEmoji}}" class="team-logo-mark match-team-logo">{{pm.teamAInfo.teamIconEmoji}}</text><text>{{pm.displayA}}</text></view>
+            <view class="team-info-btn" wx:if="{{pm.membersA}}" bindtap="toggleTeam" data-id="{{pm.id}}" data-side="A">队员信息 {{pm.expandedA ? '收起' : '展开'}}</view>
+          </view>
+          <view class="vs-center">
+            <view class="score" wx:if="{{pm.status === 'done'}}">{{pm.scoreA}} : {{pm.scoreB}}</view>
+            <view class="vs-text" wx:else>VS</view>
+          </view>
+          <view class="team-col">
+            <view class="team team-clickable {{pm.status === 'done' && pm.winner === pm.teamBInfo.openid ? 'team-win' : ''}}" data-mid="{{pm.id}}" data-side="B" bindtap="showMembers"><text wx:if="{{pm.teamBInfo.teamIconEmoji}}" class="team-logo-mark match-team-logo">{{pm.teamBInfo.teamIconEmoji}}</text><text>{{pm.displayB}}</text></view>
+            <view class="team-info-btn" wx:if="{{pm.membersB}}" bindtap="toggleTeam" data-id="{{pm.id}}" data-side="B">队员信息 {{pm.expandedB ? '收起' : '展开'}}</view>
+          </view>
+        </view>
+        <view class="team-members" wx:if="{{pm.expandedA && pm.membersA}}">
+          <player-card wx:for="{{pm.membersA}}" wx:key="openid" player="{{item}}" card-style="{{item.cardStyle}}" compact="{{true}}" />
+        </view>
+        <view class="team-members" wx:if="{{pm.expandedB && pm.membersB}}">
+          <player-card wx:for="{{pm.membersB}}" wx:key="openid" player="{{item}}" card-style="{{item.cardStyle}}" compact="{{true}}" />
+        </view>
+        <view class="row admin-row" wx:if="{{pm.showAdmin && pm.status !== 'done'}}">
+          <picker mode="selector" range="{{pm.boRange}}" value="{{pm.boIndex}}" bindchange="onBoChange" data-id="{{pm.id}}">
+            <view class="picker-sm">赛制设置：{{pm.bo}}</view>
+          </picker>
+          <view class="spacer"></view>
+          <view class="btn-small" data-id="{{pm.id}}" bindtap="recordResult">记录胜负</view>
+        </view>
+        <view class="row admin-row" wx:if="{{pm.showAdmin && pm.status === 'done'}}">
+          <view class="sub">已结束</view>
+          <view class="spacer"></view>
+          <view class="btn-small btn-danger" data-id="{{pm.id}}" bindtap="resetResult">修正结果</view>
+        </view>
+      </view>
+    </block>
+
     <!-- 冠军 -->
     <!-- 最终结算：总决赛完成后由云函数确定性返回冠亚季军及其他名次 -->
     <view id="settlement-anchor" wx:if="{{stageView === 'settlement' && settlement}}" class="settlement-card card {{settlementEditing ? 'settlement-ordering' : ''}}">

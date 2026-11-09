@@ -233,7 +233,7 @@ Page({
   onConfirmBracketType(e) {
     const t = this.data.t;
     const bracketType = e && e.detail ? e.detail.bracketType : '';
-    if (!t || (bracketType !== 'single' && bracketType !== 'double')) return;
+    if (!t || ['single', 'singleRank', 'double'].indexOf(bracketType) < 0) return;
     if (this.data.readonly || !this.data.canManage || this.data.bracketTypeSaving) return;
     this.setData({ bracketTypeVisible: false, bracketTypeSaving: true });
     api

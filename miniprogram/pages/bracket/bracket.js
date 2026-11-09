@@ -4,7 +4,7 @@ const { hasCurrentRankVerification, dotaRankLabel } = require('../../utils/dota-
 const tournamentPolling = require('../../utils/tournament-polling');
 const { TEAM_LOGO_PRESETS } = require('../../utils/team-logos');
 const { getTodayBoundary } = require('../../utils/date-time');
-const { bracketTypeOf, bracketFormatOf } = require('../../utils/bracket-format');
+const { bracketTypeOf, bracketFormatOf, BRACKET_TYPES } = require('../../utils/bracket-format');
 const { formatRolesText } = require('../../utils/roles');
 const { settleUntilDone } = require('../../utils/season-settle');
 
@@ -13,6 +13,12 @@ const BO_LIST = ['BO1', 'BO3', 'BO5'];
 function settlementRankLabel(rank, teamCount, formatType) {
   if (rank === 1) return '冠军';
   if (rank === 2) return '亚军';
+  // 单败排位赛：3、4 名分开，5 名之后每档两队并列
+  if (formatType === 'singleRank') {
+    if (rank === 3) return '季军';
+    if (rank === 4) return '第4名';
+    return '第' + rank + '名（并列）';
+  }
   // 单败不设三四名决赛，人工排序只给逐人位次，不伪造"季军"
   if (formatType === 'single') return '第' + rank + '名';
   if (rank === 3 && teamCount > 2) return '季军';
@@ -98,6 +104,7 @@ Page({
     commentSaving: false,
     ubMatches: [],
     lbMatches: [],
+    placementMatches: [],
     gf: null,
     showSeeding: false,
     seedSlots: [],
@@ -411,10 +418,16 @@ Page({
           const b = teamMap[m.teamBInfo ? m.teamBInfo.openid : ''];
           const teamAInfo = m.teamAInfo ? Object.assign({}, m.teamAInfo, { teamIconEmoji: emojiById[m.teamAInfo.teamIcon] || '' }) : null;
           const teamBInfo = m.teamBInfo ? Object.assign({}, m.teamBInfo, { teamIconEmoji: emojiById[m.teamBInfo.teamIcon] || '' }) : null;
+          const placementNote = m.placement
+            ? (m.placement.winRank === 3
+              ? '胜者为季军 · 败者为第4名'
+              : '胜者并列第' + m.placement.winRank + '名 · 败者并列第' + m.placement.loseRank + '名')
+            : '';
           return Object.assign({}, m, {
             boRange: BO_LIST,
             boIndex: Math.max(0, BO_LIST.indexOf(m.bo)),
             showAdmin: t.canManage && !this.data.readonly && t.status === 'battle',
+            placementNote,
             teamAInfo,
             teamBInfo,
             membersA: buildMembers(a),
@@ -425,6 +438,10 @@ Page({
         });
         const ubMatches = matches.filter((m) => m.stage === 'upper' || (m.stage || '').indexOf('UB') === 0);
         const lbMatches = matches.filter((m) => m.stage === 'lower' || (m.stage || '').indexOf('LB') === 0);
+        // 单败排位赛的名次赛（stage = P34 / P56 / P910…）
+        const placementMatches = matches
+          .filter((m) => !!m.isPlacementMatch)
+          .sort((a, b) => ((a.placement && a.placement.winRank) || 0) - ((b.placement && b.placement.winRank) || 0));
         const gf = matches.find((m) => m.isChampionMatch) || null;
 
         const rawGroupedTeams = Array.isArray(t.teams)
@@ -544,7 +561,8 @@ Page({
           }));
         }
 
-        const tree = this.buildTreeData(matches);
+        // 名次赛不进入晋级树（只有主赛程有晋级关系），单独在下方分组展示
+        const tree = this.buildTreeData(matches.filter((m) => !m.isPlacementMatch));
         const bracketFormat = bracketFormatOf(t);
         // 晋级图节点里的队伍 openid 是落位编号（T0/T1…），反查 teams 得到真实队长信息
         // 晋级图第一轮（UB1）：标记各队「可设置队名队标」（本队队长或比赛管理者），按钮需携带队长 openid
@@ -615,14 +633,19 @@ Page({
           formatName: bracketFormat.name,
           eliminationHint: bracketFormat.value === 'single'
             ? '胜者晋级，败者直接淘汰（自动）'
-            : '胜者晋级，败者跌入败者组或淘汰（自动）',
-          seedingTitle: bracketFormat.value === 'single' ? '对阵调整（首轮落位）' : '对阵调整（胜者组第一轮落位）',
+            : bracketFormat.value === 'singleRank'
+              ? '胜者晋级争冠，败者进入名次赛（自动）'
+              : '胜者晋级，败者跌入败者组或淘汰（自动）',
+          seedingTitle: bracketFormat.value === 'single' || bracketFormat.value === 'singleRank'
+            ? '对阵调整（首轮落位）'
+            : '对阵调整（胜者组第一轮落位）',
           canManage: !!t.canManage,
           // wxml 里的「比赛管理操作」卡片/归档按钮/删除按钮读的是页面级 canDelete，
           // 之前只 setData 了 canManage，导致该卡片永远不渲染（归档入口不可见）。
           canDelete: !!t.canDelete,
           ubMatches,
           lbMatches,
+          placementMatches,
           gf,
           settlement,
           settlementReady: !!settlement,
@@ -804,7 +827,7 @@ Page({
   onConfirmBracketType(e) {
     const t = this.data.t;
     const bracketType = e && e.detail ? e.detail.bracketType : '';
-    if (!t || (bracketType !== 'single' && bracketType !== 'double')) return;
+    if (!t || BRACKET_TYPES.indexOf(bracketType) < 0) return;
     if (!this.data.canManage || this.data.readonly || this.data.bracketTypeSaving) return;
     this.setData({ bracketTypeVisible: false, bracketTypeSaving: true });
     api
@@ -835,6 +858,7 @@ Page({
     };
     if (flip(this.data.ubMatches, 'ubMatches')) return;
     if (flip(this.data.lbMatches, 'lbMatches')) return;
+    if (flip(this.data.placementMatches || [], 'placementMatches')) return;
     const gf = this.data.gf;
     if (gf && gf.id === id) {
       this.setData({ gf: Object.assign({}, gf, { [key]: !gf[key] }) });
@@ -858,6 +882,7 @@ Page({
     const side = data.side;
     const all = (this.data.ubMatches || [])
       .concat(this.data.lbMatches || [])
+      .concat(this.data.placementMatches || [])
       .concat(this.data.gf ? [this.data.gf] : []);
     const m = all.find((x) => x.id === id);
     if (!m) return;
@@ -1202,7 +1227,8 @@ Page({
   recordResult(e) {
     if (!this.data.canManage || this.data.readonly) return;
     const id = Number(e.currentTarget.dataset.id);
-    const match = (this.data.ubMatches.concat(this.data.lbMatches)).find((m) => m.id === id) || this.data.gf;
+    const match = (this.data.ubMatches.concat(this.data.lbMatches, this.data.placementMatches))
+      .find((m) => m.id === id) || this.data.gf;
     if (!match) return;
     if (!match.teamAInfo || !match.teamBInfo) {
       wx.showToast({ title: '对阵未完整，无法记录', icon: 'none' });

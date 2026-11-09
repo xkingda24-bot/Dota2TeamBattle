@@ -1,8 +1,8 @@
 // components/bracket-type-sheet/index.js - 赛制选择底部弹层（生成对阵前的一次性选择）
-const { BRACKET_FORMATS } = require('../../utils/bracket-format');
+const { BRACKET_FORMATS, BRACKET_TYPES } = require('../../utils/bracket-format');
 
-// 展示顺序：单败在前（赛程更快，先给一个轻量选项），双败在后
-const SHEET_ORDER = ['single', 'double'];
+// 展示顺序：单败在前（赛程更快，先给一个轻量选项），单败排位赛居中，双败在后
+const SHEET_ORDER = ['single', 'singleRank', 'double'];
 const SHEET_FORMATS = SHEET_ORDER
   .map((value) => BRACKET_FORMATS.find((item) => item.value === value))
   .filter(Boolean);
@@ -40,7 +40,7 @@ Component({
 
     onConfirm() {
       const picked = this.data.picked;
-      if (picked !== 'single' && picked !== 'double') return;
+      if (BRACKET_TYPES.indexOf(picked) < 0) return;
       this.triggerEvent('confirm', { bracketType: picked });
     },
 

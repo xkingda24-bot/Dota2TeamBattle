@@ -14,10 +14,20 @@ const BRACKET_FORMATS = [
     badge: '更快',
     rankText: '名次：冠军 · 亚军 · 第3-4名（不设三四名赛）',
   },
+  {
+    value: 'singleRank',
+    name: '单败排位赛',
+    hint: '输一场不再争冠，但继续打名次赛定名次',
+    badge: '名次更细',
+    rankText: '名次：冠军 · 亚军 · 季军 · 第4名 · 第5-6名 · 第9-10名（同档并列）',
+  },
 ];
 
+const BRACKET_TYPES = ['single', 'singleRank', 'double'];
+
 function bracketTypeOf(tournament) {
-  return tournament && tournament.bracketType === 'single' ? 'single' : 'double';
+  const type = tournament && tournament.bracketType;
+  return BRACKET_TYPES.indexOf(type) >= 0 ? type : 'double';
 }
 
 function bracketFormatOf(tournament) {
@@ -31,6 +41,7 @@ function bracketFormatName(tournament) {
 
 module.exports = {
   BRACKET_FORMATS,
+  BRACKET_TYPES,
   bracketTypeOf,
   bracketFormatOf,
   bracketFormatName,
