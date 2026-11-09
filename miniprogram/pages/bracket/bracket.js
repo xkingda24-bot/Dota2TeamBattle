@@ -146,6 +146,16 @@ Page({
     });
   },
 
+  // 转发给好友：带上比赛 id，接收方直接落到同一场赛程
+  onShareAppMessage() {
+    const id = this.id || '';
+    const t = this.data.t || {};
+    return {
+      title: (t.name || '刀塔集结') + ' · 赛程',
+      path: '/pages/bracket/bracket' + (id ? '?id=' + encodeURIComponent(id) : ''),
+    };
+  },
+
   onOpenGroupSwap(e) {
     const t = this.data.t;
     if (!t || t.mode !== 'auto' || t.status !== 'draft' || !this.data.canManage || this.data.readonly || this.data.groupSaving || this.data.groupOrderSaving) return;

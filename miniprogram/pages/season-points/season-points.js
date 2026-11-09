@@ -117,6 +117,14 @@ Page({
     ],
   },
 
+  // 转发给好友：榜单本身可公开浏览，固定入口不带参数
+  onShareAppMessage() {
+    return {
+      title: '刀塔集结 · ' + (this.data.seasonLabel || '赛季积分') + ' 积分榜',
+      path: '/pages/season-points/season-points',
+    };
+  },
+
   onShow() {
     const seasonId = this._seasonInitialized ? this.data.selectedSeason : '';
     this._seasonInitialized = true;

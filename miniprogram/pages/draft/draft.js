@@ -39,6 +39,16 @@ Page({
     this.setData({ readonly: !!(options && options.readonly === '1'), stageView });
   },
 
+  // 转发给好友：带上比赛 id，接收方进入同一场选人
+  onShareAppMessage() {
+    const id = this.id || '';
+    const t = this.data.t || {};
+    return {
+      title: (t.name || '刀塔集结') + ' · 选人',
+      path: '/pages/draft/draft' + (id ? '?id=' + encodeURIComponent(id) : ''),
+    };
+  },
+
   onShow() {
     tournamentPolling.refreshIfChanged(this);
     this.startPoll();

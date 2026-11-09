@@ -57,6 +57,16 @@ Page({
     this.setData({ readonly: !!(options && options.readonly === '1'), stageView });
   },
 
+  // 转发给好友：带上比赛 id（故意不带暗号，转发不等于泄露暗号）
+  onShareAppMessage() {
+    const id = this.id || '';
+    const t = this.data.t || {};
+    return {
+      title: (t.name || '刀塔集结') + ' · 报名',
+      path: '/pages/register/register' + (id ? '?id=' + encodeURIComponent(id) : ''),
+    };
+  },
+
   onShow() {
     this.loadTeamLogos();
     tournamentPolling.refreshIfChanged(this);

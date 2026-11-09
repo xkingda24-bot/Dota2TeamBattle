@@ -52,7 +52,24 @@ Page({
     pfSig: '',
   },
 
+  // 转发给好友：主页作为固定入口，不带参数
+  onShareAppMessage() {
+    return {
+      title: '刀塔集结 · 今晚组队开战',
+      path: '/pages/index/index',
+    };
+  },
+
+  // 分享到朋友圈：只能带 query，页面路径固定为当前页
+  onShareTimeline() {
+    return {
+      title: '刀塔集结 · 今晚组队开战',
+    };
+  },
+
   onShow() {
+    // scene 1154 = 从朋友圈单页模式打开，只渲染这一页且登录态受限，取数失败要给出可理解的提示
+    this._timelinePreview = wx.getLaunchOptionsSync().scene === 1154;
     this._rpxScale = wx.getSystemInfoSync().windowWidth / 750;
     this.loadSeasonPointsFeature();
     this.load();
@@ -163,8 +180,13 @@ Page({
         }
       })
       .catch((e) => {
-        this.setData({ loading: false, loadError: e.message || '赛事加载失败，请重试' });
-        wx.showToast({ title: e.message, icon: 'none' });
+        this.setData({
+          loading: false,
+          loadError: this._timelinePreview
+            ? '朋友圈预览暂未取到赛事数据，点顶部「前往小程序」进入完整版查看'
+            : (e.message || '赛事加载失败，请重试'),
+        });
+        if (!this._timelinePreview) wx.showToast({ title: e.message, icon: 'none' });
       });
   },
 
