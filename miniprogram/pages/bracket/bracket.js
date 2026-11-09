@@ -169,9 +169,13 @@ Page({
     if (!t || t.mode !== 'auto' || t.status !== 'draft' || !this.data.canManage || this.data.readonly || this.data.groupSaving || this.data.groupOrderSaving) return;
     const teamIndex = Number(e.currentTarget.dataset.teamIndex);
     const openid = e.currentTarget.dataset.openid;
-    const team = this.data.groupedTeams[teamIndex];
-    const member = team && team.members.find((item) => item.openid === openid);
-    if (!member) return;
+    // groupedTeams 按落位顺序重排过，数组位置不等于 teamIndex，必须按编号查
+    const team = (this.data.groupedTeams || []).find((item) => item.teamIndex === teamIndex);
+    const member = team && (team.members || []).find((item) => item.openid === openid);
+    if (!member) {
+      wx.showToast({ title: '这名队员不在当前分组里，请刷新后重试', icon: 'none' });
+      return;
+    }
     const selection = this.data.groupSelection;
     if (selection.openid && selection.teamIndex !== teamIndex) {
       this.swapGroupMembers(selection.teamIndex, selection.openid, teamIndex, openid);
