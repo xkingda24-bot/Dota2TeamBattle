@@ -166,23 +166,37 @@
     <view class="rule-row">
       <view class="rule-mark">04</view>
       <view class="rule-copy">
-        <view class="rule-title">第三、第四名同按季军分值</view>
-        <view class="rule-desc">每队参赛人数不一致时暂不自动结算；原表未定义的“平摊额”不计入本版规则。</view>
+        <view class="rule-title">不同赛制的名次口径不同</view>
+        <view class="rule-desc">单败 / 双败：季军与第 4 名同按季军分值，其余淘汰队伍同分；单败排位赛：季军、第 4、5、6、9、10 名各有独立分值，同一名次有多支队伍时同分。</view>
       </view>
     </view>
-    <view class="score-table-title">名次分值示意</view>
-    <view wx:for="{{scoreRules}}" wx:key="teams" class="score-rule-row">
-      <view class="score-rule-head">
-        <text class="score-rule-teams">{{item.teams}}</text>
-        <text class="score-rule-net">名次分合计 0</text>
-      </view>
-      <view class="score-rule-values">
-        <view class="score-rule-value"><text>冠军</text><text class="score-rule-number">{{item.champion}}</text></view>
-        <view class="score-rule-value"><text>亚军</text><text class="score-rule-number">{{item.runnerUp}}</text></view>
-        <view class="score-rule-value"><text>季军各</text><text class="score-rule-number">{{item.third}}</text></view>
-        <view class="score-rule-value"><text>其他</text><text class="score-rule-number">{{item.others}}</text></view>
+    <view class="rule-row">
+      <view class="rule-mark">05</view>
+      <view class="rule-copy">
+        <view class="rule-title">结算条件</view>
+        <view class="rule-desc">只自动结算 4、8、16 队、全部场次打完并归档的赛事；每队参赛人数不一致时暂不自动结算，原表未定义的“平摊额”不计入本版规则。</view>
       </view>
     </view>
+    <view class="rule-row">
+      <view class="rule-mark">06</view>
+      <view class="rule-copy">
+        <view class="rule-title">每场赛事名次分净额为零</view>
+        <view class="rule-desc">全部队伍的名次分相加为 0：高分队伍的分值来自低名次队伍扣掉的分数。</view>
+      </view>
+    </view>
+    <block wx:for="{{scoreRules}}" wx:key="title" wx:for-item="table">
+      <view class="score-table-title">名次分值 · {{table.title}}</view>
+      <view class="score-grid">
+        <view class="score-grid-row score-grid-head">
+          <view class="score-grid-name">名次</view>
+          <view wx:for="{{table.columns}}" wx:key="*this" wx:for-item="column" class="score-grid-cell">{{column}}</view>
+        </view>
+        <view wx:for="{{table.rows}}" wx:key="label" wx:for-item="row" class="score-grid-row {{row.total ? 'score-grid-total' : ''}}">
+          <view class="score-grid-name">{{row.label}}</view>
+          <view wx:for="{{row.cells}}" wx:key="key" wx:for-item="cell" class="score-grid-cell {{cell.negative ? 'score-grid-negative' : ''}}">{{cell.text}}</view>
+        </view>
+      </view>
+    </block>
     <view class="rule-note">当前只自动结算 4、8、16 队的已归档赛事；其他队伍数需要后续明确新规则。</view>
   </view>
 

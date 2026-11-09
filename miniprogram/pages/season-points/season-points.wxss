@@ -203,14 +203,16 @@
 .rule-title { color: #e1dacd; font-size: 24rpx; font-weight: 600; }
 .rule-desc { margin-top: 7rpx; color: #929aa6; font-size: 21rpx; line-height: 1.55; }
 .score-table-title { margin-top: 22rpx; color: #c8ad78; font-size: 22rpx; font-weight: 600; }
-.score-rule-row { margin-top: 12rpx; padding: 14rpx 12rpx; border-radius: 9rpx; background: rgba(255, 255, 255, .025); }
-.score-rule-head { display: flex; align-items: center; justify-content: space-between; }
-.score-rule-teams { color: #e2d8c5; font-size: 21rpx; font-weight: 600; }
-.score-rule-net { color: #7fba91; font-size: 18rpx; }
-.score-rule-values { display: flex; margin-top: 12rpx; }
-.score-rule-value { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 5rpx; color: #828b98; font-size: 18rpx; text-align: center; }
-.score-rule-value + .score-rule-value { border-left: 1rpx solid rgba(224, 181, 111, .08); }
-.score-rule-number { color: #e3d7be; font-size: 20rpx; font-weight: 600; }
+.score-grid { margin-top: 10rpx; border-radius: 9rpx; overflow: hidden; background: rgba(255, 255, 255, .025); }
+.score-grid-row { display: flex; align-items: center; padding: 12rpx; }
+.score-grid-row + .score-grid-row { border-top: 1rpx solid rgba(224, 181, 111, .08); }
+.score-grid-head { background: rgba(224, 181, 111, .05); }
+.score-grid-name { flex: 1.7; min-width: 0; color: #828b98; font-size: 19rpx; line-height: 1.4; }
+.score-grid-cell { flex: 1; min-width: 0; color: #e3d7be; font-size: 20rpx; font-weight: 600; text-align: center; }
+.score-grid-head .score-grid-name, .score-grid-head .score-grid-cell { color: #c8ad78; }
+.score-grid-negative { color: #e18c7a; }
+.score-grid-total { background: rgba(127, 186, 145, .06); }
+.score-grid-total .score-grid-name, .score-grid-total .score-grid-cell { color: #7fba91; }
 .rule-note { margin-top: 18rpx; padding: 14rpx 16rpx; border-radius: 8rpx; color: #bda875; background: rgba(224, 181, 111, .07); font-size: 20rpx; line-height: 1.5; }
 .season-page-footer { margin-top: 34rpx; color: #68717d; font-size: 18rpx; letter-spacing: 2rpx; text-align: center; }
 .season-page-footer text { padding: 0 5rpx; color: #b28b50; }

@@ -12,6 +12,23 @@ function formatPoints(value) {
   return Number.isInteger(points) ? String(points) : points.toFixed(1);
 }
 
+// 规则页分值表：展示值 = 内部分值 / 2（UNIT_SCALE），负分标红，“—”表示该队数没有这个名次。
+function buildScoreTable(title, rows) {
+  return {
+    title,
+    columns: ['4 队', '8 队', '16 队'],
+    rows: rows.map((entry, rowIndex) => ({
+      label: entry[0],
+      total: entry[0] === '合计',
+      cells: entry.slice(1).map((text, cellIndex) => ({
+        key: rowIndex + '-' + cellIndex,
+        text,
+        negative: String(text).charAt(0) === '−',
+      })),
+    })),
+  };
+}
+
 function formatDelta(value) {
   const points = Number(value) || 0;
   if (points > 0) return '+' + formatPoints(points);
@@ -111,9 +128,24 @@ Page({
     hasLoaded: false,
     loadError: '',
     scoreRules: [
-      { teams: '4 队', champion: '+45', runnerUp: '+5', third: '−25', others: '无' },
-      { teams: '8 队', champion: '+100', runnerUp: '+60', third: '+30', others: '−55' },
-      { teams: '16 队', champion: '+127.5', runnerUp: '+87.5', third: '+57.5', others: '−27.5' },
+      buildScoreTable('单败 / 双败（含历史赛事）', [
+        ['冠军', '+45', '+100', '+127.5'],
+        ['亚军', '+5', '+60', '+87.5'],
+        ['季军与第 4 名', '−25', '+30', '+57.5'],
+        ['其余队伍', '无', '−55', '−27.5'],
+        ['合计', '0', '0', '0'],
+      ]),
+      buildScoreTable('单败排位赛', [
+        ['冠军', '+45', '+100', '+127.5'],
+        ['亚军', '+5', '+60', '+87.5'],
+        ['季军', '−20', '+40', '+65'],
+        ['第 4 名', '−30', '+20', '+50'],
+        ['第 5 名（并列）', '—', '−50', '−20'],
+        ['第 6 名（并列）', '—', '−60', '−25'],
+        ['第 9 名（并列）', '—', '—', '−29'],
+        ['第 10 名（并列）', '—', '—', '−31'],
+        ['合计', '0', '0', '0'],
+      ]),
     ],
   },
 
