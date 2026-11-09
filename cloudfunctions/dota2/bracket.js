@@ -137,12 +137,19 @@ function buildBracket(teams) {
       // 偶数轮接入下一轮胜者组的败者：LB2 ← UB2 败者，LB4 ← UB3 败者，LB6 ← 胜者组决赛败者 ...
       const ubIdx = j / 2; // 0 基：j=2 → ubRounds[1]（第2轮），j=4 → ubRounds[2]，j=6 → ubRounds[3]
       const ubLosers = ubRounds[ubIdx].ms.map((m) => matchSource(m.id, 'loser'));
-      // 交错配对：败者组幸存者与胜者组败者逐对交叉，避免同组自打（TI 规则）
+      // 跨半区配对：上区这一轮的败者接到「另一半区」的下区幸存者上，即第 i 个幸存者
+      // 对上第 i + 半区 个败者（半区内先后顺序不变）。这样刚从上区掉下来的队伍不会
+      // 立刻碰到同一半区的对手。数量不等时（非 2 的幂队伍数）退回原顺序。
+      const halfShift = ubLosers.length === lbSurvivors.length && ubLosers.length
+        ? Math.floor(ubLosers.length / 2)
+        : 0;
+      const shiftedLosers = ubLosers.map((_, i) => ubLosers[(i + halfShift) % ubLosers.length]);
+      // 交错配对：下区幸存者与跨半区后的胜者组败者逐对交叉，避免同组自打（TI 规则）
       const merged = [];
-      const len = Math.max(lbSurvivors.length, ubLosers.length);
+      const len = Math.max(lbSurvivors.length, shiftedLosers.length);
       for (let i = 0; i < len; i++) {
         if (i < lbSurvivors.length) merged.push(lbSurvivors[i]);
-        if (i < ubLosers.length) merged.push(ubLosers[i]);
+        if (i < shiftedLosers.length) merged.push(shiftedLosers[i]);
       }
       participants = merged;
     }
