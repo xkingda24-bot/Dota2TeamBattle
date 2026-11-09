@@ -6,6 +6,7 @@ const { TEAM_LOGO_PRESETS } = require('../../utils/team-logos');
 const { getTodayBoundary } = require('../../utils/date-time');
 const { bracketTypeOf, bracketFormatOf } = require('../../utils/bracket-format');
 const { formatRolesText } = require('../../utils/roles');
+const { settleUntilDone } = require('../../utils/season-settle');
 
 const BO_LIST = ['BO1', 'BO3', 'BO5'];
 
@@ -1458,9 +1459,21 @@ Page({
             .call('finishTournament', { id: t.id })
             .then(() => {
               this.load();
-              return api.callFunction('seasonPoints', 'settleTournament', { tournamentId: t.id })
-                .then(() => wx.showToast({ title: '已归档并结算积分', icon: 'success' }))
-                .catch((err) => wx.showToast({ title: '赛事已归档，积分待补算：' + (err.message || '服务暂不可用'), icon: 'none' }));
+              wx.showToast({ title: '积分结算中…', icon: 'none', duration: 2000 });
+              return settleUntilDone(t.id, {
+                onProgress: (progress) => wx.showToast({
+                  title: '积分结算中 ' + (Number(progress.appliedEntries) || 0) + '/' + (Number(progress.participantCount) || 0),
+                  icon: 'none',
+                  duration: 2000,
+                }),
+              }).catch((err) => {
+                // 归档已经成功，结算没跑完不能让用户误以为归档失败
+                wx.showToast({ title: '赛事已归档，积分待补算：' + (err.message || '服务暂不可用'), icon: 'none' });
+                return null;
+              });
+            })
+            .then((result) => {
+              if (result) wx.showToast({ title: '已归档并结算积分', icon: 'success' });
             })
             .catch((err) => wx.showToast({ title: err.message, icon: 'none' }));
         }

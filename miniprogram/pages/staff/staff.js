@@ -174,17 +174,23 @@ Page({
         const errorSummary = errors.length
           ? ' · 跳过原因：' + errors.map((item) => String(item.tournamentName || '赛事') + '（' + String(item.reason || '数据异常') + '）').join('；')
           : '';
+        const pending = result.pending || null;
+        const pendingText = pending
+          ? '正在结算《' + String(pending.tournamentName || '赛事') + '》 ' +
+            (Number(pending.appliedEntries) || 0) + '/' + (Number(pending.participantCount) || 0) + ' 人'
+          : '';
         if (done) wx.removeStorageSync('seasonPointsBackfillCursor_v2');
         else wx.setStorageSync('seasonPointsBackfillCursor_v2', nextCursor);
+        const tailText = '已检查 ' + totals.processed + ' 场，跳过 ' + totals.skipped + ' 场' + errorSummary;
+        const pausedPrefix = this._seasonBackfillPauseRequested ? '扫描已暂停' : '';
+        const progressPrefix = done ? '' : (pendingText || pausedPrefix);
         this.setData({
           seasonBackfillBusy: !done && !this._seasonBackfillPauseRequested,
           seasonBackfillPaused: !done && !!this._seasonBackfillPauseRequested,
           seasonBackfillCursor: done ? null : nextCursor,
           seasonBackfillProgress: done
-            ? '历史扫描完成 · 已检查 ' + totals.processed + ' 场，跳过 ' + totals.skipped + ' 场' + errorSummary
-            : this._seasonBackfillPauseRequested
-            ? '扫描已暂停 · 已检查 ' + totals.processed + ' 场，跳过 ' + totals.skipped + ' 场' + errorSummary
-            : '已检查 ' + totals.processed + ' 场，跳过 ' + totals.skipped + ' 场' + errorSummary,
+            ? '历史扫描完成 · ' + tailText
+            : progressPrefix ? progressPrefix + ' · ' + tailText : tailText,
         });
         if (done) {
           wx.showToast({ title: '历史积分扫描完成', icon: 'success' });

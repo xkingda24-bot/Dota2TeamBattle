@@ -11,6 +11,7 @@ const {
   defaultSeason,
   buildSettlementPlan,
   applyLedgerEntry,
+  nextSettleRange,
 } = require('./core');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
@@ -19,6 +20,9 @@ const _ = db.command;
 const COLLECTIONS = ['seasonConfigs', 'seasonRules', 'seasonSettlements', 'seasonPointLedger', 'seasonAccounts'];
 const CARD_PAGE_SIZE = 10; // 积分榜一页 10 张玩家名片
 const BACKFILL_BATCH_SIZE = 1;
+// 单次调用最多写入的积分流水条数：云函数 3 秒上限内，一人的事务约 0.3 秒，
+// 取 6 条留出固定开销余量；写不完由下一次调用按 appliedEntries 续跑。
+const SETTLE_BATCH_SIZE = 6;
 const SKIPPABLE_BACKFILL_CODES = new Set([
   'INVALID_TOURNAMENT', 'INELIGIBLE_TOURNAMENT', 'UNSUPPORTED_TEAM_COUNT', 'INCOMPLETE_STANDINGS',
   'UNSUPPORTED_SEASON', 'SEASON_MISMATCH', 'INVALID_STANDINGS', 'INVALID_ROSTER',
@@ -201,7 +205,17 @@ async function updateSettlement(plan, patch) {
   });
 }
 
+async function countAppliedLedger(settlementKey) {
+  try {
+    const result = await db.collection('seasonPointLedger').where({ settlementKey }).count();
+    return Number(result && result.total) || 0;
+  } catch (error) {
+    return 0;
+  }
+}
+
 async function settleTournamentInternal(tournament, options) {
+  const opts = options || {};
   const standings = calculateStandings(tournament, resolveBracket(tournament), tournament.teams);
   const plan = buildSettlementPlan(tournament, standings, { now: Date.now() });
   const seasonQuery = await db.collection('seasonConfigs').where({ seasonId: plan.seasonId }).limit(1).get();
@@ -210,12 +224,32 @@ async function settleTournamentInternal(tournament, options) {
   if (seasonConfig.ruleVersion !== RULE_VERSION) throw new Error('该赛季规则版本与当前云函数不一致');
 
   const current = await createOrReadSettlement(plan);
-  if (current.settlement.status === 'settled') {
-    return { settlementId: plan.settlementId, seasonId: plan.seasonId, alreadySettled: true, participantCount: plan.participantCount };
+  const settlement = current.settlement || {};
+  const total = plan.entries.length;
+
+  let applied = Math.min(Math.max(0, Number(settlement.appliedEntries) || 0), total);
+  if (!Number.isFinite(Number(settlement.appliedEntries))) {
+    // 老结算记录没有进度字段：用流水条数推断，避免每次都从头重判重复
+    applied = Math.min(total, await countAppliedLedger(plan.settlementKey));
+  }
+  if (settlement.status === 'settled' && applied >= total) {
+    return {
+      settlementId: plan.settlementId,
+      seasonId: plan.seasonId,
+      alreadySettled: true,
+      done: true,
+      participantCount: total,
+      appliedEntries: total,
+      remaining: 0,
+    };
   }
 
+  const batchSize = Math.max(1, Math.min(Math.floor(Number(opts.batchSize) || SETTLE_BATCH_SIZE), 20));
+  const range = nextSettleRange(total, applied, batchSize);
+  let written = range.start;
   try {
-    for (const entry of plan.entries) {
+    for (let index = range.start; index < range.end; index += 1) {
+      const entry = plan.entries[index];
       const ledgerEntry = Object.assign({}, entry, {
         seasonId: plan.seasonId,
         tournamentId: plan.tournamentId,
@@ -228,20 +262,52 @@ async function settleTournamentInternal(tournament, options) {
       });
       const accountId = sha256(plan.seasonId + ':' + entry.openid);
       await applyLedgerEntry(db, ledgerEntry, accountId);
+      written = index + 1;
     }
-    const actualNetUnits = plan.entries.reduce((sum, entry) => sum + entry.deltaUnits, 0);
-    if (actualNetUnits !== plan.expectedNetUnits || actualNetUnits !== 0) throw new Error('积分流水净额校验失败');
-    await updateSettlement(plan, {
-      status: 'settled',
-      actualNetUnits,
-      completedAt: Date.now(),
-      errorMessage: '',
-    });
-    return { settlementId: plan.settlementId, seasonId: plan.seasonId, alreadySettled: false, participantCount: plan.participantCount };
   } catch (error) {
-    await updateSettlement(plan, { status: 'failed', errorMessage: String(error && error.message || 'settlement failed') }).catch(() => {});
+    // 只记录已写进度，保留 processing 状态，下一次调用继续写
+    await updateSettlement(plan, {
+      status: 'processing',
+      appliedEntries: written,
+      errorMessage: String(error && error.message || 'settlement interrupted'),
+    }).catch(() => {});
     throw error;
   }
+
+  if (written < total) {
+    await updateSettlement(plan, { status: 'processing', appliedEntries: written, errorMessage: '' });
+    return {
+      settlementId: plan.settlementId,
+      seasonId: plan.seasonId,
+      alreadySettled: false,
+      done: false,
+      participantCount: total,
+      appliedEntries: written,
+      remaining: total - written,
+    };
+  }
+
+  const actualNetUnits = plan.entries.reduce((sum, entry) => sum + entry.deltaUnits, 0);
+  if (actualNetUnits !== plan.expectedNetUnits || actualNetUnits !== 0) {
+    await updateSettlement(plan, { status: 'failed', appliedEntries: written, errorMessage: '积分流水净额校验失败' }).catch(() => {});
+    throw new Error('积分流水净额校验失败');
+  }
+  await updateSettlement(plan, {
+    status: 'settled',
+    appliedEntries: total,
+    actualNetUnits,
+    completedAt: Date.now(),
+    errorMessage: '',
+  });
+  return {
+    settlementId: plan.settlementId,
+    seasonId: plan.seasonId,
+    alreadySettled: false,
+    done: true,
+    participantCount: total,
+    appliedEntries: total,
+    remaining: 0,
+  };
 }
 
 function normalizeSeasonId(value) {
@@ -551,21 +617,42 @@ async function backfillArchivedBatch(openid, cursorValue) {
   let skipped = 0;
   const errors = [];
   const tournament = tournaments[0];
-  processed = 1;
+  let settleResult = null;
   if (tournament.deletedAt || tournament.status !== 'finished') {
     skipped = 1;
+    processed = 1;
   } else {
     try {
-      await settleTournamentInternal(tournament, { backfill: true });
+      settleResult = await settleTournamentInternal(tournament, { backfill: true });
+      processed = settleResult && settleResult.done === false ? 0 : 1;
     } catch (error) {
       const code = String(error && error.code || '');
       if (SKIPPABLE_BACKFILL_CODES.has(code)) {
+        processed = 0;
         skipped += 1;
         errors.push({ tournamentName: String(tournament.name || '未命名赛事'), code, reason: error.message });
       } else {
         throw error;
       }
     }
+  }
+
+  // 一场比赛要分多次调用才能写完时，游标不前进，下一次继续结算同一场
+  if (settleResult && settleResult.done === false) {
+    const keptCursor = cursorValue && typeof cursorValue === 'object' ? cursorValue : null;
+    return {
+      done: false,
+      nextCursor: keptCursor,
+      processed,
+      skipped,
+      errors,
+      pending: {
+        tournamentId: String(tournament._id || ''),
+        tournamentName: String(tournament.name || '未命名赛事'),
+        appliedEntries: Number(settleResult.appliedEntries) || 0,
+        participantCount: Number(settleResult.participantCount) || 0,
+      },
+    };
   }
   return {
     done: tournaments.length <= BACKFILL_BATCH_SIZE,
@@ -634,7 +721,7 @@ const actions = {
     const config = await getAdminConfig();
     const allowed = tournament.createdBy === openid || config.superAdmin === openid;
     if (!allowed) return fail('只有比赛创建者或最高管理员可以结算本场积分');
-    return ok(await settleTournamentInternal(tournament));
+    return ok(await settleTournamentInternal(tournament, { batchSize: event && event.batchSize }));
   },
 
   async backfillArchived(event) {

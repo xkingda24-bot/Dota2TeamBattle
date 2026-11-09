@@ -46,6 +46,18 @@ function unitsForRank(teamCount, rank) {
   return rules.other;
 }
 
+/**
+ * 分批结算的区间计算：从已写入的 applied 条开始，本次最多处理 batchSize 条。
+ * 纯函数，便于单元测试；真正落库由 index.js 完成。
+ */
+function nextSettleRange(total, applied, batchSize) {
+  const count = Math.max(0, Math.floor(Number(total) || 0));
+  const start = Math.min(Math.max(0, Math.floor(Number(applied) || 0)), count);
+  const size = Math.max(1, Math.floor(Number(batchSize) || 1));
+  const end = Math.min(count, start + size);
+  return { start, end, done: start >= count };
+}
+
 function validationError(code, message) {
   const error = new Error(message);
   error.code = code;
@@ -240,6 +252,7 @@ module.exports = {
   getSeasonByTimestamp,
   defaultSeason,
   unitsForRank,
+  nextSettleRange,
   validationError,
   buildSettlementPlan,
   applyLedgerEntry,

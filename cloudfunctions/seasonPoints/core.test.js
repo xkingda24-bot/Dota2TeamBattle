@@ -5,6 +5,7 @@ const {
   SEASONS,
   getSeasonByTimestamp,
   unitsForRank,
+  nextSettleRange,
   buildSettlementPlan,
   applyLedgerEntry,
 } = require('./core');
@@ -157,7 +158,17 @@ async function main() {
   assert.strictEqual(db.state.seasonAccounts.get('account-1').balanceUnits, 90);
   assert.strictEqual(db.state.seasonAccounts.get('account-1').settledMatches, 1);
   assert.strictEqual(db.state.seasonPointLedger.size, 1);
-  console.log('Season points core tests passed for quarter boundaries, 4/8/16-team net-zero scoring, roster validation, and idempotent ledger writes.');
+
+  // 分批结算区间：32 人、每批 6 条 → 6 次写完，最后一批越界自动收敛
+  assert.deepStrictEqual(nextSettleRange(32, 0, 6), { start: 0, end: 6, done: false });
+  assert.deepStrictEqual(nextSettleRange(32, 6, 6), { start: 6, end: 12, done: false });
+  assert.deepStrictEqual(nextSettleRange(32, 30, 6), { start: 30, end: 32, done: false });
+  assert.deepStrictEqual(nextSettleRange(32, 32, 6), { start: 32, end: 32, done: true });
+  assert.deepStrictEqual(nextSettleRange(0, 0, 6), { start: 0, end: 0, done: true });
+  assert.deepStrictEqual(nextSettleRange(32, 40, 6), { start: 32, end: 32, done: true });
+  assert.deepStrictEqual(nextSettleRange(32, 5, 0), { start: 5, end: 6, done: false });
+  assert.deepStrictEqual(nextSettleRange(32, 33, 6), { start: 32, end: 32, done: true });
+  console.log('Season points core tests passed for quarter boundaries, 4/8/16-team net-zero scoring, roster validation, idempotent ledger writes, and resumable settle ranges.');
 }
 
 main().catch((error) => {
