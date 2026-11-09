@@ -61,6 +61,14 @@ function buildRegistration(tournament, openid, member, requestedRole, secret, do
   };
 }
 
+/* 报名免暗号判定：管理员，或本场比赛的创建者。
+   报名页对 canManage（含创建者）不再显示暗号输入框，后端必须用同一口径放行，
+   否则普通用户创建房间后自己报名会被判成「报名暗号错误」。 */
+function skipRegistrationSecret(tournament, openid, isAdminFlag) {
+  if (isAdminFlag) return true;
+  return !!tournament && !!tournament.createdBy && tournament.createdBy === openid;
+}
+
 function syncRegistrationProfiles(registrations, profiles) {
   const source = Array.isArray(registrations) ? registrations : [];
   const byOpenid = profiles || {};
@@ -89,4 +97,4 @@ function syncRegistrationProfiles(registrations, profiles) {
   return { registrations: synced, changed };
 }
 
-module.exports = { buildRegistration, syncRegistrationProfiles };
+module.exports = { buildRegistration, syncRegistrationProfiles, skipRegistrationSecret };

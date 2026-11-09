@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { buildRegistration, syncRegistrationProfiles } = require('./registration');
+const { buildRegistration, syncRegistrationProfiles, skipRegistrationSecret } = require('./registration');
 
 const member = { nickname: '队员甲', mmr: 4200, roles: [1, 3], signature: '冲分' };
 const base = {
@@ -53,6 +53,26 @@ assert.strictEqual(created.registration.role, 'player');
 assert.strictEqual(created.error, undefined);
 assert.strictEqual(buildRegistration(base, 'u1', member, 'player', 'wrong', noDotaFields, 123, false).error, '报名暗号错误');
 assert.strictEqual(buildRegistration(base, 'u1', member, 'player', 'wrong', noDotaFields, 123, 0).error, '报名暗号错误');
+
+/* 申请免暗号的身份判定：管理员或本场创建者（报名页对 canManage 不显示暗号输入框） */
+const ownRoom = Object.assign({}, base, { createdBy: 'creator' });
+assert.strictEqual(skipRegistrationSecret(ownRoom, 'creator', false), true, '创建者应免暗号');
+assert.strictEqual(skipRegistrationSecret(ownRoom, 'other', false), false, '非创建者仍需暗号');
+assert.strictEqual(skipRegistrationSecret(base, 'creator', true), true, '管理员免暗号');
+assert.strictEqual(skipRegistrationSecret(Object.assign({}, base, { createdBy: '' }), 'creator', false), false, '无创建者字段时不免暗号');
+assert.strictEqual(skipRegistrationSecret(null, 'creator', false), false, '比赛为空时不误放行');
+
+/* 组合到报名路径：创建者带空暗号也能报名；非创建者带空暗号仍报暗号错误 */
+const skipForCreator = skipRegistrationSecret(ownRoom, 'creator', false);
+created = buildRegistration(ownRoom, 'creator', member, 'player', '', noDotaFields, 123, skipForCreator);
+assert.strictEqual(created.error, undefined, '创建者空暗号应报名成功');
+assert.strictEqual(created.registration.role, 'player');
+assert.strictEqual(created.registrations.length, 1);
+const skipForOther = skipRegistrationSecret(ownRoom, 'other', false);
+assert.strictEqual(
+  buildRegistration(ownRoom, 'other', member, 'player', '', noDotaFields, 123, skipForOther).error,
+  '报名暗号错误'
+);
 
 const synced = syncRegistrationProfiles([
   { openid: 'u1', role: 'player', nickname: '旧昵称', mmr: 4200, roles: [1], signature: '旧签名', ts: 123 },

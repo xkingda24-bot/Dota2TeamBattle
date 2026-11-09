@@ -23,7 +23,7 @@ const { dotaRankLabel, isRankVerified, publicDotaCardFields } = require('./card-
 const { selectUserRecord, buildUserMap } = require('./user-records');
 const { ADMIN_USER_SORT_FIELDS, buildAdminUsers } = require('./admin-users');
 const { buildTestRegistrationAdditions } = require('./test-registration');
-const { buildRegistration, syncRegistrationProfiles } = require('./registration');
+const { buildRegistration, syncRegistrationProfiles, skipRegistrationSecret } = require('./registration');
 const { mutateTournament, buildRegistrationSummary, isTransactionConflict } = require('./tournament-transaction');
 const { ADMIN_USER_LIST_FIELDS } = require('./query-projections');
 const { TOURNAMENT_SUMMARY_FIELDS, summarize } = require('./tournament-summary');
@@ -1442,8 +1442,10 @@ const actions = {
     if (!me || !me.nickname) return fail('请先设置昵称');
     if (me.mmr == null) return fail('请先在「我的-编辑资料」填写天梯分后再报名');
     if (!Array.isArray(me.roles) || me.roles.length === 0) return fail('请先在「我的-编辑资料」选择常玩位置后再报名');
-    const skipSecret = await isAdmin(openid);
+    const adminFlag = await isAdmin(openid);
     const result = await mutateTournament(db, event.id, (t) => {
+      // 管理员或本场创建者免暗号，与报名页「创建者进入无需验证暗号」的文案一致
+      const skipSecret = skipRegistrationSecret(t, openid, adminFlag);
       const registration = buildRegistration(
         t, openid, me, event.role, event.secret, registrationDotaFields(me), Date.now(), skipSecret
       );
