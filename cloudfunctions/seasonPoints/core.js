@@ -17,6 +17,27 @@ const SCORE_UNITS = {
   16: { champion: 255, runnerUp: 175, thirdOrFourth: 115, other: -55 },
 };
 
+/**
+ * 单败排位赛的分表：3、4、5、6 名各有独立分值（双败 / 单败仍用上面的四档表）。
+ * 每张表都按「该赛制的名次分布」保持净额为零：
+ *   4 队  1+1+1+1            → 90 + 10 - 40 - 60 = 0
+ *   8 队  1+1+1+1+2+2        → 200 + 120 + 80 + 40 - 100×2 - 120×2 = 0
+ *   16 队 1+1+1+1+2+2+4+4    → 255 + 175 + 130 + 100 - 40×2 - 50×2 - 58×4 - 62×4 = 0
+ */
+const SCORE_UNITS_SINGLE_RANK = {
+  4: { 1: 90, 2: 10, 3: -40, 4: -60 },
+  8: { 1: 200, 2: 120, 3: 80, 4: 40, 5: -100, 6: -120 },
+  16: { 1: 255, 2: 175, 3: 130, 4: 100, 5: -40, 6: -50, 9: -58, 10: -62 },
+};
+
+/** 赛制：'singleRank' 单败排位赛、'single' 单败、其余（含历史缺字段）按双败 */
+function formatOfTournament(tournament) {
+  const type = tournament && tournament.bracketType;
+  if (type === 'singleRank') return 'singleRank';
+  if (type === 'single') return 'single';
+  return 'double';
+}
+
 function sha256(value) {
   return crypto.createHash('sha256').update(String(value)).digest('hex');
 }
@@ -36,9 +57,15 @@ function defaultSeason(timestamp) {
   return current || SEASONS[SEASONS.length - 1];
 }
 
-function unitsForRank(teamCount, rank) {
-  const rules = SCORE_UNITS[Number(teamCount)];
+function unitsForRank(teamCount, rank, formatType) {
   const position = Number(rank);
+  if (formatType === 'singleRank') {
+    const table = SCORE_UNITS_SINGLE_RANK[Number(teamCount)];
+    if (!table || !Number.isInteger(position)) return null;
+    const value = table[position];
+    return typeof value === 'number' ? value : null;
+  }
+  const rules = SCORE_UNITS[Number(teamCount)];
   if (!rules || !Number.isInteger(position) || position < 1 || position > teamCount) return null;
   if (position === 1) return rules.champion;
   if (position === 2) return rules.runnerUp;
@@ -115,13 +142,14 @@ function buildSettlementPlan(tournament, standings, options) {
   const seenPlayers = new Set();
   const entries = [];
   const rosterSizes = [];
+  const formatType = formatOfTournament(source);
   (standings.items || []).forEach((item) => {
     const teamId = String(item.teamId || '').trim();
     if (!teamId || seenTeams.has(teamId)) throw validationError('INVALID_STANDINGS', '赛事名次包含缺失或重复的队伍');
     seenTeams.add(teamId);
 
     const rank = Number(item.rank);
-    const deltaUnits = unitsForRank(teamCount, rank);
+    const deltaUnits = unitsForRank(teamCount, rank, formatType);
     if (!Number.isInteger(rank) || deltaUnits === null) {
       throw validationError('INVALID_STANDINGS', '赛事名次无法映射到积分规则');
     }

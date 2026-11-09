@@ -15,7 +15,7 @@ cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 const db = cloud.database();
 const _ = db.command;
 
-const { buildBracket, buildSingleElimination, resolveSeeding } = require('./bracket');
+const { buildBracket, buildSingleElimination, buildSingleRankBracket, resolveSeeding } = require('./bracket');
 const { calculateStandings } = require('./standings');
 const { validateAutoGroups, validateAutoGroupCaptains, replaceAutoGroupMember } = require('./grouping');
 const { canInitializeSuperAdmin } = require('./bootstrap');
@@ -624,6 +624,14 @@ async function getTodayCreateStats(openid, now, superFlag) {
 
 /* ---------------- 对阵解析 ---------------- */
 
+const BRACKET_TYPES = ['single', 'singleRank', 'double'];
+
+/* 赛制归一化：单败排位赛单独取值，其余（含历史文档缺字段）按双败 */
+function normalizeBracketType(value) {
+  if (value === 'singleRank') return 'singleRank';
+  return value === 'single' ? 'single' : 'double';
+}
+
 /* 解析对阵：把每个比赛的队伍源解析为实际队伍信息（含昵称），并给出显示名 */
 function resolveBracket(tournament) {
   const w = {}; // matchId -> {openid, name}
@@ -780,7 +788,7 @@ async function composeTournament(t, myOpenid) {
     N: t.N,
     K: t.K,
     status: t.status,
-    bracketType: t.bracketType === 'single' ? 'single' : 'double',
+    bracketType: normalizeBracketType(t.bracketType),
     champion: t.champion || null,
     creatorName: t.creatorName || '',
     createdBy: t.createdBy || '',
@@ -1708,10 +1716,10 @@ const actions = {
     if (t.status !== 'draft') return fail('当前不在生成对阵阶段');
     // 缺省按双败，保证未升级的小程序端不传参数时行为不变
     const requestedType = event && event.bracketType;
-    if (requestedType && requestedType !== 'single' && requestedType !== 'double') {
+    if (requestedType && BRACKET_TYPES.indexOf(requestedType) < 0) {
       return fail('赛制参数无效');
     }
-    const bracketType = requestedType === 'single' ? 'single' : 'double';
+    const bracketType = normalizeBracketType(requestedType);
     let teams;
     if (t.mode === 'auto') {
       // 系统分组：队伍已在分组确认时写入，无选人环节
@@ -1743,7 +1751,11 @@ const actions = {
     }));
     let matches;
     try {
-      matches = bracketType === 'single' ? buildSingleElimination(bracketTeams) : buildBracket(bracketTeams);
+      matches = bracketType === 'single'
+        ? buildSingleElimination(bracketTeams)
+        : bracketType === 'singleRank'
+          ? buildSingleRankBracket(bracketTeams)
+          : buildBracket(bracketTeams);
     } catch (e) {
       return fail('生成对阵失败：' + e.message);
     }
@@ -1825,10 +1837,9 @@ const actions = {
 
     let champion = null;
     let status = t.status;
-    if (m.isChampionMatch) {
-      champion = winTeam;
-      status = 'finished';
-    }
+    if (m.isChampionMatch) champion = winTeam;
+    // 全部比赛打完才算结束：单败排位赛的总决赛之后还有名次赛
+    if ((champion || t.champion) && matches.every((x) => x.status === 'done')) status = 'finished';
 
     // 用 _.set 整体替换 champion 字段：TCB 的 update 会把嵌套对象展开成点路径（champion.name）
     // 而库里 champion 字段可能是 null（此前非冠军赛写入过 null），点路径更新会报
@@ -1836,7 +1847,8 @@ const actions = {
     await updateTournamentDoc(t._id, {
       data: {
         matches,
-        champion: _.set(champion),
+        // 记录名次赛时不覆盖已经产生的冠军
+        champion: _.set(champion || t.champion || null),
         status,
         // 决赛打完标记已结束，但**不自动归档**：由创建者或最高管理员手动归档
         archivedAt: t.archivedAt || null,
@@ -1882,13 +1894,19 @@ const actions = {
     }
     const champion = t.champion;
     let status = t.status;
-    if (champion && Array.from(resetIds).some((id) => (matches.find((x) => x.id === id) || {}).isChampionMatch)) {
+    const championReset = Array.from(resetIds).some((id) => (matches.find((x) => x.id === id) || {}).isChampionMatch);
+    if (normalizeBracketType(t.bracketType) === 'singleRank') {
+      // 单败排位赛：修正任意一场（含名次赛）都要回到对战阶段，等全部比赛重打完再结束；
+      // 冠军只有修正总决赛时才需要清空。
+      if (resetIds.size) status = 'battle';
+    } else if (champion && championReset) {
       status = 'battle';
     }
     await updateTournamentDoc(t._id, {
       data: {
         matches,
-        champion: _.set(status === 'battle' ? null : champion),
+        // 只有修正总决赛才清空冠军；单败排位赛修正名次赛时冠军仍然有效
+        champion: _.set(championReset ? null : (champion || null)),
         status,
         // 名次是依据整套赛果计算的；任意一场重置后都必须丢弃旧的人工排序。
         standingsOrder: [],
@@ -2031,6 +2049,10 @@ const actions = {
     const t = tournament;
     if (t.archivedAt) return fail('比赛已归档');
     if (!t.champion) return fail('比赛还未结束（未产生冠军），不能归档');
+    // 单败排位赛：名次赛没打完就归档，结算时会因名次不完整被拒绝，这里提前拦住
+    if (normalizeBracketType(t.bracketType) === 'singleRank' && (t.matches || []).some((m) => m.status !== 'done')) {
+      return fail('还有名次赛没有打完，不能归档');
+    }
     await updateTournamentDoc(t._id, {
       data: { status: 'finished', archivedAt: Date.now() },
     });

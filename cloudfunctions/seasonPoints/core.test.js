@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { buildBracket, buildSingleElimination } = require('../dota2/bracket');
+const { buildBracket, buildSingleElimination, buildSingleRankBracket } = require('../dota2/bracket');
 const { calculateStandings } = require('./standings');
 const {
   SEASONS,
@@ -54,6 +54,29 @@ function makeTournament(teamCount, singleElimination) {
   };
   const standings = calculateStandings(tournament, resolvedMatches, teams);
   return { tournament, standings, resolvedMatches };
+}
+
+function makeSingleRankTournament(teamCount) {
+  const source = Array.from({ length: teamCount }, (_, index) => ({ openid: 'T' + index, name: 'Team ' + index }));
+  const matches = resolveMatches(buildSingleRankBracket(source));
+  const teams = source.map((team, index) => ({
+    captain: { openid: 'captain-' + index, nickname: team.name + ' captain', mmr: 5000 + index },
+    players: [{ openid: 'player-' + index, nickname: team.name + ' player', mmr: 4000 + index }],
+  }));
+  const finalMatch = matches.find((match) => match.isChampionMatch);
+  const tournament = {
+    _id: 'tournament-single-rank-' + teamCount,
+    name: 'Test Tournament',
+    N: teamCount,
+    status: 'finished',
+    archivedAt: Date.parse('2026-11-08T12:00:00+08:00'),
+    champion: finalMatch && finalMatch.teamAInfo,
+    teams,
+    matches,
+    bracketType: 'singleRank',
+  };
+  const standings = calculateStandings(tournament, matches, teams);
+  return { tournament, standings, resolvedMatches: matches };
 }
 
 function createFakeDb() {
@@ -146,6 +169,42 @@ async function main() {
     assert.match(error.message, /参赛人数不一致/);
     assert.strictEqual(error.code, 'ROSTER_MISMATCH');
     return true;
+  });
+
+  // 单败排位赛分表：3/4/5/6 名各自独立，且整场净额仍为 0
+  assert.strictEqual(unitsForRank(8, 3, 'singleRank'), 80);
+  assert.strictEqual(unitsForRank(8, 4, 'singleRank'), 40);
+  assert.strictEqual(unitsForRank(8, 5, 'singleRank'), -100);
+  assert.strictEqual(unitsForRank(8, 6, 'singleRank'), -120);
+  assert.strictEqual(unitsForRank(16, 9, 'singleRank'), -58);
+  assert.strictEqual(unitsForRank(16, 10, 'singleRank'), -62);
+  // 双败 / 单败仍走原来的四档表，不受新赛制影响
+  assert.strictEqual(unitsForRank(8, 3, 'double'), 60);
+  assert.strictEqual(unitsForRank(8, 4, 'single'), 60);
+
+  const singleRankExpectedUnits = {
+    4: { 1: 90, 2: 10, 3: -40, 4: -60 },
+    8: { 1: 200, 2: 120, 3: 80, 4: 40, 5: -100, 6: -120 },
+    16: { 1: 255, 2: 175, 3: 130, 4: 100, 5: -40, 6: -50, 9: -58, 10: -62 },
+  };
+  Object.keys(singleRankExpectedUnits).forEach((key) => {
+    const teamCount = Number(key);
+    const data = makeSingleRankTournament(teamCount);
+    assert(data.standings.complete, teamCount + ' 队单败排位赛应能算完整名次');
+    const plan = buildSettlementPlan(data.tournament, data.standings, { now: 100 });
+    assert.strictEqual(plan.expectedNetUnits, 0, teamCount + ' 队单败排位赛净额必须为 0');
+    // 每队 1 名队长 + 1 名队员 → 每条名次各 2 条流水，且同一名次的分值必须一致
+    const unitsByRank = {};
+    plan.entries.forEach((entry) => {
+      assert.strictEqual(
+        unitsByRank[entry.rank] === undefined ? entry.deltaUnits : unitsByRank[entry.rank],
+        entry.deltaUnits,
+        teamCount + ' 队第' + entry.rank + '名分值不一致'
+      );
+      unitsByRank[entry.rank] = entry.deltaUnits;
+    });
+    assert.deepStrictEqual(unitsByRank, singleRankExpectedUnits[teamCount], teamCount + ' 队单败排位赛分值不符合约定表');
+    assert.strictEqual(plan.entries.length, teamCount * 2);
   });
 
   const db = createFakeDb();

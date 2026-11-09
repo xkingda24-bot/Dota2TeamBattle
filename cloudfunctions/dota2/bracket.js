@@ -262,6 +262,119 @@ function buildSingleElimination(teams) {
 }
 
 /**
+ * 单败排位赛程生成器（单败 + 名次赛）
+ *
+ * 主赛程与单败完全相同（'UB1' | 'UB2' ... | 'GF'，输一场不打冠军）；
+ * 被淘汰的每一组再两两加赛一场名次赛，把这一组再拆成「高一档」和「低一档」：
+ *   半决赛败者（2 队）  → P34   三四名决赛（胜者第3、败者第4）
+ *   上一轮败者（4 队）  → P56   5-6 名排位（胜者并列第5、败者并列第6）
+ *   再上一轮败者（8 队）→ P910  9-10 名排位（胜者并列第9、败者并列第10）
+ * 因此 8 队 = 10 场、16 队 = 22 场、4 队 = 4 场；名次赛每场都带
+ * isPlacementMatch + placement{winRank,loseRank}，名次计算直接读这两个字段。
+ *
+ * @param {Array<{openid:string, name:string}>} teams 有序队伍（已按落位排序）
+ * @returns {Array} matches
+ */
+function buildSingleRankBracket(teams) {
+  if (!Array.isArray(teams) || teams.length < 2) {
+    throw new Error('队伍数量不足（至少 2 支队伍）');
+  }
+
+  const matches = [];
+  const byId = {};
+  let cid = 0;
+  const newId = () => ++cid;
+
+  const teamSource = (team) => ({
+    type: 'team',
+    openid: team.openid,
+    name: team.name,
+    teamIcon: team.teamIcon || '',
+  });
+  const matchSource = (matchId, slot) => ({ type: 'match', matchId, slot });
+
+  function placeIntoMatch(match, src, slot) {
+    if (slot === 'A') match.teamA = src;
+    else match.teamB = src;
+    if (src && src.type === 'match') {
+      const feeder = byId[src.matchId];
+      if (!feeder) return;
+      if (src.slot === 'winner') feeder.next = { matchId: match.id, slot };
+      else feeder.loserNext = { matchId: match.id, slot };
+    }
+  }
+
+  // 两两配对；奇数个时最后一个是轮空，直接晋级下一轮
+  function pair(sources, stage, label, extra) {
+    const ms = [];
+    const adv = [];
+    for (let i = 0; i + 1 < sources.length; i += 2) {
+      const id = newId();
+      const m = Object.assign({
+        id,
+        stage,
+        label,
+        teamA: null,
+        teamB: null,
+        bo: 'BO1',
+        status: 'pending',
+        winner: null,
+        scoreA: null,
+        scoreB: null,
+        next: null,
+        loserNext: null,
+        isChampionMatch: false,
+      }, extra || {});
+      placeIntoMatch(m, sources[i], 'A');
+      placeIntoMatch(m, sources[i + 1], 'B');
+      byId[id] = m;
+      matches.push(m);
+      ms.push(m);
+      adv.push(matchSource(id, 'winner'));
+    }
+    if (sources.length % 2 === 1) adv.push(sources[sources.length - 1]);
+    return { ms, adv };
+  }
+
+  // ---------- 主赛程（与单败一致） ----------
+  const rounds = [];
+  let sources = teams.map(teamSource);
+  let roundNo = 1;
+  while (sources.length > 1) {
+    const isFinal = sources.length === 2;
+    const stage = isFinal ? 'GF' : roundNo === 1 ? 'UB1' : 'UB' + roundNo;
+    const label = isFinal ? '总决赛' : sources.length <= 4 ? '半决赛' : '第' + cn(roundNo) + '轮';
+    const { ms, adv } = pair(sources, stage, label, isFinal ? { isChampionMatch: true } : null);
+    rounds.push(ms);
+    sources = adv;
+    roundNo++;
+  }
+
+  // ---------- 名次赛（从最晚的淘汰轮往前接，名次从第 3 名开始递推） ----------
+  let rankStart = 3;
+  for (let r = rounds.length - 2; r >= 0; r--) {
+    const losers = rounds[r].map((match) => matchSource(match.id, 'loser'));
+    if (losers.length < 2) break;
+    const winRank = rankStart;
+    const loseRank = rankStart + 1;
+    pair(losers, 'P' + winRank + loseRank, placementLabel(winRank, loseRank), {
+      isPlacementMatch: true,
+      placement: { winRank, loseRank },
+    });
+    rankStart += losers.length;
+  }
+
+  return matches;
+}
+
+/** 名次赛轮次文案：三四名决赛 / 5-6 名排位 / 9-10 名排位 */
+function placementLabel(winRank, loseRank) {
+  if (winRank === 3 && loseRank === 4) return '三四名决赛';
+  return winRank + '-' + loseRank + ' 名排位';
+}
+
+
+/**
  * 解析落位顺序：落位表合法则原样使用，否则退回队伍原始顺序。
  *
  * 队伍原始顺序的含义：系统分组模式下 teams 按组号 1..N 写入（第1组、第2组……），
@@ -286,4 +399,4 @@ function orderTeamsBySeeding(teams, seeding) {
   return resolveSeeding(list.length, seeding).map((idx) => list[idx]);
 }
 
-module.exports = { buildBracket, buildSingleElimination, resolveSeeding, orderTeamsBySeeding };
+module.exports = { buildBracket, buildSingleElimination, buildSingleRankBracket, resolveSeeding, orderTeamsBySeeding };

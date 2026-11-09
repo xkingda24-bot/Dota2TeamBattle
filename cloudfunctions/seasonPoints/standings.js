@@ -77,6 +77,18 @@ function teamRecord(info, source) {
   };
 }
 
+/**
+ * 单败排位赛的名次文案：3、4 名分开（有季军赛），5 名之后同组两队共享名次，标「并列」。
+ */
+function placementRankLabel(rank) {
+  const value = Number(rank);
+  if (value === 1) return '冠军';
+  if (value === 2) return '亚军';
+  if (value === 3) return '季军';
+  if (value === 4) return '第4名';
+  return '第' + value + '名（并列）';
+}
+
 function formatRank(rank, size) {
   if (size > 1) return '第' + rank + '-' + (rank + size - 1) + '名';
   return '第' + rank + '名';
@@ -99,7 +111,9 @@ function withRank(record, rank, label, match) {
  */
 function calculateStandings(tournament, resolvedMatches, decoratedTeams) {
   const t = tournament || {};
-  const format = t.bracketType === 'single' ? 'single' : 'double';
+  const format = t.bracketType === 'singleRank'
+    ? 'singleRank'
+    : (t.bracketType === 'single' ? 'single' : 'double');
   const matches = asArray(resolvedMatches || t.matches);
   if (!matches.length) return null;
 
@@ -162,11 +176,27 @@ function calculateStandings(tournament, resolvedMatches, decoratedTeams) {
   push(winner, 1, '冠军', finalMatch);
   push(loser, 2, '亚军', finalMatch);
 
+  // 单败排位赛：名次由名次赛直接决定（赛程里每场名次赛都写明胜者与败者的名次）
+  if (format === 'singleRank') {
+    matches.forEach((match) => {
+      if (!match || !match.isPlacementMatch || !match.placement) return;
+      if (match.status !== 'done') return;
+      const winRank = Number(match.placement.winRank);
+      const loseRank = Number(match.placement.loseRank);
+      const winTeam = getWinner(match, match.teamAInfo, match.teamBInfo);
+      const loseTeam = getLoser(match, match.teamAInfo, match.teamBInfo);
+      push(addRecord(winTeam), winRank, placementRankLabel(winRank), match);
+      push(addRecord(loseTeam), loseRank, placementRankLabel(loseRank), match);
+    });
+    // 名次赛是逐场推入的，按名次重排成榜单顺序（同档并列两队相邻）
+    items.sort((a, b) => a.rank - b.rank);
+  }
+
   // LBF 败者为季军（仅双败）。N=2 时没有败者组决赛，不能把总决赛败者重复成季军。
-  // 单败不设三四名决赛，季军位由"半决赛败者共享区间"产生，因此这里不单独取季军。
-  const lowerFinal = format === 'single'
-    ? null
-    : matches.find((match) => match && match.stage === 'LBF' && match.status === 'done');
+  // 单败与单败排位赛都不靠败者组决赛定季军（前者共享第3-4名，后者有季军赛）。
+  const lowerFinal = format === 'double'
+    ? matches.find((match) => match && match.stage === 'LBF' && match.status === 'done')
+    : null;
   if (lowerFinal) {
     const lowerA = lowerFinal.teamAInfo;
     const lowerB = lowerFinal.teamBInfo;
@@ -175,15 +205,18 @@ function calculateStandings(tournament, resolvedMatches, decoratedTeams) {
 
   // 其余已淘汰队伍按败者组轮次从后往前排列。一个轮次可能有多场，采用
   // 竞赛排名（例如 4、5、5、7），并把范围写在 label 中，避免伪造精确先后。
+  // 单败排位赛已在上面按名次赛定名次，不再走「同轮共享区间」的推断。
   const eliminated = [];
-  matches.forEach((match) => {
-    if (!match || match.status !== 'done' || match === finalMatch || match === lowerFinal) return;
-    if (match.loserNext) return;
-    const loserTeam = getLoser(match, match.teamAInfo, match.teamBInfo);
-    const record = addRecord(loserTeam);
-    if (!record || used[record.teamId]) return;
-    eliminated.push({ match, record, stageRank: stageRank(match.stage, format) });
-  });
+  if (format !== 'singleRank') {
+    matches.forEach((match) => {
+      if (!match || match.status !== 'done' || match === finalMatch || match === lowerFinal) return;
+      if (match.loserNext) return;
+      const loserTeam = getLoser(match, match.teamAInfo, match.teamBInfo);
+      const record = addRecord(loserTeam);
+      if (!record || used[record.teamId]) return;
+      eliminated.push({ match, record, stageRank: stageRank(match.stage, format) });
+    });
+  }
   eliminated.sort((a, b) => b.stageRank - a.stageRank || Number(a.match.id || 0) - Number(b.match.id || 0));
   let rank = lowerFinal ? 4 : 3;
   let cursor = 0;
@@ -213,9 +246,13 @@ function calculateStandings(tournament, resolvedMatches, decoratedTeams) {
 
   const rankedCount = items.filter((item) => item.rank != null).length;
   const expectedTeamCount = teams.length || Object.keys(records).length;
-  // 双败要求败者组决赛存在才认为赛果完整；单败没有败者组，只要全员有名次即可结算
-  const requiresLowerFinal = format !== 'single' && expectedTeamCount > 2;
-  const complete = rankedCount === expectedTeamCount && (!requiresLowerFinal || !!lowerFinal);
+  // 双败要求败者组决赛存在才认为赛果完整；单败没有败者组，只要全员有名次即可结算；
+  // 单败排位赛还要求名次赛全部打完，否则被淘汰队伍的名次无法确定。
+  const requiresLowerFinal = format === 'double' && expectedTeamCount > 2;
+  const pendingPlacement = format === 'singleRank'
+    ? matches.filter((match) => match && match.isPlacementMatch && match.status !== 'done').length
+    : 0;
+  const complete = rankedCount === expectedTeamCount && (!requiresLowerFinal || !!lowerFinal) && !pendingPlacement;
   let finalItems = items;
   const requestedOrder = Array.isArray(t.standingsOrder) ? t.standingsOrder : [];
   if (complete && requestedOrder.length === items.length) {
