@@ -23,8 +23,8 @@ const BRACKET_FORMATS = [
   },
   {
     value: 'pick8',
-    name: '8 队挑选赛',
-    hint: '仅限 8 队：第一轮输的队不淘汰，第二轮胜者与另一场败者交叉再打一场',
+    name: 'CBF交叉突围赛',
+    hint: 'Cross Breakout Format · 仅限 8 队：第一轮输的队不淘汰，第二轮胜者与另一场败者交叉再打一场',
     badge: '仅 8 队',
     rankText: '名次：冠军 · 亚军 · 季军 · 第4名 · 第5-8名（第二轮淘汰的四队并列）',
   },

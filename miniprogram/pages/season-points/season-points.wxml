@@ -172,7 +172,7 @@
       <view class="rule-mark">04</view>
       <view class="rule-copy">
         <view class="rule-title">不同赛制的名次口径不同</view>
-        <view class="rule-desc">单败 / 双败：季军与第 4 名同按季军分值，其余淘汰队伍同分；单败排位赛：季军、第 4、5、6、9、10 名各有独立分值，同一名次有多支队伍时同分；8 队挑选赛：季军与第 4 名分开，第二轮淘汰的四队并列第 5-8 名。</view>
+        <view class="rule-desc">单败 / 双败：季军与第 4 名同按季军分值，其余淘汰队伍同分；单败排位赛：季军、第 4、5、6、9、10 名各有独立分值，同一名次有多支队伍时同分；CBF交叉突围赛：季军与第 4 名分开，第二轮淘汰的四队并列第 5-8 名。</view>
       </view>
     </view>
     <view class="rule-row">
@@ -186,7 +186,7 @@
       <view class="rule-mark">06</view>
       <view class="rule-copy">
         <view class="rule-title">每场赛事人人有分，名次越高分越多</view>
-        <view class="rule-desc">最后一名也是加分，只是少一点；单场合计随队伍数固定（4 队 125、8 队 340、16 队 710；单败排位赛 135 / 370 / 750；8 队挑选赛 400），不再有扣分。</view>
+        <view class="rule-desc">最后一名也是加分，只是少一点；单场合计随队伍数固定（4 队 125、8 队 340、16 队 710；单败排位赛 135 / 370 / 750；CBF交叉突围赛 400），不再有扣分。</view>
       </view>
     </view>
     <block wx:for="{{scoreRules}}" wx:key="title" wx:for-item="table">

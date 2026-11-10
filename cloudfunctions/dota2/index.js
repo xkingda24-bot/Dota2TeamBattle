@@ -1754,7 +1754,7 @@ const actions = {
     }));
     let matches;
     if (bracketType === 'pick8' && teams.length !== 8) {
-      return fail('8 队挑选赛制需要正好 8 支队伍');
+      return fail('CBF交叉突围赛需要正好 8 支队伍');
     }
     try {
       matches = bracketType === 'single'
@@ -2076,7 +2076,7 @@ const actions = {
     if (t.status !== 'finished' || !t.champion) return fail('比赛结束后才能调整名次');
     if (t.archivedAt) return fail('已归档比赛不能调整名次');
     if (normalizeBracketType(t.bracketType) === 'pick8') {
-      return fail('8 队挑选赛的名次由赛果决定，不能手动调整');
+      return fail('CBF交叉突围赛的名次由赛果决定，不能手动调整');
     }
     const automatic = calculateStandings(t, resolveBracket(t), t.teams);
     if (!automatic || !automatic.complete) return fail('当前赛果不完整，无法调整名次');

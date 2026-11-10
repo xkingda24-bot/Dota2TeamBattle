@@ -390,7 +390,7 @@ function buildSingleRankBracket(teams) {
  */
 function buildPick8Bracket(teams) {
   if (!Array.isArray(teams) || teams.length !== 8) {
-    throw new Error('8 队挑选赛制需要正好 8 支队伍');
+    throw new Error('CBF交叉突围赛需要正好 8 支队伍');
   }
 
   const matches = [];
