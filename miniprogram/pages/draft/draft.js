@@ -4,6 +4,7 @@ const tournamentPolling = require('../../utils/tournament-polling');
 const { getTodayBoundary } = require('../../utils/date-time');
 
 const { formatRolesText } = require('../../utils/roles');
+const { BRACKET_TYPES } = require('../../utils/bracket-format');
 
 function fmtRoles(roles) {
   return formatRolesText(roles, '/');
@@ -233,7 +234,7 @@ Page({
   onConfirmBracketType(e) {
     const t = this.data.t;
     const bracketType = e && e.detail ? e.detail.bracketType : '';
-    if (!t || ['single', 'singleRank', 'double'].indexOf(bracketType) < 0) return;
+    if (!t || BRACKET_TYPES.indexOf(bracketType) < 0) return;
     if (this.data.readonly || !this.data.canManage || this.data.bracketTypeSaving) return;
     this.setData({ bracketTypeVisible: false, bracketTypeSaving: true });
     api

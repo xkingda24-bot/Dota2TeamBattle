@@ -133,7 +133,7 @@
       </view>
     </scroll-view>
 
-    <!-- 名次赛（单败排位赛）：被淘汰的每一组再打一场，决定这一档的前后名次 -->
+    <!-- 名次赛（单败排位赛 / 8 队挑选赛的三四名决赛）：决定这一档的前后名次 -->
     <block wx:if="{{stageView === 'battle' && placementMatches.length > 0}}">
       <view class="tree-head">
         <view class="tree-title">名次赛</view>
@@ -555,4 +555,4 @@
 </template>
 
 <!-- 生成对阵前选择赛制 -->
-<bracket-type-sheet visible="{{bracketTypeVisible}}" bind:confirm="onConfirmBracketType" bind:cancel="onCloseBracketType" />
+<bracket-type-sheet visible="{{bracketTypeVisible}}" teamCount="{{t.N}}" bind:confirm="onConfirmBracketType" bind:cancel="onCloseBracketType" />

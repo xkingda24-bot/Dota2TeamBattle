@@ -21,9 +21,16 @@ const BRACKET_FORMATS = [
     badge: '名次更细',
     rankText: '名次：冠军 · 亚军 · 季军 · 第4名 · 第5-6名 · 第9-10名（同档并列）',
   },
+  {
+    value: 'pick8',
+    name: '8 队挑选赛',
+    hint: '仅限 8 队：第一轮输的队不淘汰，第二轮胜者与另一场败者交叉再打一场',
+    badge: '仅 8 队',
+    rankText: '名次：冠军 · 亚军 · 季军 · 第4名 · 第5-8名（第二轮淘汰的四队并列）',
+  },
 ];
 
-const BRACKET_TYPES = ['single', 'singleRank', 'double'];
+const BRACKET_TYPES = ['single', 'singleRank', 'pick8', 'double'];
 
 function bracketTypeOf(tournament) {
   const type = tournament && tournament.bracketType;

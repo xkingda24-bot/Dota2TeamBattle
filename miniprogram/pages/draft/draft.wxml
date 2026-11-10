@@ -101,4 +101,4 @@
 </view>
 
 <!-- 生成对阵前选择赛制 -->
-<bracket-type-sheet visible="{{bracketTypeVisible}}" bind:confirm="onConfirmBracketType" bind:cancel="onCloseBracketType" />
+<bracket-type-sheet visible="{{bracketTypeVisible}}" teamCount="{{t.N}}" bind:confirm="onConfirmBracketType" bind:cancel="onCloseBracketType" />

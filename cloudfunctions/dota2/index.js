@@ -15,7 +15,7 @@ cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 const db = cloud.database();
 const _ = db.command;
 
-const { buildBracket, buildSingleElimination, buildSingleRankBracket, resolveSeeding } = require('./bracket');
+const { buildBracket, buildSingleElimination, buildSingleRankBracket, buildPick8Bracket, resolveSeeding } = require('./bracket');
 const { calculateStandings } = require('./standings');
 const { validateAutoGroups, validateAutoGroupCaptains, replaceAutoGroupMember } = require('./grouping');
 const { canInitializeSuperAdmin } = require('./bootstrap');
@@ -624,11 +624,12 @@ async function getTodayCreateStats(openid, now, superFlag) {
 
 /* ---------------- 对阵解析 ---------------- */
 
-const BRACKET_TYPES = ['single', 'singleRank', 'double'];
+const BRACKET_TYPES = ['single', 'singleRank', 'double', 'pick8'];
 
-/* 赛制归一化：单败排位赛单独取值，其余（含历史文档缺字段）按双败 */
+/* 赛制归一化：单败排位赛、8 队挑选赛单独取值，其余（含历史文档缺字段）按双败 */
 function normalizeBracketType(value) {
   if (value === 'singleRank') return 'singleRank';
+  if (value === 'pick8') return 'pick8';
   return value === 'single' ? 'single' : 'double';
 }
 
@@ -1752,12 +1753,17 @@ const actions = {
       captainOpenid: team.captain.openid,
     }));
     let matches;
+    if (bracketType === 'pick8' && teams.length !== 8) {
+      return fail('8 队挑选赛制需要正好 8 支队伍');
+    }
     try {
       matches = bracketType === 'single'
         ? buildSingleElimination(bracketTeams)
         : bracketType === 'singleRank'
           ? buildSingleRankBracket(bracketTeams)
-          : buildBracket(bracketTeams);
+          : bracketType === 'pick8'
+            ? buildPick8Bracket(bracketTeams)
+            : buildBracket(bracketTeams);
     } catch (e) {
       return fail('生成对阵失败：' + e.message);
     }
@@ -1897,9 +1903,9 @@ const actions = {
     const champion = t.champion;
     let status = t.status;
     const championReset = Array.from(resetIds).some((id) => (matches.find((x) => x.id === id) || {}).isChampionMatch);
-    if (normalizeBracketType(t.bracketType) === 'singleRank') {
-      // 单败排位赛：修正任意一场（含名次赛）都要回到对战阶段，等全部比赛重打完再结束；
-      // 冠军只有修正总决赛时才需要清空。
+    if (normalizeBracketType(t.bracketType) === 'singleRank' || normalizeBracketType(t.bracketType) === 'pick8') {
+      // 单败排位赛 / 8 队挑选赛：修正任意一场（含名次赛、三四名决赛）都要回到对战阶段，
+      // 等全部比赛重打完再结束；冠军只有修正总决赛时才需要清空。
       if (resetIds.size) status = 'battle';
     } else if (champion && championReset) {
       status = 'battle';
@@ -2051,8 +2057,9 @@ const actions = {
     const t = tournament;
     if (t.archivedAt) return fail('比赛已归档');
     if (!t.champion) return fail('比赛还未结束（未产生冠军），不能归档');
-    // 单败排位赛：名次赛没打完就归档，结算时会因名次不完整被拒绝，这里提前拦住
-    if (normalizeBracketType(t.bracketType) === 'singleRank' && (t.matches || []).some((m) => m.status !== 'done')) {
+    // 单败排位赛 / 8 队挑选赛：名次赛（含三四名决赛）没打完就归档，结算时会因名次不完整被拒绝，这里提前拦住
+    if ((normalizeBracketType(t.bracketType) === 'singleRank' || normalizeBracketType(t.bracketType) === 'pick8') &&
+      (t.matches || []).some((m) => m.status !== 'done')) {
       return fail('还有名次赛没有打完，不能归档');
     }
     await updateTournamentDoc(t._id, {
@@ -2068,6 +2075,9 @@ const actions = {
     const t = managed.tournament;
     if (t.status !== 'finished' || !t.champion) return fail('比赛结束后才能调整名次');
     if (t.archivedAt) return fail('已归档比赛不能调整名次');
+    if (normalizeBracketType(t.bracketType) === 'pick8') {
+      return fail('8 队挑选赛的名次由赛果决定，不能手动调整');
+    }
     const automatic = calculateStandings(t, resolveBracket(t), t.teams);
     if (!automatic || !automatic.complete) return fail('当前赛果不完整，无法调整名次');
     const requested = Array.isArray(event.order) ? event.order : null;

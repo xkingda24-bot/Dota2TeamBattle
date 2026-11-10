@@ -23,7 +23,7 @@
         <view class="format-figure">
           <view class="format-lanes">
             <view class="lane-row">
-              <view class="lane-label">{{item.value === 'single' ? '淘汰赛' : '胜者组'}}</view>
+              <view class="lane-label">{{item.lane1}}</view>
               <view class="lane-segs seg-gold">
                 <view class="seg seg-3"></view>
                 <view class="seg seg-2"></view>
@@ -31,7 +31,7 @@
               </view>
             </view>
             <view class="lane-row" wx:if="{{item.value !== 'single'}}">
-              <view class="lane-label lane-label-dim">{{item.value === 'singleRank' ? '名次赛' : '败者组'}}</view>
+              <view class="lane-label lane-label-dim">{{item.lane2}}</view>
               <view class="lane-segs seg-dim">
                 <view class="seg seg-3"></view>
                 <view class="seg seg-2"></view>

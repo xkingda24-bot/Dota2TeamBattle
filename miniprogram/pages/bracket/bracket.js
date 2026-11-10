@@ -19,6 +19,12 @@ function settlementRankLabel(rank, teamCount, formatType) {
     if (rank === 4) return '第4名';
     return '第' + rank + '名（并列）';
   }
+  // 8 队挑选赛：3、4 名分开，第二轮淘汰的四队并列第 5-8 名
+  if (formatType === 'pick8') {
+    if (rank === 3) return '季军';
+    if (rank === 4) return '第4名';
+    return '第5-8名';
+  }
   // 单败不设三四名决赛，人工排序只给逐人位次，不伪造"季军"
   if (formatType === 'single') return '第' + rank + '名';
   if (rank === 3 && teamCount > 2) return '季军';
@@ -512,7 +518,9 @@ Page({
           });
         });
         const canManageSettlementOrder = !!(
-          t.canManage && !this.data.readonly && t.status === 'finished' && t.champion && !t.archivedAt && standingsItems.length
+          t.canManage && !this.data.readonly && t.status === 'finished' && t.champion && !t.archivedAt && standingsItems.length &&
+          // 8 队挑选赛的四队并列第 5-8 名由赛果决定，不提供人工重排
+          bracketTypeOf(t) !== 'pick8'
         );
         const settlementEditing = !!(this.data.settlementEditing && canManageSettlementOrder);
         if (settlementEditing) {
@@ -639,8 +647,10 @@ Page({
             ? '胜者晋级，败者直接淘汰（自动）'
             : bracketFormat.value === 'singleRank'
               ? '胜者晋级争冠，败者进入名次赛（自动）'
-              : '胜者晋级，败者跌入败者组或淘汰（自动）',
-          seedingTitle: bracketFormat.value === 'single' || bracketFormat.value === 'singleRank'
+              : bracketFormat.value === 'pick8'
+                ? '第一轮败者不淘汰，第二轮胜者与另一场败者交叉再打，赢者进四强（自动）'
+                : '胜者晋级，败者跌入败者组或淘汰（自动）',
+          seedingTitle: bracketFormat.value === 'single' || bracketFormat.value === 'singleRank' || bracketFormat.value === 'pick8'
             ? '对阵调整（首轮落位）'
             : '对阵调整（胜者组第一轮落位）',
           canManage: !!t.canManage,

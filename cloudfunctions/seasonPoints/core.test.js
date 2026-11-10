@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { buildBracket, buildSingleElimination, buildSingleRankBracket } = require('../dota2/bracket');
+const { buildBracket, buildSingleElimination, buildSingleRankBracket, buildPick8Bracket } = require('../dota2/bracket');
 const { calculateStandings } = require('./standings');
 const {
   SEASONS,
@@ -74,6 +74,29 @@ function makeSingleRankTournament(teamCount) {
     teams,
     matches,
     bracketType: 'singleRank',
+  };
+  const standings = calculateStandings(tournament, matches, teams);
+  return { tournament, standings, resolvedMatches: matches };
+}
+
+function makePick8Tournament() {
+  const source = Array.from({ length: 8 }, (_, index) => ({ openid: 'T' + index, name: 'Team ' + index }));
+  const matches = resolveMatches(buildPick8Bracket(source));
+  const teams = source.map((team, index) => ({
+    captain: { openid: 'captain-' + index, nickname: team.name + ' captain', mmr: 5000 + index },
+    players: [{ openid: 'player-' + index, nickname: team.name + ' player', mmr: 4000 + index }],
+  }));
+  const finalMatch = matches.find((match) => match.isChampionMatch);
+  const tournament = {
+    _id: 'tournament-pick8',
+    name: 'Test Tournament',
+    N: 8,
+    status: 'finished',
+    archivedAt: Date.parse('2026-11-08T12:00:00+08:00'),
+    champion: finalMatch && finalMatch.teamAInfo,
+    teams,
+    matches: matches.map((match) => Object.assign({}, match)),
+    bracketType: 'pick8',
   };
   const standings = calculateStandings(tournament, matches, teams);
   return { tournament, standings, resolvedMatches: matches };
@@ -213,9 +236,26 @@ async function main() {
     assert.strictEqual(plan.entries.length, teamCount * 2);
   });
 
+  // 8 队挑选赛：固定交叉的第二轮把 8 队收成 4 队，四队并列第 5-8 名，单场合计 400
+  assert.strictEqual(unitsForRank(8, 1, 'pick8'), 130);
+  assert.strictEqual(unitsForRank(8, 2, 'pick8'), 85);
+  assert.strictEqual(unitsForRank(8, 3, 'pick8'), 60);
+  assert.strictEqual(unitsForRank(8, 4, 'pick8'), 45);
+  assert.strictEqual(unitsForRank(8, 5, 'pick8'), 20);
+  assert.strictEqual(unitsForRank(8, 6, 'pick8'), null, '第 5-8 名四位并列，统一按第 5 名计分');
+  const pick8Data = makePick8Tournament();
+  assert(pick8Data.standings.complete, '8 队挑选赛应能算完整名次');
+  const pick8Ranks = pick8Data.standings.items.map((item) => item.rank).sort((a, b) => a - b);
+  assert.deepStrictEqual(pick8Ranks, [1, 2, 3, 4, 5, 5, 5, 5]);
+  const pick8Plan = buildSettlementPlan(pick8Data.tournament, pick8Data.standings, { now: 100 });
+  assert.strictEqual(pick8Plan.expectedNetUnits, 800, '8 队挑选赛单场合计应按每队 2 条流水 × 400');
+  assert(pick8Plan.entries.every((item) => item.deltaUnits > 0), '8 队挑选赛每条流水都必须是正分');
+  const pick8ByRank = {};
+  pick8Plan.entries.forEach((item) => { pick8ByRank[item.rank] = item.deltaUnits; });
+  assert.deepStrictEqual(pick8ByRank, { 1: 130, 2: 85, 3: 60, 4: 45, 5: 20 });
+
   const db = createFakeDb();
-  const entry = {
-    entryId: 'ledger-1', seasonId: '2026Q4', openid: 'player-1', deltaUnits: 90,
+  const entry = {    entryId: 'ledger-1', seasonId: '2026Q4', openid: 'player-1', deltaUnits: 90,
     nickname: 'Player', mmr: 4000,
   };
   assert.deepStrictEqual(await applyLedgerEntry(db, entry, 'account-1'), { applied: true, duplicate: false });

@@ -89,6 +89,11 @@ function placementRankLabel(rank) {
   return '第' + value + '名（并列）';
 }
 
+/** 8 队挑选赛第二轮输掉的四队共享第 5-8 名 */
+function pick8EliminatedLabel() {
+  return '第5-8名';
+}
+
 function formatRank(rank, size) {
   if (size > 1) return '第' + rank + '-' + (rank + size - 1) + '名';
   return '第' + rank + '名';
@@ -113,7 +118,9 @@ function calculateStandings(tournament, resolvedMatches, decoratedTeams) {
   const t = tournament || {};
   const format = t.bracketType === 'singleRank'
     ? 'singleRank'
-    : (t.bracketType === 'single' ? 'single' : 'double');
+    : t.bracketType === 'pick8'
+      ? 'pick8'
+      : (t.bracketType === 'single' ? 'single' : 'double');
   const matches = asArray(resolvedMatches || t.matches);
   if (!matches.length) return null;
 
@@ -176,8 +183,8 @@ function calculateStandings(tournament, resolvedMatches, decoratedTeams) {
   push(winner, 1, '冠军', finalMatch);
   push(loser, 2, '亚军', finalMatch);
 
-  // 单败排位赛：名次由名次赛直接决定（赛程里每场名次赛都写明胜者与败者的名次）
-  if (format === 'singleRank') {
+  // 单败排位赛 / 8 队挑选赛：名次由名次赛直接决定（赛程里每场名次赛都写明胜者与败者的名次）
+  if (format === 'singleRank' || format === 'pick8') {
     matches.forEach((match) => {
       if (!match || !match.isPlacementMatch || !match.placement) return;
       if (match.status !== 'done') return;
@@ -190,6 +197,15 @@ function calculateStandings(tournament, resolvedMatches, decoratedTeams) {
     });
     // 名次赛是逐场推入的，按名次重排成榜单顺序（同档并列两队相邻）
     items.sort((a, b) => a.rank - b.rank);
+  }
+
+  // 8 队挑选赛：第二轮输掉的四队直接淘汰，四队并列第 5-8 名
+  if (format === 'pick8') {
+    matches.forEach((match) => {
+      if (!match || match.stage !== 'UB2' || match.status !== 'done') return;
+      const loseTeam = getLoser(match, match.teamAInfo, match.teamBInfo);
+      push(addRecord(loseTeam), 5, pick8EliminatedLabel(), match);
+    });
   }
 
   // LBF 败者为季军（仅双败）。N=2 时没有败者组决赛，不能把总决赛败者重复成季军。
@@ -207,7 +223,7 @@ function calculateStandings(tournament, resolvedMatches, decoratedTeams) {
   // 竞赛排名（例如 4、5、5、7），并把范围写在 label 中，避免伪造精确先后。
   // 单败排位赛已在上面按名次赛定名次，不再走「同轮共享区间」的推断。
   const eliminated = [];
-  if (format !== 'singleRank') {
+  if (format !== 'singleRank' && format !== 'pick8') {
     matches.forEach((match) => {
       if (!match || match.status !== 'done' || match === finalMatch || match === lowerFinal) return;
       if (match.loserNext) return;
@@ -247,9 +263,9 @@ function calculateStandings(tournament, resolvedMatches, decoratedTeams) {
   const rankedCount = items.filter((item) => item.rank != null).length;
   const expectedTeamCount = teams.length || Object.keys(records).length;
   // 双败要求败者组决赛存在才认为赛果完整；单败没有败者组，只要全员有名次即可结算；
-  // 单败排位赛还要求名次赛全部打完，否则被淘汰队伍的名次无法确定。
+  // 单败排位赛还要求名次赛全部打完，否则被淘汰队伍的名次无法确定；8 队挑选赛同样要求三四名决赛打完。
   const requiresLowerFinal = format === 'double' && expectedTeamCount > 2;
-  const pendingPlacement = format === 'singleRank'
+  const pendingPlacement = (format === 'singleRank' || format === 'pick8')
     ? matches.filter((match) => match && match.isPlacementMatch && match.status !== 'done').length
     : 0;
   const complete = rankedCount === expectedTeamCount && (!requiresLowerFinal || !!lowerFinal) && !pendingPlacement;

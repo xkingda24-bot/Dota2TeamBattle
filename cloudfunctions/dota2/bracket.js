@@ -374,6 +374,116 @@ function buildSingleRankBracket(teams) {
   return matches;
 }
 
+/**
+ * 8 队挑选赛赛程生成器（仅限 8 支队伍）
+ *
+ * 第一轮：1v2、3v4、5v6、7v8 四场，输的队不淘汰，只记录胜负；
+ * 第二轮固定交叉：每组两场的第一轮胜者去打另一场的败者
+ *   W(1v2) vs L(3v4)、W(3v4) vs L(1v2)、W(5v6) vs L(7v8)、W(7v8) vs L(5v6)
+ * 第二轮输的 4 队直接淘汰，四队并列第 5-8 名；
+ * 第三轮同半区半决赛：两组第二轮胜者各自互打；
+ * 第四轮总决赛，另加一场三四名决赛（两个半决赛败者）。
+ * 共 12 场：4 + 4 + 2 + 1 + 1。
+ *
+ * @param {Array<{openid:string, name:string}>} teams 有序队伍（已按落位排序）
+ * @returns {Array} matches
+ */
+function buildPick8Bracket(teams) {
+  if (!Array.isArray(teams) || teams.length !== 8) {
+    throw new Error('8 队挑选赛制需要正好 8 支队伍');
+  }
+
+  const matches = [];
+  const byId = {};
+  let cid = 0;
+  const newId = () => ++cid;
+
+  const teamSource = (team) => ({
+    type: 'team',
+    openid: team.openid,
+    name: team.name,
+    teamIcon: team.teamIcon || '',
+  });
+  const matchSource = (matchId, slot) => ({ type: 'match', matchId, slot });
+
+  function createMatch(stage, label, extra) {
+    const id = newId();
+    const m = Object.assign({
+      id,
+      stage,
+      label,
+      teamA: null,
+      teamB: null,
+      bo: 'BO1',
+      status: 'pending',
+      winner: null,
+      scoreA: null,
+      scoreB: null,
+      next: null,
+      loserNext: null,
+      isChampionMatch: false,
+    }, extra || {});
+    byId[id] = m;
+    matches.push(m);
+    return m;
+  }
+
+  function placeIntoMatch(match, src, slot) {
+    if (slot === 'A') match.teamA = src;
+    else match.teamB = src;
+    if (src && src.type === 'match') {
+      const feeder = byId[src.matchId];
+      if (!feeder) return;
+      if (src.slot === 'winner') feeder.next = { matchId: match.id, slot };
+      else feeder.loserNext = { matchId: match.id, slot };
+    }
+  }
+
+  // 第一轮：相邻两两配对
+  const firstRound = [];
+  for (let i = 0; i < 8; i += 2) {
+    const m = createMatch('UB1', '第一轮');
+    placeIntoMatch(m, teamSource(teams[i]), 'A');
+    placeIntoMatch(m, teamSource(teams[i + 1]), 'B');
+    firstRound.push(m);
+  }
+
+  // 第二轮：固定交叉，第一轮胜者打相邻那场的败者
+  const secondRound = [];
+  for (let g = 0; g < 4; g += 2) {
+    const m1 = createMatch('UB2', '第二轮');
+    placeIntoMatch(m1, matchSource(firstRound[g].id, 'winner'), 'A');
+    placeIntoMatch(m1, matchSource(firstRound[g + 1].id, 'loser'), 'B');
+    const m2 = createMatch('UB2', '第二轮');
+    placeIntoMatch(m2, matchSource(firstRound[g + 1].id, 'winner'), 'A');
+    placeIntoMatch(m2, matchSource(firstRound[g].id, 'loser'), 'B');
+    secondRound.push(m1, m2);
+  }
+
+  // 第三轮：同半区半决赛（1-4 队半区、5-8 队半区各自内战）
+  const semis = [];
+  for (let g = 0; g < 4; g += 2) {
+    const m = createMatch('UB3', '半决赛');
+    placeIntoMatch(m, matchSource(secondRound[g].id, 'winner'), 'A');
+    placeIntoMatch(m, matchSource(secondRound[g + 1].id, 'winner'), 'B');
+    semis.push(m);
+  }
+
+  // 第四轮：总决赛 + 三四名决赛
+  const gf = createMatch('GF', '总决赛', { isChampionMatch: true });
+  placeIntoMatch(gf, matchSource(semis[0].id, 'winner'), 'A');
+  placeIntoMatch(gf, matchSource(semis[1].id, 'winner'), 'B');
+
+  const thirdPlace = createMatch('P34', '三四名决赛', {
+    isPlacementMatch: true,
+    placement: { winRank: 3, loseRank: 4 },
+  });
+  placeIntoMatch(thirdPlace, matchSource(semis[0].id, 'loser'), 'A');
+  placeIntoMatch(thirdPlace, matchSource(semis[1].id, 'loser'), 'B');
+
+  return matches;
+}
+
 /** 名次赛轮次文案：三四名决赛 / 5-6 名排位 / 9-10 名排位 */
 function placementLabel(winRank, loseRank) {
   if (winRank === 3 && loseRank === 4) return '三四名决赛';
@@ -406,4 +516,4 @@ function orderTeamsBySeeding(teams, seeding) {
   return resolveSeeding(list.length, seeding).map((idx) => list[idx]);
 }
 
-module.exports = { buildBracket, buildSingleElimination, buildSingleRankBracket, resolveSeeding, orderTeamsBySeeding };
+module.exports = { buildBracket, buildSingleElimination, buildSingleRankBracket, buildPick8Bracket, resolveSeeding, orderTeamsBySeeding };

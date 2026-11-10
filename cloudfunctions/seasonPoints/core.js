@@ -38,10 +38,19 @@ const SCORE_UNITS_SINGLE_RANK = {
   16: { 1: 200, 2: 125, 3: 90, 4: 65, 5: 45, 6: 30, 9: 20, 10: 10 },
 };
 
-/** 赛制：'singleRank' 单败排位赛、'single' 单败、其余（含历史缺字段）按双败 */
+/**
+ * 8 队挑选赛的分表：只有 8 队，季军与第 4 名分开，第二轮淘汰的四队并列第 5-8 名同分。
+ *   8 队 1+1+1+1+4 → 130 + 85 + 60 + 45 + 20×4 = 400
+ */
+const SCORE_UNITS_PICK8 = {
+  8: { 1: 130, 2: 85, 3: 60, 4: 45, 5: 20 },
+};
+
+/** 赛制：'singleRank' 单败排位赛、'single' 单败、'pick8' 8 队挑选赛，其余（含历史缺字段）按双败 */
 function formatOfTournament(tournament) {
   const type = tournament && tournament.bracketType;
   if (type === 'singleRank') return 'singleRank';
+  if (type === 'pick8') return 'pick8';
   if (type === 'single') return 'single';
   return 'double';
 }
@@ -69,6 +78,12 @@ function unitsForRank(teamCount, rank, formatType) {
   const position = Number(rank);
   if (formatType === 'singleRank') {
     const table = SCORE_UNITS_SINGLE_RANK[Number(teamCount)];
+    if (!table || !Number.isInteger(position)) return null;
+    const value = table[position];
+    return typeof value === 'number' ? value : null;
+  }
+  if (formatType === 'pick8') {
+    const table = SCORE_UNITS_PICK8[Number(teamCount)];
     if (!table || !Number.isInteger(position)) return null;
     const value = table[position];
     return typeof value === 'number' ? value : null;
@@ -286,6 +301,7 @@ module.exports = {
   SEASONS,
   SCORE_UNITS,
   SCORE_UNITS_SINGLE_RANK,
+  SCORE_UNITS_PICK8,
   SUPPORTED_TEAM_COUNTS,
   sha256,
   getSeasonById,
