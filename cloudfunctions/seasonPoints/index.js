@@ -2,7 +2,6 @@ const cloud = require('wx-server-sdk');
 const { calculateStandings } = require('./standings');
 const {
   RULE_VERSION,
-  UNIT_SCALE,
   SEASONS,
   SCORE_UNITS,
   SCORE_UNITS_SINGLE_RANK,
@@ -98,7 +97,6 @@ async function initializeSchema() {
   }
   await seedDocument('seasonRules', RULE_VERSION, {
     ruleVersion: RULE_VERSION,
-    unitScale: UNIT_SCALE,
     scoreByTeamCount: SCORE_UNITS,
     scoreByTeamCountSingleRank: SCORE_UNITS_SINGLE_RANK,
     seasonAssignmentPolicy: 'archivedAt',
@@ -361,7 +359,8 @@ async function getUsersByOpenids(openids) {
 }
 
 function displayPoints(units) {
-  const points = Number(units || 0) / UNIT_SCALE;
+  // 分值本身就是展示分，不做换算；仅把小数收敛到 1 位，避免浮点尾数
+  const points = Number(units || 0);
   return Number.isInteger(points) ? points : Number(points.toFixed(1));
 }
 
@@ -563,7 +562,6 @@ async function getSeasonPage(openid, event) {
     })),
     rule: {
       ruleVersion: config.ruleVersion || RULE_VERSION,
-      unitScale: UNIT_SCALE,
     },
   };
 }

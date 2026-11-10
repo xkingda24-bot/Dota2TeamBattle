@@ -1,8 +1,6 @@
 const crypto = require('crypto');
 
 const RULE_VERSION = 'points-v2';
-// points-v2 起分值直接存展示值（不再有内部单位 / 展示值两套刻度），这个常量保留给旧字段兼容
-const UNIT_SCALE = 1;
 const SUPPORTED_TEAM_COUNTS = [4, 8, 16];
 
 const SEASONS = [
@@ -285,7 +283,6 @@ async function applyLedgerEntry(db, entry, accountId, maxAttempts) {
 
 module.exports = {
   RULE_VERSION,
-  UNIT_SCALE,
   SEASONS,
   SCORE_UNITS,
   SCORE_UNITS_SINGLE_RANK,
