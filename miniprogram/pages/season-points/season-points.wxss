@@ -156,17 +156,11 @@
   color: #777f8d;
   font-size: 20rpx;
 }
-.col-place { width: 64rpx; flex: none; text-align: center; }
 .col-player { flex: 1; min-width: 0; }
 .col-points { width: 108rpx; flex: none; text-align: right; }
-/* 积分榜改为名片条目：左侧名次、右侧玩家名片，底部翻页 */
+/* 积分榜名片条目：整行就是一张名片，底部翻页 */
 .leader-card-row { display: flex; align-items: center; gap: 12rpx; padding: 14rpx 0; border-bottom: 1rpx solid rgba(224, 181, 111, .08); }
 .leader-card-row-mine { background: rgba(224, 181, 111, .05); }
-.leader-rank { display: flex; align-items: center; justify-content: center; width: 64rpx; flex: none; }
-.leader-rank-number { color: #aab1ba; font-size: 30rpx; font-weight: 700; font-variant-numeric: tabular-nums; }
-.leader-rank-top1 { color: #e8c47c; }
-.leader-rank-top2 { color: #c7d0dc; }
-.leader-rank-top3 { color: #c99773; }
 .leader-card-wrap { flex: 1; min-width: 0; }
 .board-pager { display: flex; align-items: center; justify-content: space-between; gap: 12rpx; margin-top: 18rpx; }
 .pager-btn { flex: none; min-width: 104rpx; padding: 9rpx 14rpx; border: 1rpx solid rgba(224, 181, 111, .3); border-radius: 999rpx; color: #dfd3ba; font-size: 21rpx; text-align: center; }

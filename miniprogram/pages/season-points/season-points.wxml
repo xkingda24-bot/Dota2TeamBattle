@@ -82,7 +82,6 @@
       <view class="panel-caption">按赛季积分排序</view>
     </view>
     <view class="leaderboard-head">
-      <text class="col-place">排名</text>
       <text class="col-player">玩家名片</text>
       <text class="col-points">每页 10 人</text>
     </view>
@@ -91,11 +90,8 @@
       wx:key="seq"
       class="leader-card-row {{item.isMine ? 'leader-card-row-mine' : ''}}"
     >
-      <view class="leader-rank">
-        <text class="leader-rank-number leader-rank-top{{item.place <= 3 ? item.place : ''}}">{{item.place}}</text>
-      </view>
       <view class="leader-card-wrap">
-        <player-card player="{{item.player}}" compact="{{true}}" seasonLine="{{true}}" honorsText="{{item.honorsText}}" />
+        <player-card player="{{item.player}}" compact="{{true}}" honorsText="{{item.honorsText}}" />
       </view>
     </view>
 

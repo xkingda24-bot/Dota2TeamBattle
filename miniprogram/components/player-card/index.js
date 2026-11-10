@@ -30,11 +30,6 @@ Component({
       type: String,
       value: '',
     },
-    // 积分榜专用三排布局：第二排「场次 · 冠亚季 · 积分」，第三排签名；其他页面保持两排不变
-    seasonLine: {
-      type: Boolean,
-      value: false,
-    },
   },
 
   data: {
