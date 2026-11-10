@@ -116,23 +116,27 @@ async function main() {
   assert.strictEqual(getSeasonByTimestamp(SEASONS[0].endAt).seasonId, '2026Q2');
   assert.strictEqual(getSeasonByTimestamp(SEASONS[3].endAt), null);
 
+  // points-v2：分值即展示分，全员正分，单场合计按队伍数固定（4 队 62.5 / 8 队 170 / 16 队 355，
+  // 这里每队 2 条流水，所以净额是这些值 ×2）
+  const doubleNetUnits = { 4: 125, 8: 340, 16: 710 };
   for (const teamCount of [4, 8, 16]) {
     const planData = makeTournament(teamCount, false);
     const plan = buildSettlementPlan(planData.tournament, planData.standings, { now: 100 });
     assert.strictEqual(plan.seasonId, '2026Q4');
     assert.strictEqual(plan.teamCount, teamCount);
     assert.strictEqual(plan.participantCount, teamCount * 2);
-    assert.strictEqual(plan.expectedNetUnits, 0);
-    assert.strictEqual(plan.entries.reduce((sum, entry) => sum + entry.deltaUnits, 0), 0);
+    assert.strictEqual(plan.expectedNetUnits, doubleNetUnits[teamCount], teamCount + ' 队单场合计应为固定正数');
+    assert.strictEqual(plan.entries.reduce((sum, entry) => sum + entry.deltaUnits, 0), doubleNetUnits[teamCount]);
+    assert(plan.entries.every((entry) => entry.deltaUnits > 0), teamCount + ' 队每条流水都必须是正分');
   }
 
   const fourTeamSingle = makeTournament(4, true);
   const singlePlan = buildSettlementPlan(fourTeamSingle.tournament, fourTeamSingle.standings);
   assert.strictEqual(singlePlan.entries.filter((entry) => entry.rank === 3 || entry.rank === 4).length, 4);
-  assert(singlePlan.entries.filter((entry) => entry.rank === 3 || entry.rank === 4).every((entry) => entry.deltaUnits === -50));
-  assert.strictEqual(unitsForRank(8, 4), 60);
-  assert.strictEqual(unitsForRank(16, 3), 115);
-  assert.strictEqual(unitsForRank(16, 5), -55);
+  assert(singlePlan.entries.filter((entry) => entry.rank === 3 || entry.rank === 4).every((entry) => entry.deltaUnits === 7.5));
+  assert.strictEqual(unitsForRank(8, 4), 22.5);
+  assert.strictEqual(unitsForRank(16, 3), 37.5);
+  assert.strictEqual(unitsForRank(16, 5), 10);
 
   const invalidRankData = makeTournament(4, false);
   const duplicateChampionRank = Object.assign({}, invalidRankData.standings, {
@@ -171,28 +175,30 @@ async function main() {
     return true;
   });
 
-  // 单败排位赛分表：3/4/5/6 名各自独立，且整场净额仍为 0
-  assert.strictEqual(unitsForRank(8, 3, 'singleRank'), 80);
-  assert.strictEqual(unitsForRank(8, 4, 'singleRank'), 40);
-  assert.strictEqual(unitsForRank(8, 5, 'singleRank'), -100);
-  assert.strictEqual(unitsForRank(8, 6, 'singleRank'), -120);
-  assert.strictEqual(unitsForRank(16, 9, 'singleRank'), -58);
-  assert.strictEqual(unitsForRank(16, 10, 'singleRank'), -62);
+  // 单败排位赛分表：3/4/5/6 名各自独立，全员正分，单场合计固定
+  assert.strictEqual(unitsForRank(8, 3, 'singleRank'), 27.5);
+  assert.strictEqual(unitsForRank(8, 4, 'singleRank'), 20);
+  assert.strictEqual(unitsForRank(8, 5, 'singleRank'), 12.5);
+  assert.strictEqual(unitsForRank(8, 6, 'singleRank'), 7.5);
+  assert.strictEqual(unitsForRank(16, 9, 'singleRank'), 10);
+  assert.strictEqual(unitsForRank(16, 10, 'singleRank'), 5);
   // 双败 / 单败仍走原来的四档表，不受新赛制影响
-  assert.strictEqual(unitsForRank(8, 3, 'double'), 60);
-  assert.strictEqual(unitsForRank(8, 4, 'single'), 60);
+  assert.strictEqual(unitsForRank(8, 3, 'double'), 22.5);
+  assert.strictEqual(unitsForRank(8, 4, 'single'), 22.5);
 
   const singleRankExpectedUnits = {
-    4: { 1: 90, 2: 10, 3: -40, 4: -60 },
-    8: { 1: 200, 2: 120, 3: 80, 4: 40, 5: -100, 6: -120 },
-    16: { 1: 255, 2: 175, 3: 130, 4: 100, 5: -40, 6: -50, 9: -58, 10: -62 },
+    4: { 1: 30, 2: 17.5, 3: 12.5, 4: 7.5 },
+    8: { 1: 60, 2: 37.5, 3: 27.5, 4: 20, 5: 12.5, 6: 7.5 },
+    16: { 1: 100, 2: 62.5, 3: 45, 4: 32.5, 5: 22.5, 6: 15, 9: 10, 10: 5 },
   };
+  const singleRankNetUnits = { 4: 135, 8: 370, 16: 750 };
   Object.keys(singleRankExpectedUnits).forEach((key) => {
     const teamCount = Number(key);
     const data = makeSingleRankTournament(teamCount);
     assert(data.standings.complete, teamCount + ' 队单败排位赛应能算完整名次');
     const plan = buildSettlementPlan(data.tournament, data.standings, { now: 100 });
-    assert.strictEqual(plan.expectedNetUnits, 0, teamCount + ' 队单败排位赛净额必须为 0');
+    assert.strictEqual(plan.expectedNetUnits, singleRankNetUnits[teamCount], teamCount + ' 队单败排位赛合计应为固定正数');
+    assert(plan.entries.every((entry) => entry.deltaUnits > 0), teamCount + ' 队单败排位赛每条流水都必须是正分');
     // 每队 1 名队长 + 1 名队员 → 每条名次各 2 条流水，且同一名次的分值必须一致
     const unitsByRank = {};
     plan.entries.forEach((entry) => {
@@ -227,7 +233,7 @@ async function main() {
   assert.deepStrictEqual(nextSettleRange(32, 40, 6), { start: 32, end: 32, done: true });
   assert.deepStrictEqual(nextSettleRange(32, 5, 0), { start: 5, end: 6, done: false });
   assert.deepStrictEqual(nextSettleRange(32, 33, 6), { start: 32, end: 32, done: true });
-  console.log('Season points core tests passed for quarter boundaries, 4/8/16-team net-zero scoring, roster validation, idempotent ledger writes, and resumable settle ranges.');
+  console.log('Season points core tests passed for quarter boundaries, 4/8/16-team all-positive scoring, roster validation, idempotent ledger writes, and resumable settle ranges.');
 }
 
 main().catch((error) => {

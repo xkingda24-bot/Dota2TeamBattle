@@ -168,10 +168,24 @@
 .leader-rank-top2 { color: #c7d0dc; }
 .leader-rank-top3 { color: #c99773; }
 .leader-card-wrap { flex: 1; min-width: 0; }
-.board-pager { display: flex; align-items: center; justify-content: space-between; gap: 16rpx; margin-top: 18rpx; }
-.pager-btn { flex: none; min-width: 128rpx; padding: 10rpx 20rpx; border: 1rpx solid rgba(224, 181, 111, .3); border-radius: 999rpx; color: #dfd3ba; font-size: 21rpx; text-align: center; }
+.board-pager { display: flex; align-items: center; justify-content: space-between; gap: 12rpx; margin-top: 18rpx; }
+.pager-btn { flex: none; min-width: 104rpx; padding: 9rpx 14rpx; border: 1rpx solid rgba(224, 181, 111, .3); border-radius: 999rpx; color: #dfd3ba; font-size: 21rpx; text-align: center; }
 .pager-btn-disabled { border-color: rgba(150, 150, 150, .18); color: #5c6470; }
 .pager-info { flex: 1; color: #8b939f; font-size: 21rpx; text-align: center; }
+/* 页码条：当前页高亮，页数过多时用「…」占位 */
+.pager-numbers { display: flex; flex: 1; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8rpx; }
+.pager-number {
+  min-width: 48rpx;
+  padding: 6rpx 10rpx;
+  border: 1rpx solid rgba(224, 181, 111, .22);
+  border-radius: 10rpx;
+  color: #cdbfa2;
+  font-size: 21rpx;
+  line-height: 1.2;
+  text-align: center;
+}
+.pager-number-active { border-color: rgba(240, 211, 148, .72); background: rgba(240, 211, 148, .14); color: #f0d394; font-weight: 700; }
+.pager-number-gap { border-color: transparent; color: #7b8391; }
 .my-rank-row {
   display: flex;
   align-items: center;

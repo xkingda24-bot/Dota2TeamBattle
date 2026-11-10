@@ -1,7 +1,8 @@
 const crypto = require('crypto');
 
-const RULE_VERSION = 'points-v1';
-const UNIT_SCALE = 2;
+const RULE_VERSION = 'points-v2';
+// points-v2 起分值直接存展示值（不再有内部单位 / 展示值两套刻度），这个常量保留给旧字段兼容
+const UNIT_SCALE = 1;
 const SUPPORTED_TEAM_COUNTS = [4, 8, 16];
 
 const SEASONS = [
@@ -11,23 +12,32 @@ const SEASONS = [
   { seasonId: '2026Q4', label: '2026 Q4', startAt: Date.parse('2026-10-01T00:00:00+08:00'), endAt: Date.parse('2027-01-01T00:00:00+08:00') },
 ];
 
+/**
+ * 名次分值：直接就是展示分（不再除以 2）。
+ *
+ * points-v2 起全员正分：最后一名也是加分，不再有扣分。
+ * 单场赛事的合计按队伍数固定，参赛人均收益约 6-9 分：
+ *   4 队 1+1+1+1      → 30 + 17.5 + 7.5 + 7.5     = 62.5
+ *   8 队 1+1+2+4      → 60 + 35 + 22.5×2 + 7.5×4 = 170
+ *   16 队 1+1+2+12    → 100 + 60 + 37.5×2 + 10×12 = 355
+ */
 const SCORE_UNITS = {
-  4: { champion: 90, runnerUp: 10, thirdOrFourth: -50, other: null },
-  8: { champion: 200, runnerUp: 120, thirdOrFourth: 60, other: -110 },
-  16: { champion: 255, runnerUp: 175, thirdOrFourth: 115, other: -55 },
+  4: { champion: 30, runnerUp: 17.5, thirdOrFourth: 7.5, other: null },
+  8: { champion: 60, runnerUp: 35, thirdOrFourth: 22.5, other: 7.5 },
+  16: { champion: 100, runnerUp: 60, thirdOrFourth: 37.5, other: 10 },
 };
 
 /**
  * 单败排位赛的分表：3、4、5、6 名各有独立分值（双败 / 单败仍用上面的四档表）。
- * 每张表都按「该赛制的名次分布」保持净额为零：
- *   4 队  1+1+1+1            → 90 + 10 - 40 - 60 = 0
- *   8 队  1+1+1+1+2+2        → 200 + 120 + 80 + 40 - 100×2 - 120×2 = 0
- *   16 队 1+1+1+1+2+2+4+4    → 255 + 175 + 130 + 100 - 40×2 - 50×2 - 58×4 - 62×4 = 0
+ * 同样是全员正分、分值即展示分，单场合计为一个固定正数：
+ *   4 队  1+1+1+1        → 30 + 17.5 + 12.5 + 7.5 = 67.5
+ *   8 队  1+1+1+1+2+2    → 60 + 37.5 + 27.5 + 20 + 12.5×2 + 7.5×2 = 185
+ *   16 队 1+1+1+1+2+2+4+4 → 100 + 62.5 + 45 + 32.5 + 22.5×2 + 15×2 + 10×4 + 5×4 = 375
  */
 const SCORE_UNITS_SINGLE_RANK = {
-  4: { 1: 90, 2: 10, 3: -40, 4: -60 },
-  8: { 1: 200, 2: 120, 3: 80, 4: 40, 5: -100, 6: -120 },
-  16: { 1: 255, 2: 175, 3: 130, 4: 100, 5: -40, 6: -50, 9: -58, 10: -62 },
+  4: { 1: 30, 2: 17.5, 3: 12.5, 4: 7.5 },
+  8: { 1: 60, 2: 37.5, 3: 27.5, 4: 20, 5: 12.5, 6: 7.5 },
+  16: { 1: 100, 2: 62.5, 3: 45, 4: 32.5, 5: 22.5, 6: 15, 9: 10, 10: 5 },
 };
 
 /** 赛制：'singleRank' 单败排位赛、'single' 单败、其余（含历史缺字段）按双败 */
@@ -192,8 +202,12 @@ function buildSettlementPlan(tournament, standings, options) {
   if (rosterSizes.some((size) => size !== rosterSizes[0])) {
     throw validationError('ROSTER_MISMATCH', '各队正式参赛人数不一致，无法按个人计分并保持全场净额为零');
   }
+  // points-v2 规则下人人加分，单场合计是固定正数；这里只保证没有非正分值，
+  // 不再要求全场净额为零（旧版本 points-v1 的净额校验已取消）。
   const expectedNetUnits = entries.reduce((sum, entry) => sum + entry.deltaUnits, 0);
-  if (expectedNetUnits !== 0) throw validationError('NET_MISMATCH', '本场积分方案未通过全场净额校验');
+  if (entries.some((entry) => entry.deltaUnits <= 0) || expectedNetUnits <= 0) {
+    throw validationError('NET_MISMATCH', '本场积分分值必须全为正数，请检查分值表');
+  }
 
   const settlementKey = season.seasonId + ':' + tournamentId + ':' + RULE_VERSION;
   return {
@@ -274,6 +288,7 @@ module.exports = {
   UNIT_SCALE,
   SEASONS,
   SCORE_UNITS,
+  SCORE_UNITS_SINGLE_RANK,
   SUPPORTED_TEAM_COUNTS,
   sha256,
   getSeasonById,

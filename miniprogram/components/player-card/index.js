@@ -25,6 +25,16 @@ Component({
       type: Boolean,
       value: false,
     },
+    // 名次荣誉文案（如「1 冠 2 亚 4 季」）：由榜单页算好传入，其他页面不传就不显示
+    honorsText: {
+      type: String,
+      value: '',
+    },
+    // 积分榜专用三排布局：第二排「场次 · 冠亚季 · 积分」，第三排签名；其他页面保持两排不变
+    seasonLine: {
+      type: Boolean,
+      value: false,
+    },
   },
 
   data: {

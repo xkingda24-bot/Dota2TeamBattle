@@ -5,6 +5,7 @@ const {
   UNIT_SCALE,
   SEASONS,
   SCORE_UNITS,
+  SCORE_UNITS_SINGLE_RANK,
   sha256,
   getSeasonById,
   getSeasonByTimestamp,
@@ -17,7 +18,7 @@ const {
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 const db = cloud.database();
 const _ = db.command;
-const COLLECTIONS = ['seasonConfigs', 'seasonRules', 'seasonSettlements', 'seasonPointLedger', 'seasonAccounts'];
+const COLLECTIONS = ['seasonConfigs', 'seasonRules', 'seasonSettlements', 'seasonPointLedger', 'seasonAccounts', 'seasonPointsBackup'];
 const CARD_PAGE_SIZE = 10; // 积分榜一页 10 张玩家名片
 const BACKFILL_BATCH_SIZE = 1;
 // 单次调用最多写入的积分流水条数：云函数 3 秒上限内，一人的事务约 0.3 秒，
@@ -99,12 +100,25 @@ async function initializeSchema() {
     ruleVersion: RULE_VERSION,
     unitScale: UNIT_SCALE,
     scoreByTeamCount: SCORE_UNITS,
+    scoreByTeamCountSingleRank: SCORE_UNITS_SINGLE_RANK,
     seasonAssignmentPolicy: 'archivedAt',
     thirdAndFourthUseThirdPlaceScore: true,
-    allowNegativeBalance: true,
+    // points-v2：全员正分，末位也加分，单场合计为固定正数，不再出现负分
+    allowNegativeBalance: false,
+    perTournamentAllPositive: true,
     flatAdjustmentIncluded: false,
     createdAt: now,
   });
+
+  // 赛季配置里记着「当前规则版本」，规则升级后要跟着更新，否则结算会报版本不一致。
+  // 历史流水各自带着自己的 ruleVersion，不受影响。
+  const configs = await db.collection('seasonConfigs').limit(100).get();
+  for (const config of (configs.data || [])) {
+    if (!config || config.seasonId === undefined || config.ruleVersion === RULE_VERSION) continue;
+    await db.collection('seasonConfigs').doc(config._id).update({
+      data: { ruleVersion: RULE_VERSION, previousRuleVersion: String(config.ruleVersion || ''), updatedAt: now },
+    });
+  }
 }
 
 async function ensureSchema() {
@@ -288,9 +302,9 @@ async function settleTournamentInternal(tournament, options) {
   }
 
   const actualNetUnits = plan.entries.reduce((sum, entry) => sum + entry.deltaUnits, 0);
-  if (actualNetUnits !== plan.expectedNetUnits || actualNetUnits !== 0) {
-    await updateSettlement(plan, { status: 'failed', appliedEntries: written, errorMessage: '积分流水净额校验失败' }).catch(() => {});
-    throw new Error('积分流水净额校验失败');
+  if (actualNetUnits !== plan.expectedNetUnits) {
+    await updateSettlement(plan, { status: 'failed', appliedEntries: written, errorMessage: '积分流水与结算方案不一致' }).catch(() => {});
+    throw new Error('积分流水与结算方案不一致');
   }
   await updateSettlement(plan, {
     status: 'settled',
@@ -424,6 +438,36 @@ async function rankOfAccount(seasonId, account, units, totalPlayers) {
   }
 }
 
+/**
+ * 统计一批玩家本赛季的冠 / 亚 / 季次数：直接数积分流水里的名次，不改动余额。
+ */
+async function countHonorsFor(seasonId, openids) {
+  const unique = Array.from(new Set((openids || []).map((openid) => String(openid || '').trim()).filter(Boolean)));
+  const map = new Map();
+  if (!unique.length) return map;
+  for (let offset = 0; offset < 2000; offset += 100) {
+    const result = await db.collection('seasonPointLedger')
+      .where({ seasonId, openid: _.in(unique), rank: _.in([1, 2, 3]) })
+      .orderBy('eventAt', 'asc')
+      .orderBy('_id', 'asc')
+      .skip(offset)
+      .limit(100)
+      .get();
+    const list = result.data || [];
+    list.forEach((entry) => {
+      const openid = String(entry.openid || '');
+      const counters = map.get(openid) || { champions: 0, runnersUp: 0, thirds: 0 };
+      const rank = Number(entry.rank);
+      if (rank === 1) counters.champions += 1;
+      else if (rank === 2) counters.runnersUp += 1;
+      else if (rank === 3) counters.thirds += 1;
+      map.set(openid, counters);
+    });
+    if (list.length < 100) break;
+  }
+  return map;
+}
+
 async function getSeasonPage(openid, event) {
   const requestedSeason = normalizeSeasonId(event.seasonId);
   if (event.seasonId && !requestedSeason) throw new Error('赛季编号无效');
@@ -460,6 +504,7 @@ async function getSeasonPage(openid, event) {
   const myUnits = Number(myAccount && myAccount.balanceUnits) || 0;
   const myRank = myAccount ? await rankOfAccount(seasonId, myAccount, myUnits, totalPlayers) : null;
   const profileMap = await getUsersByOpenids(pageAccounts.map((item) => item.openid).concat(openid));
+  const honorByOpenid = await countHonorsFor(seasonId, pageAccounts.map((item) => item.openid));
   const leaderboard = pageAccounts.map((item, index) => {
     const profile = profileMap[item.openid] || {};
     return {
@@ -468,6 +513,8 @@ async function getSeasonPage(openid, event) {
       points: displayPoints(item.balanceUnits),
       mmr: profile.mmr == null ? (item.mmr == null ? null : Number(item.mmr)) : Number(profile.mmr),
       isMine: item.openid === openid,
+      // 冠 / 亚 / 季次数，供名片展示
+      honors: honorByOpenid.get(item.openid) || { champions: 0, runnersUp: 0, thirds: 0 },
       // 名片组件需要完整的人物字段，这里只带必要的展示字段，避免把整份用户文档传回前端
       player: buildCardPlayer(profile, item),
     };
@@ -690,6 +737,96 @@ async function backfillArchivedBatch(openid, cursorValue) {
   };
 }
 
+/**
+ * 读取某赛季的全部文档（分页拉取，用于重算前的备份）。
+ */
+async function readAllOfSeason(collectionName, seasonId) {
+  const output = [];
+  for (let offset = 0; offset < 2000; offset += 100) {
+    const result = await db.collection(collectionName).where({ seasonId }).skip(offset).limit(100).get();
+    const list = result.data || [];
+    output.push(...list);
+    if (list.length < 100) break;
+  }
+  return output;
+}
+
+/**
+ * 规则升级后按新表重算一个赛季：先把该赛季的账户、流水、结算记录整体备份到
+ * seasonPointsBackup，再清空，随后由 rebuildSeasonBatch 逐场按当前规则重建。
+ */
+async function resetSeasonPoints(openid, seasonId) {
+  if (!(await isSuperAdmin(openid))) throw new Error('只有最高管理员可以重算赛季积分');
+  const season = getSeasonById(seasonId);
+  if (!season) throw new Error('赛季编号无效');
+  const backupAt = Date.now();
+  const backup = {
+    seasonId,
+    backupAt,
+    ruleVersion: RULE_VERSION,
+    accounts: await readAllOfSeason('seasonAccounts', seasonId),
+    ledger: await readAllOfSeason('seasonPointLedger', seasonId),
+    settlements: await readAllOfSeason('seasonSettlements', seasonId),
+  };
+  const backupId = sha256(seasonId + ':backup:' + backupAt);
+  await db.collection('seasonPointsBackup').doc(backupId).set({ data: backup });
+  const removed = {};
+  for (const collectionName of ['seasonAccounts', 'seasonPointLedger', 'seasonSettlements']) {
+    const result = await db.collection(collectionName).where({ seasonId }).remove();
+    removed[collectionName] = Number(result && result.stats && result.stats.removed) || 0;
+  }
+  return { backupId, backupAt, removed };
+}
+
+/**
+ * 重算阶段：按归档时间顺序逐场重建该赛季积分，每次调用处理一场（内部再按
+ * SETTLE_BATCH_SIZE 分批写流水），返回 nextCursor 供下一次调用继续。
+ */
+async function rebuildSeasonBatch(openid, seasonId, cursorValue, options) {
+  if (!(await isSuperAdmin(openid))) throw new Error('只有最高管理员可以重算赛季积分');
+  const season = getSeasonById(seasonId);
+  if (!season) throw new Error('赛季编号无效');
+  const input = cursorValue && typeof cursorValue === 'object' ? cursorValue : {};
+  const cursorAt = Number(input.archivedAt) || 0;
+  const cursorId = String(input.id || '');
+  const range = _.gte(season.startAt).and(_.lt(season.endAt));
+  const where = cursorAt && cursorId
+    ? _.or([
+      { archivedAt: range.and(_.gt(cursorAt)) },
+      { archivedAt: _.eq(cursorAt).and(_.gte(season.startAt)).and(_.lt(season.endAt)), _id: _.gt(cursorId) },
+    ])
+    : { archivedAt: range };
+  const result = await db.collection('tournaments').where(where)
+    .orderBy('archivedAt', 'asc')
+    .orderBy('_id', 'asc')
+    .limit(1)
+    .get();
+  const tournament = result.data && result.data[0];
+  if (!tournament) return { done: true, nextCursor: null, processed: 0, skipped: 0 };
+
+  const nextCursor = { archivedAt: Number(tournament.archivedAt) || 0, id: String(tournament._id || '') };
+  if (tournament.deletedAt || tournament.status !== 'finished') {
+    return { done: false, nextCursor, processed: 0, skipped: 1 };
+  }
+  const settleResult = await settleTournamentInternal(tournament, { batchSize: options && options.batchSize });
+  if (settleResult && settleResult.done === false) {
+    // 这一场还没写完，游标不前进，下一次调用继续同一场
+    return {
+      done: false,
+      nextCursor: cursorAt && cursorId ? input : null,
+      processed: 0,
+      skipped: 0,
+      pending: {
+        tournamentId: String(tournament._id || ''),
+        tournamentName: String(tournament.name || '未命名赛事'),
+        appliedEntries: Number(settleResult.appliedEntries) || 0,
+        participantCount: Number(settleResult.participantCount) || 0,
+      },
+    };
+  }
+  return { done: false, nextCursor, processed: 1, skipped: 0, tournamentName: String(tournament.name || '') };
+}
+
 const actions = {
   async getFeatureConfig() {
     await ensureSchema();
@@ -751,6 +888,26 @@ const actions = {
     if (!openid) return fail('无法识别当前用户');
     await ensureSchema();
     return ok(await backfillArchivedBatch(openid, event && event.cursor));
+  },
+
+  /* 最高管理员：按当前规则重算整个赛季（先备份并清空，再用 rebuildSeasonPoints 逐场重建） */
+  async resetSeasonPoints(event) {
+    const openid = openidFromContext();
+    if (!openid) return fail('无法识别当前用户');
+    await ensureSchema();
+    return ok(await resetSeasonPoints(openid, String(event && event.seasonId || '').trim()));
+  },
+
+  async rebuildSeasonPoints(event) {
+    const openid = openidFromContext();
+    if (!openid) return fail('无法识别当前用户');
+    await ensureSchema();
+    return ok(await rebuildSeasonBatch(
+      openid,
+      String(event && event.seasonId || '').trim(),
+      event && event.cursor,
+      { batchSize: event && event.batchSize }
+    ));
   },
 };
 

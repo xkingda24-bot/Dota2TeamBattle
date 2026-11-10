@@ -12,7 +12,7 @@ function formatPoints(value) {
   return Number.isInteger(points) ? String(points) : points.toFixed(1);
 }
 
-// 规则页分值表：展示值 = 内部分值 / 2（UNIT_SCALE），负分标红，“—”表示该队数没有这个名次。
+// 规则页分值表：分值即展示分（与后端 SCORE_UNITS 一致），负分标红，“—”表示该队数没有这个名次。
 function buildScoreTable(title, rows) {
   return {
     title,
@@ -27,6 +27,33 @@ function buildScoreTable(title, rows) {
       })),
     })),
   };
+}
+
+// 名片上的名次荣誉：固定三段，没拿过也写 0，例如「0 冠 2 亚 4 季」，保证所有名片第二排格式一致
+function formatHonors(honors) {
+  const source = honors || {};
+  const champions = Number(source.champions) || 0;
+  const runnersUp = Number(source.runnersUp) || 0;
+  const thirds = Number(source.thirds) || 0;
+  return champions + ' 冠 ' + runnersUp + ' 亚 ' + thirds + ' 季';
+}
+
+// 页码条：页数少时全部列出，页数多时只留首页、末页和当前页附近，中间用「…」占位。
+function buildPageItems(page, totalPages) {
+  const items = [];
+  const pushPage = (value) => items.push({ key: 'p' + value, label: String(value), page: value, active: value === page });
+  if (totalPages <= 7) {
+    for (let value = 1; value <= totalPages; value += 1) pushPage(value);
+    return items;
+  }
+  const windowStart = Math.max(2, page - 1);
+  const windowEnd = Math.min(totalPages - 1, page + 1);
+  pushPage(1);
+  if (windowStart > 2) items.push({ key: 'gap-start', label: '…', page: 0, active: false });
+  for (let value = windowStart; value <= windowEnd; value += 1) pushPage(value);
+  if (windowEnd < totalPages - 1) items.push({ key: 'gap-end', label: '…', page: 0, active: false });
+  pushPage(totalPages);
+  return items;
 }
 
 function formatDelta(value) {
@@ -84,6 +111,7 @@ function buildSeasonView(data, fallbackSeasonId) {
       seq: (page - 1) * pageSize + index + 1,
       place: item.rank,
       isMine: !!item.isMine,
+      honorsText: formatHonors(item.honors),
       player: item.player || { openid: '', nickname: String(item.nickname || '玩家'), mmr: item.mmr },
     })),
     leaderboardPage: {
@@ -93,6 +121,7 @@ function buildSeasonView(data, fallbackSeasonId) {
       canPrev: page > 1,
       canNext: page < totalPages,
       pageText: '第 ' + page + ' / ' + totalPages + ' 页',
+      pageItems: buildPageItems(page, totalPages),
       summaryText: '共 ' + (Number(boardPage.totalPlayers) || Number(me.totalPlayers) || 0) + ' 位玩家 · 每页 ' + pageSize + ' 人',
     },
     records: records.map((item) => ({
@@ -121,7 +150,7 @@ Page({
     mmr: '—',
     showMyRankRow: true,
     leaderboard: [],
-    leaderboardPage: { page: 1, pageSize: 10, totalPages: 1, canPrev: false, canNext: false, pageText: '第 1 / 1 页', summaryText: '' },
+    leaderboardPage: { page: 1, pageSize: 10, totalPages: 1, canPrev: false, canNext: false, pageText: '第 1 / 1 页', pageItems: [], summaryText: '' },
     records: [],
     activeTab: 'leaderboard',
     loading: true,
@@ -129,22 +158,22 @@ Page({
     loadError: '',
     scoreRules: [
       buildScoreTable('单败 / 双败（含历史赛事）', [
-        ['冠军', '+45', '+100', '+127.5'],
-        ['亚军', '+5', '+60', '+87.5'],
-        ['季军与第 4 名', '−25', '+30', '+57.5'],
-        ['其余队伍', '无', '−55', '−27.5'],
-        ['合计', '0', '0', '0'],
+        ['冠军', '+60', '+120', '+200'],
+        ['亚军', '+35', '+70', '+120'],
+        ['季军与第 4 名', '+15', '+40', '+75'],
+        ['其余队伍', '无', '+15', '+20'],
+        ['合计', '+125', '+340', '+710'],
       ]),
       buildScoreTable('单败排位赛', [
-        ['冠军', '+45', '+100', '+127.5'],
-        ['亚军', '+5', '+60', '+87.5'],
-        ['季军', '−20', '+40', '+65'],
-        ['第 4 名', '−30', '+20', '+50'],
-        ['第 5 名（并列）', '—', '−50', '−20'],
-        ['第 6 名（并列）', '—', '−60', '−25'],
-        ['第 9 名（并列）', '—', '—', '−29'],
-        ['第 10 名（并列）', '—', '—', '−31'],
-        ['合计', '0', '0', '0'],
+        ['冠军', '+60', '+120', '+200'],
+        ['亚军', '+35', '+75', '+125'],
+        ['季军', '+25', '+55', '+90'],
+        ['第 4 名', '+15', '+40', '+65'],
+        ['第 5 名（并列）', '—', '+25', '+45'],
+        ['第 6 名（并列）', '—', '+15', '+30'],
+        ['第 9 名（并列）', '—', '—', '+20'],
+        ['第 10 名（并列）', '—', '—', '+10'],
+        ['合计', '+135', '+370', '+750'],
       ]),
     ],
   },
@@ -187,6 +216,15 @@ Page({
     const board = this.data.leaderboardPage || {};
     const target = (Number(board.page) || 1) + direction;
     if (!direction || target < 1 || target > (Number(board.totalPages) || 1)) return;
+    this.loadSeasonPage(this.data.selectedSeason, target);
+  },
+
+  // 直接点页码跳页：与上一页 / 下一页 共用同一套加载和请求去重
+  onLeaderboardPageTap(event) {
+    const target = Number(event.currentTarget.dataset.page) || 0;
+    const board = this.data.leaderboardPage || {};
+    if (!target || target < 1 || target > (Number(board.totalPages) || 1)) return;
+    if (target === (Number(board.page) || 1)) return;
     this.loadSeasonPage(this.data.selectedSeason, target);
   },
 
