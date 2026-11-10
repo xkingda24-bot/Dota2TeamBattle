@@ -116,9 +116,9 @@ async function main() {
   assert.strictEqual(getSeasonByTimestamp(SEASONS[0].endAt).seasonId, '2026Q2');
   assert.strictEqual(getSeasonByTimestamp(SEASONS[3].endAt), null);
 
-  // points-v2：分值即展示分，全员正分，单场合计按队伍数固定（4 队 62.5 / 8 队 170 / 16 队 355，
+  // points-v2：表值即分数，全员正分，单场合计按队伍数固定（4 队 125 / 8 队 340 / 16 队 710，
   // 这里每队 2 条流水，所以净额是这些值 ×2）
-  const doubleNetUnits = { 4: 125, 8: 340, 16: 710 };
+  const doubleNetUnits = { 4: 250, 8: 680, 16: 1420 };
   for (const teamCount of [4, 8, 16]) {
     const planData = makeTournament(teamCount, false);
     const plan = buildSettlementPlan(planData.tournament, planData.standings, { now: 100 });
@@ -133,10 +133,10 @@ async function main() {
   const fourTeamSingle = makeTournament(4, true);
   const singlePlan = buildSettlementPlan(fourTeamSingle.tournament, fourTeamSingle.standings);
   assert.strictEqual(singlePlan.entries.filter((entry) => entry.rank === 3 || entry.rank === 4).length, 4);
-  assert(singlePlan.entries.filter((entry) => entry.rank === 3 || entry.rank === 4).every((entry) => entry.deltaUnits === 7.5));
-  assert.strictEqual(unitsForRank(8, 4), 22.5);
-  assert.strictEqual(unitsForRank(16, 3), 37.5);
-  assert.strictEqual(unitsForRank(16, 5), 10);
+  assert(singlePlan.entries.filter((entry) => entry.rank === 3 || entry.rank === 4).every((entry) => entry.deltaUnits === 15));
+  assert.strictEqual(unitsForRank(8, 4), 45);
+  assert.strictEqual(unitsForRank(16, 3), 75);
+  assert.strictEqual(unitsForRank(16, 5), 20);
 
   const invalidRankData = makeTournament(4, false);
   const duplicateChampionRank = Object.assign({}, invalidRankData.standings, {
@@ -176,22 +176,22 @@ async function main() {
   });
 
   // 单败排位赛分表：3/4/5/6 名各自独立，全员正分，单场合计固定
-  assert.strictEqual(unitsForRank(8, 3, 'singleRank'), 27.5);
-  assert.strictEqual(unitsForRank(8, 4, 'singleRank'), 20);
-  assert.strictEqual(unitsForRank(8, 5, 'singleRank'), 12.5);
-  assert.strictEqual(unitsForRank(8, 6, 'singleRank'), 7.5);
-  assert.strictEqual(unitsForRank(16, 9, 'singleRank'), 10);
-  assert.strictEqual(unitsForRank(16, 10, 'singleRank'), 5);
+  assert.strictEqual(unitsForRank(8, 3, 'singleRank'), 55);
+  assert.strictEqual(unitsForRank(8, 4, 'singleRank'), 40);
+  assert.strictEqual(unitsForRank(8, 5, 'singleRank'), 25);
+  assert.strictEqual(unitsForRank(8, 6, 'singleRank'), 15);
+  assert.strictEqual(unitsForRank(16, 9, 'singleRank'), 20);
+  assert.strictEqual(unitsForRank(16, 10, 'singleRank'), 10);
   // 双败 / 单败仍走原来的四档表，不受新赛制影响
-  assert.strictEqual(unitsForRank(8, 3, 'double'), 22.5);
-  assert.strictEqual(unitsForRank(8, 4, 'single'), 22.5);
+  assert.strictEqual(unitsForRank(8, 3, 'double'), 45);
+  assert.strictEqual(unitsForRank(8, 4, 'single'), 45);
 
   const singleRankExpectedUnits = {
-    4: { 1: 30, 2: 17.5, 3: 12.5, 4: 7.5 },
-    8: { 1: 60, 2: 37.5, 3: 27.5, 4: 20, 5: 12.5, 6: 7.5 },
-    16: { 1: 100, 2: 62.5, 3: 45, 4: 32.5, 5: 22.5, 6: 15, 9: 10, 10: 5 },
+    4: { 1: 60, 2: 35, 3: 25, 4: 15 },
+    8: { 1: 120, 2: 75, 3: 55, 4: 40, 5: 25, 6: 15 },
+    16: { 1: 200, 2: 125, 3: 90, 4: 65, 5: 45, 6: 30, 9: 20, 10: 10 },
   };
-  const singleRankNetUnits = { 4: 135, 8: 370, 16: 750 };
+  const singleRankNetUnits = { 4: 270, 8: 740, 16: 1500 };
   Object.keys(singleRankExpectedUnits).forEach((key) => {
     const teamCount = Number(key);
     const data = makeSingleRankTournament(teamCount);
