@@ -14,6 +14,7 @@ const EXPECTED_ACTIONS = [
   'getStaff',
   'saveCardStyle',
   'getCardStyles',
+  'getPlayerProfile',
   'listUsers',
   'setAdmins',
   'createTournament',

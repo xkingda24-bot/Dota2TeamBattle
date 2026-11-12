@@ -21,15 +21,9 @@ const db = cloud.database();
 const _ = db.command;
 const COLLECTIONS = ['seasonConfigs', 'seasonRules', 'seasonSettlements', 'seasonPointLedger', 'seasonAccounts', 'seasonPointsBackup'];
 const CARD_PAGE_SIZE = 10; // 积分榜一页 10 张玩家名片
-const BACKFILL_BATCH_SIZE = 1;
 // 单次调用最多写入的积分流水条数：云函数 3 秒上限内，一人的事务约 0.3 秒，
 // 取 6 条留出固定开销余量；写不完由下一次调用按 appliedEntries 续跑。
 const SETTLE_BATCH_SIZE = 6;
-const SKIPPABLE_BACKFILL_CODES = new Set([
-  'INVALID_TOURNAMENT', 'INELIGIBLE_TOURNAMENT', 'UNSUPPORTED_TEAM_COUNT', 'INCOMPLETE_STANDINGS',
-  'UNSUPPORTED_SEASON', 'SEASON_MISMATCH', 'INVALID_STANDINGS', 'INVALID_ROSTER',
-  'ROSTER_MISMATCH', 'NET_MISMATCH',
-]);
 let schemaPromise = null;
 
 function ok(data) {
@@ -640,113 +634,6 @@ async function getSeasonHomeSummary(openid, seasonId) {
   };
 }
 
-async function backfillArchivedBatch(openid, cursorValue) {
-  if (!(await isSuperAdmin(openid))) throw new Error('只有最高管理员可以补算历史积分');
-  const input = cursorValue && typeof cursorValue === 'object' ? cursorValue : {};
-  const hasCursorFields = input.snapshotAt !== undefined || input.snapshotId !== undefined ||
-    input.archivedAt !== undefined || input.id !== undefined;
-  let snapshotAt = Number(input.snapshotAt) || 0;
-  let snapshotId = String(input.snapshotId || '');
-  if (!snapshotAt) {
-    const latest = await db.collection('tournaments')
-      .where({ archivedAt: _.gt(0) })
-      .orderBy('archivedAt', 'desc')
-      .orderBy('_id', 'desc')
-      .limit(1)
-      .get();
-    snapshotAt = Number(latest.data && latest.data[0] && latest.data[0].archivedAt) || 0;
-    snapshotId = String(latest.data && latest.data[0] && latest.data[0]._id || '');
-  }
-  if (!snapshotAt) return { done: true, nextCursor: null, processed: 0, skipped: 0, errors: [] };
-
-  const lastArchivedAt = Number(input.archivedAt) || 0;
-  const lastId = String(input.id || '');
-  if ((hasCursorFields && (!Number.isFinite(Number(input.snapshotAt)) || Number(input.snapshotAt) <= 0 ||
-      !snapshotId || snapshotId.length > 128)) ||
-      ((lastArchivedAt || lastId) &&
-      (!Number.isFinite(lastArchivedAt) || lastArchivedAt <= 0 || lastArchivedAt > snapshotAt ||
-       !lastId || lastId.length > 128)) ||
-      (hasCursorFields && (!lastArchivedAt || !lastId || lastArchivedAt === snapshotAt && lastId >= snapshotId))) {
-    throw new Error('历史补算游标无效，请重新开始扫描');
-  }
-
-  let ranges;
-  if (!lastArchivedAt) {
-    ranges = [
-      { archivedAt: _.gt(0).and(_.lt(snapshotAt)) },
-      { archivedAt: snapshotAt, _id: _.lte(snapshotId) },
-    ];
-  } else if (lastArchivedAt < snapshotAt) {
-    ranges = [
-      { archivedAt: _.gt(lastArchivedAt).and(_.lt(snapshotAt)) },
-      { archivedAt: lastArchivedAt, _id: _.gt(lastId) },
-      { archivedAt: snapshotAt, _id: _.lte(snapshotId) },
-    ];
-  } else {
-    ranges = [{ archivedAt: snapshotAt, _id: _.gt(lastId).and(_.lte(snapshotId)) }];
-  }
-  const result = await db.collection('tournaments').where({ _or: ranges })
-    .orderBy('archivedAt', 'asc')
-    .orderBy('_id', 'asc')
-    .limit(BACKFILL_BATCH_SIZE + 1)
-    .get();
-  const tournaments = result.data || [];
-  if (!tournaments.length) return { done: true, nextCursor: null, processed: 0, skipped: 0, errors: [] };
-  let processed = 0;
-  let skipped = 0;
-  const errors = [];
-  const tournament = tournaments[0];
-  let settleResult = null;
-  if (tournament.deletedAt || tournament.status !== 'finished') {
-    skipped = 1;
-    processed = 1;
-  } else {
-    try {
-      settleResult = await settleTournamentInternal(tournament, { backfill: true });
-      processed = settleResult && settleResult.done === false ? 0 : 1;
-    } catch (error) {
-      const code = String(error && error.code || '');
-      if (SKIPPABLE_BACKFILL_CODES.has(code)) {
-        processed = 0;
-        skipped += 1;
-        errors.push({ tournamentName: String(tournament.name || '未命名赛事'), code, reason: error.message });
-      } else {
-        throw error;
-      }
-    }
-  }
-
-  // 一场比赛要分多次调用才能写完时，游标不前进，下一次继续结算同一场
-  if (settleResult && settleResult.done === false) {
-    const keptCursor = cursorValue && typeof cursorValue === 'object' ? cursorValue : null;
-    return {
-      done: false,
-      nextCursor: keptCursor,
-      processed,
-      skipped,
-      errors,
-      pending: {
-        tournamentId: String(tournament._id || ''),
-        tournamentName: String(tournament.name || '未命名赛事'),
-        appliedEntries: Number(settleResult.appliedEntries) || 0,
-        participantCount: Number(settleResult.participantCount) || 0,
-      },
-    };
-  }
-  return {
-    done: tournaments.length <= BACKFILL_BATCH_SIZE,
-    nextCursor: tournaments.length <= BACKFILL_BATCH_SIZE ? null : {
-      snapshotAt,
-      snapshotId,
-      archivedAt: Number(tournament.archivedAt) || 0,
-      id: String(tournament._id || ''),
-    },
-    processed,
-    skipped,
-    errors,
-  };
-}
-
 /**
  * 读取某赛季的全部文档（分页拉取，用于重算前的备份）。
  */
@@ -893,13 +780,6 @@ const actions = {
     return ok(await settleTournamentInternal(tournament, { batchSize: event && event.batchSize }));
   },
 
-  async backfillArchived(event) {
-    const openid = openidFromContext();
-    if (!openid) return fail('无法识别当前用户');
-    await ensureSchema();
-    return ok(await backfillArchivedBatch(openid, event && event.cursor));
-  },
-
   /* 最高管理员：按当前规则重算整个赛季（先备份并清空，再用 rebuildSeasonPoints 逐场重建） */
   async resetSeasonPoints(event) {
     const openid = openidFromContext();
@@ -933,4 +813,4 @@ exports.main = async (event) => {
   }
 };
 
-exports._internals = { initializeSchema, ensureSchema, resolveBracket, getSeasonPage, getCardPoints, settleTournamentInternal, backfillArchivedBatch };
+exports._internals = { initializeSchema, ensureSchema, resolveBracket, getSeasonPage, getCardPoints, settleTournamentInternal };

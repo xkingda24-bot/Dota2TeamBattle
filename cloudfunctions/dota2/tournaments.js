@@ -10,6 +10,7 @@ const { publicDotaCardFields } = require('./card-profile');
 const { REGISTRATION_PROFILE_FIELDS, getUsersByOpenids } = require('./users');
 const { getAdminsConfig, isSuper, canManageTournament } = require('./permissions');
 const { calculateStandings } = require('./standings');
+const { resolveBracket } = require('./bracket-resolve');
 const { buildRegistrationSummary } = require('./tournament-transaction');
 const { TOURNAMENT_SUMMARY_FIELDS, summarize } = require('./tournament-summary');
 const { chinaDayRange, createQuotaId, effectiveDailyCount, createDailyLimit } = require('./daily-quota');
@@ -317,34 +318,8 @@ function normalizeBracketType(value) {
   return value === 'single' ? 'single' : 'double';
 }
 
-/* 解析对阵：把每个比赛的队伍源解析为实际队伍信息（含昵称），并给出显示名 */
-function resolveBracket(tournament) {
-  const w = {}; // matchId -> {openid, name}
-  const l = {};
-  const resolveSource = (src) => {
-    if (!src) return null;
-    if (src.type === 'team') return { openid: src.openid, name: src.name, teamIcon: src.teamIcon || '' };
-    const map = src.slot === 'winner' ? w : l;
-    return map[src.matchId] || null;
-  };
-  const ms = (tournament.matches || []).map((m) => {
-    const a = resolveSource(m.teamA);
-    const b = resolveSource(m.teamB);
-    const item = Object.assign({}, m, {
-      teamAInfo: a,
-      teamBInfo: b,
-      displayA: a ? a.name : '待定',
-      displayB: b ? b.name : '待定',
-    });
-    if (m.status === 'done' && m.winner) {
-      const winnerIsA = a && a.openid === m.winner;
-      w[m.id] = winnerIsA ? a : b;
-      l[m.id] = winnerIsA ? b : a;
-    }
-    return item;
-  });
-  return ms;
-}
+/* 解析对阵：见 bracket-resolve.js（纯函数，赛事详情与生涯统计共用） */
+
 
 /* 组装比赛页完整数据 */
 async function composeTournament(t, myOpenid) {

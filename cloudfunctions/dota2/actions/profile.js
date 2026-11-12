@@ -7,12 +7,93 @@ const { ok, fail, getOpenId } = require('../utils');
 const { DOTA_ID_RE } = require('../constants');
 const { isRankVerified } = require('../card-profile');
 const { getDotaProfile } = require('../dota-profile');
-const { getUser, getCardStylesByOpenids } = require('../users');
+const { getUser, getCardStylesByOpenids, getUsersByOpenids } = require('../users');
 const { DEFAULT_CARD_STYLE, CARD_STYLE_OPTIONS, normalizeCardStyle } = require('../cards');
 const { checkUserText } = require('../content-security');
+const { buildPlayerStats } = require('../player-stats');
 
 // scene 取值以官方文档为准：1 资料 / 2 评论 / 3 正文 / 4 昵称
 const SCENE_PROFILE = 1;
+
+// 生涯统计只需要赛程与队伍相关字段，不拉整个文档（感言、暗号等都不需要）
+const PROFILE_TOURNAMENT_FIELDS = {
+  _id: true,
+  name: true,
+  time: true,
+  mode: true,
+  N: true,
+  K: true,
+  bracketType: true,
+  champion: true,
+  teams: true,
+  captainOrder: true,
+  draft: true,
+  matches: true,
+  seeding: true,
+  standingsOrder: true,
+  status: true,
+  createdAt: true,
+  deletedAt: true,
+};
+
+/**
+ * 读取某位玩家参与过的赛事。
+ * 主路径走 registeredOpenids（报名时由 buildRegistrationSummary 写入的数组）；
+ * 尚未回填该字段的旧赛事再补一次嵌套字段查询，失败则忽略，不影响主路径。
+ */
+async function loadPlayerTournaments(openid) {
+  const rows = [];
+  const seen = {};
+  const push = (list) => {
+    (list || []).forEach((tournament) => {
+      if (!tournament || !tournament._id || tournament.deletedAt || seen[tournament._id]) return;
+      seen[tournament._id] = true;
+      rows.push(tournament);
+    });
+  };
+  for (let skip = 0; skip < 300; skip += 100) {
+    const res = await db.collection('tournaments')
+      .where({ registeredOpenids: openid })
+      .field(PROFILE_TOURNAMENT_FIELDS)
+      .orderBy('createdAt', 'desc')
+      .skip(skip)
+      .limit(100)
+      .get();
+    push(res.data);
+    if (!res.data || res.data.length < 100) break;
+  }
+  try {
+    const legacy = await db.collection('tournaments')
+      .where({ 'registrations.openid': openid })
+      .field(PROFILE_TOURNAMENT_FIELDS)
+      .orderBy('createdAt', 'desc')
+      .limit(100)
+      .get();
+    push(legacy.data);
+  } catch (e) {
+    /* 旧数据补查失败可忽略：主路径已覆盖正常赛事 */
+  }
+  return rows;
+}
+
+/* 只对外暴露名片与生涯需要的公开字段 */
+function publicPlayerProfile(user, openid) {
+  const source = user || {};
+  return {
+    openid,
+    nickname: String(source.nickname || ''),
+    mmr: source.mmr == null ? null : Number(source.mmr),
+    roles: Array.isArray(source.roles) ? source.roles : [],
+    signature: String(source.signature || ''),
+    cardStyle: normalizeCardStyle(source.cardStyle),
+    dota2Id: String(source.dota2Id || ''),
+    dota2RankVerified: !!source.dota2RankVerified,
+    dota2RankTier: source.dota2RankTier == null ? null : Number(source.dota2RankTier),
+    dota2LeaderboardRank: source.dota2LeaderboardRank == null ? null : Number(source.dota2LeaderboardRank),
+    dota2RankVerifiedAt: Number(source.dota2RankVerifiedAt || source.dota2VerifiedAt) || null,
+    createdAt: Number(source.createdAt) || null,
+  };
+}
 
 module.exports = {
   /* 查询公开的 OpenDota 资料；缓存与限频都由云函数负责。 */
@@ -207,5 +288,37 @@ module.exports = {
     ))) : [];
     if (openids.length > 100) return fail('一次最多读取 100 位用户的名片样式');
     return ok({ cardStyles: await getCardStylesByOpenids(openids) });
+  },
+
+  /**
+   * 选手生涯档案（只读、公开）。
+   * 不传 openid 即查看自己；他人只能拿到名片字段与比赛统计，拿不到任何管理信息。
+   */
+  async getPlayerProfile(event) {
+    const selfOpenid = getOpenId();
+    const target = String((event && event.openid) || selfOpenid || '').trim();
+    if (!target) return fail('无法识别要查看的玩家');
+    if (target.length > 128) return fail('玩家编号无效');
+    const [user, tournaments] = await Promise.all([getUser(target), loadPlayerTournaments(target)]);
+    const nameByOpenid = {};
+    if (user && user.nickname) nameByOpenid[target] = user.nickname;
+    const stats = buildPlayerStats(tournaments, target, { nameByOpenid });
+    // 搭档昵称：队伍里常只存 openid，这里补一次批量查询，避免档案页出现一串空白
+    const missing = stats.partners
+      .map((partner) => partner.openid)
+      .filter((id) => id && !nameByOpenid[id]);
+    if (missing.length) {
+      const profiles = await getUsersByOpenids(missing);
+      stats.partners.forEach((partner) => {
+        const profile = profiles[partner.openid];
+        if (profile && profile.nickname) partner.nickname = String(profile.nickname);
+      });
+    }
+    return ok({
+      openid: target,
+      isSelf: target === selfOpenid,
+      profile: publicPlayerProfile(user, target),
+      stats,
+    });
   },
 };
