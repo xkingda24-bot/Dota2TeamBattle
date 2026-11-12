@@ -189,6 +189,7 @@
         </view>
         <view class="settlement-head-tools">
           <view class="settlement-badge">{{settlementEditing ? '调整中' : '已结算'}}</view>
+          <view wx:if="{{!settlementEditing}}" class="btn-small btn-plain settlement-action" bindtap="generatePoster">生成战报</view>
           <view wx:if="{{settlement.canManageOrder && !settlementEditing}}" class="btn-small btn-plain settlement-action" bindtap="onEditSettlementOrder">调整名次</view>
         </view>
       </view>
@@ -220,13 +221,15 @@
             </view>
             <view class="settlement-members" wx:if="{{entry.showMembers && !settlementEditing}}">
               <view wx:if="{{!entry.members.length}}" class="sub">暂无队员资料</view>
-              <player-card
+              <view
                 wx:for="{{entry.members}}"
                 wx:key="openid"
                 wx:for-item="member"
-                player="{{member}}"
-                card-style="{{member.cardStyle}}"
-              />
+                data-openid="{{member.openid}}"
+                bindtap="onTapMemberCard"
+              >
+                <player-card player="{{member}}" card-style="{{member.cardStyle}}" />
+              </view>
             </view>
           </view>
         </view>
@@ -249,13 +252,15 @@
           <button class="settlement-order-button" size="mini" plain="{{true}}" aria-label="下移" disabled="{{entry.orderIndex === settlement.items.length - 1 || settlementSaving}}" data-index="{{entry.orderIndex}}" data-direction="1" bindtap="moveSettlementItem">↓</button>
         </view>
         <view class="standing-members" wx:if="{{entry.showMembers && !settlementEditing}}">
-          <player-card
+          <view
             wx:for="{{entry.members}}"
             wx:key="openid"
             wx:for-item="member"
-            player="{{member}}"
-            card-style="{{member.cardStyle}}"
-          />
+            data-openid="{{member.openid}}"
+            bindtap="onTapMemberCard"
+          >
+            <player-card player="{{member}}" card-style="{{member.cardStyle}}" />
+          </view>
         </view>
       </view>
 

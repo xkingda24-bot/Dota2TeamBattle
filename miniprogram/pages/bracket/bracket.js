@@ -174,6 +174,20 @@ Page({
     };
   },
 
+  /* 结算页点成员名片 → 该玩家生涯档案（赛后回看队友 / 对手战绩） */
+  onTapMemberCard(e) {
+    const openid = String((e.currentTarget.dataset && e.currentTarget.dataset.openid) || '');
+    if (!openid) return;
+    wx.navigateTo({ url: '/pages/player/player?openid=' + encodeURIComponent(openid) });
+  },
+
+  /* 生成赛事战报长图：把冠军、名次与感言做成一张可保存 / 转发的海报 */
+  generatePoster() {
+    const id = this.id || (this.data.t && this.data.t.id) || '';
+    if (!id) return;
+    wx.navigateTo({ url: '/pages/poster/poster?type=tournament&id=' + encodeURIComponent(id) });
+  },
+
   onOpenGroupSwap(e) {
     const t = this.data.t;
     if (!t || t.mode !== 'auto' || t.status !== 'draft' || !this.data.canManage || this.data.readonly || this.data.groupSaving || this.data.groupOrderSaving) return;

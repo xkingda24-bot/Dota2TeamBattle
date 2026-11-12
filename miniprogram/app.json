@@ -7,7 +7,9 @@
     "pages/bracket/bracket",
     "pages/staff/staff",
     "pages/card-style/card-style",
-    "pages/season-points/season-points"
+    "pages/season-points/season-points",
+    "pages/player/player",
+    "pages/poster/poster"
   ],
   "window": {
     "backgroundColor": "#131821",

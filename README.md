@@ -47,7 +47,9 @@
 │  │  ├─ bracket/    赛程、赛果、结算和赛后感言
 │  │  ├─ staff/      个人资料和超管用户列表
 │  │  ├─ card-style/ 名片外观设置
-│  │  └─ season-points/ 赛季积分（独立云函数 seasonPoints）
+│  │  ├─ season-points/ 赛季积分（独立云函数 seasonPoints）
+│  │  ├─ player/     选手生涯档案（战绩/名次历史/最佳搭档）
+│  │  └─ poster/     战报长图（赛事战报 / 生涯战报，可保存与转发）
 │  └─ utils/api.js 云函数调用封装
 ├─ cloudfunctions/dota2/           云函数（后端）
 │  ├─ index.js    入口路由：按 action 分发（业务在 actions/ 目录）
@@ -55,6 +57,8 @@
 │  ├─ tournaments.js 赛事读取与组装（详情/快照/摘要/对阵解析）
 │  ├─ permissions.js / users.js / cards.js / dota-profile.js / auto-group.js 支撑模块
 │  ├─ content-security.js UGC 内容安全检测（msgSecCheck）
+│  ├─ player-stats.js 生涯统计（胜负/胜率/名次/搭档/连胜，纯函数）
+│  ├─ bracket-resolve.js 对阵解析（纯函数，赛事详情与生涯统计共用）
 │  ├─ bracket.js  TI 双败赛程生成器（N=2~16）
 │  └─ standings.js 结算名次计算
 ├─ cloudfunctions/seasonPoints/     赛季积分云函数（独立部署，不影响 dota2）

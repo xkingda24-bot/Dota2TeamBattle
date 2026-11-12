@@ -3,6 +3,7 @@ const api = require('../../utils/api');
 const tournamentPolling = require('../../utils/tournament-polling');
 const { TEAM_LOGO_PRESETS } = require('../../utils/team-logos');
 const { getTodayBoundary } = require('../../utils/date-time');
+const { buildRegisterShareTitle } = require('../../utils/share-text');
 
 const { formatRolesText } = require('../../utils/roles');
 
@@ -57,12 +58,12 @@ Page({
     this.setData({ readonly: !!(options && options.readonly === '1'), stageView });
   },
 
-  // 转发给好友：带上比赛 id（故意不带暗号，转发不等于泄露暗号）
+  // 转发给好友：标题按报名缺口动态生成（还差几人），落地页仍只带 id、不带暗号
   onShareAppMessage() {
     const id = this.id || '';
     const t = this.data.t || {};
     return {
-      title: (t.name || '刀塔集结') + ' · 报名',
+      title: buildRegisterShareTitle(t),
       path: '/pages/register/register' + (id ? '?id=' + encodeURIComponent(id) : ''),
     };
   },

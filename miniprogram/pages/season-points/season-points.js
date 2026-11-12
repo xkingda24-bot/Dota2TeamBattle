@@ -245,4 +245,11 @@ Page({
     if (['leaderboard', 'records', 'rules'].indexOf(tab) < 0) return;
     this.setData({ activeTab: tab });
   },
+
+  /* 点榜单名片 → 该玩家生涯档案（名片是榜单的主要可交互元素） */
+  onTapPlayer(event) {
+    const openid = String((event.currentTarget.dataset && event.currentTarget.dataset.openid) || '');
+    if (!openid) return;
+    wx.navigateTo({ url: '/pages/player/player?openid=' + encodeURIComponent(openid) });
+  },
 });

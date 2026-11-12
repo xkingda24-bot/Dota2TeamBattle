@@ -1,0 +1,123 @@
+<!--pages/player/player.wxml - 选手生涯档案-->
+<nav-bar title="{{navTitle}}" />
+
+<view class="container">
+  <view wx:if="{{loading}}" class="empty">正在读取生涯数据…</view>
+
+  <view wx:elif="{{loadError}}" class="card">
+    <view class="card-title">生涯数据暂不可用</view>
+    <view class="sub">{{loadError}}</view>
+    <view class="btn btn-plain" bindtap="retryLoad">重新加载</view>
+  </view>
+
+  <block wx:else>
+    <!-- 名片 -->
+    <player-card wx:if="{{hasProfile}}" player="{{profile}}" card-style="{{profile.cardStyle}}" />
+    <view wx:else class="card">
+      <view class="card-title">还没有名片</view>
+      <view class="sub">这位玩家还没设置昵称与天梯分，之后会在名片上显示。</view>
+    </view>
+
+    <!-- 核心数据 -->
+    <view class="card">
+      <view class="stat-grid">
+        <view class="stat">
+          <view class="stat-value">{{stats.playedTournaments}}</view>
+          <view class="stat-label">参赛</view>
+        </view>
+        <view class="stat">
+          <view class="stat-value">{{stats.winRate}}<text class="stat-unit">%</text></view>
+          <view class="stat-label">{{stats.wins}} 胜 {{stats.losses}} 负</view>
+        </view>
+        <view class="stat">
+          <view class="stat-value">{{stats.championships}}</view>
+          <view class="stat-label">冠军</view>
+        </view>
+        <view class="stat">
+          <view class="stat-value">{{stats.bestStreak}}</view>
+          <view class="stat-label">最佳连胜</view>
+        </view>
+      </view>
+
+      <view class="winbar" wx:if="{{stats.matches > 0}}">
+        <view class="winbar-fill" style="width: {{stats.winRate}}%"></view>
+      </view>
+
+      <view class="divider"></view>
+      <view class="honor-line">
+        <text class="honor-chip honor-gold">{{stats.championships}} 冠</text>
+        <text class="honor-chip honor-silver">{{stats.runnerUps}} 亚</text>
+        <text class="honor-chip honor-bronze">{{stats.thirds}} 季</text>
+        <view class="spacer"></view>
+        <text class="sub" wx:if="{{stats.captainTimes > 0}}">带队 {{stats.captainTimes}} 次</text>
+      </view>
+    </view>
+
+    <!-- 本赛季 -->
+    <view class="card season-card">
+      <view class="row">
+        <view>
+          <view class="card-title">本赛季</view>
+          <view class="sub">与天梯分独立计算，赛后结算入账</view>
+        </view>
+        <view class="spacer"></view>
+        <view class="season-points">
+          <text class="season-points-value">{{seasonPoints}}</text>
+          <text class="season-points-unit">分</text>
+        </view>
+      </view>
+      <view class="season-meta" wx:if="{{seasonReady}}">
+        <text>已结算 {{seasonMatches}} 场</text>
+        <text wx:if="{{seasonHonorsText}}">{{seasonHonorsText}}</text>
+      </view>
+      <view class="season-meta" wx:else>本赛季积分暂不可用</view>
+    </view>
+
+    <!-- 最近战绩 -->
+    <view class="section">最近战绩</view>
+    <view wx:if="{{!placements.length}}" class="empty-tip">还没有上过场，报名参赛后会在这里留下记录。</view>
+    <view
+      wx:for="{{placements}}"
+      wx:key="key"
+      class="record-row"
+      data-id="{{item.id}}"
+      bindtap="onTapPlacement"
+      hover-class="record-row-pressed"
+    >
+      <view class="rank-badge {{item.rankClass}}">{{item.label}}</view>
+      <view class="record-main">
+        <view class="record-name">{{item.name}}</view>
+        <view class="record-meta">
+          <text wx:if="{{item.teamName}}">{{item.teamName}}</text>
+          <text wx:if="{{item.teamName}}"> · </text>
+          <text>{{item.recordText}}</text>
+          <text wx:if="{{item.isCaptain}}"> · 队长</text>
+        </view>
+      </view>
+      <view class="spacer"></view>
+      <view class="record-date">{{item.dateText}}</view>
+    </view>
+
+    <!-- 最佳搭档 -->
+    <view class="section" wx:if="{{partners.length}}">最佳搭档</view>
+    <view
+      wx:for="{{partners}}"
+      wx:key="key"
+      class="partner-row"
+      data-openid="{{item.openid}}"
+      bindtap="onTapPartner"
+      hover-class="record-row-pressed"
+    >
+      <view class="partner-avatar">搭</view>
+      <view class="partner-main">
+        <view class="partner-name">{{item.nickname}}</view>
+        <view class="sub">同队 {{item.matches}} 场 · {{item.wins}} 胜 · 胜率 {{item.winRate}}%</view>
+      </view>
+      <view class="spacer"></view>
+      <view class="partner-arrow">›</view>
+    </view>
+
+    <view class="btn btn-plain poster-btn" bindtap="generatePoster">生成生涯战报</view>
+    <view class="poster-hint">生成一张可保存、可转发的战绩长图</view>
+  </block>
+</view>

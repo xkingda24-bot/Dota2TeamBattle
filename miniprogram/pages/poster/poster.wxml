@@ -1,0 +1,29 @@
+<!--pages/poster/poster.wxml - 战报长图预览-->
+<nav-bar title="{{navTitle}}" />
+
+<view class="container">
+  <view wx:if="{{loading}}" class="empty">正在生成战报…</view>
+
+  <view wx:elif="{{error}}" class="card">
+    <view class="card-title">战报生成失败</view>
+    <view class="sub">{{error}}</view>
+    <view class="btn btn-plain" bindtap="retryLoad">重新生成</view>
+  </view>
+
+  <block wx:else>
+    <view class="poster-frame">
+      <canvas
+        type="2d"
+        id="poster"
+        class="poster-canvas"
+        style="width: {{canvasW}}px; height: {{canvasH}}px;"
+        bindtap="previewPoster"
+      ></canvas>
+    </view>
+    <view class="poster-tip">点图片可放大查看，长按也能直接保存</view>
+
+    <view class="btn {{exporting ? 'btn-disabled' : ''}}" bindtap="savePoster">{{exporting ? '生成中…' : '保存到相册'}}</view>
+    <view class="btn btn-plain" bindtap="sharePoster">分享给好友</view>
+    <view class="poster-hint">分享图片会直接发到聊天，不消耗小程序卡片</view>
+  </block>
+</view>

@@ -1,0 +1,198 @@
+/* pages/player/player.wxss - 生涯档案 */
+
+/* 核心数据四宫格 */
+.stat-grid {
+  display: flex;
+  align-items: flex-end;
+}
+.stat {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+}
+.stat-value {
+  font-size: 44rpx;
+  font-weight: 700;
+  color: #e8c27c;
+  line-height: 1.2;
+  font-family: Menlo, Consolas, monospace;
+}
+.stat-unit {
+  font-size: 22rpx;
+  font-weight: 400;
+  margin-left: 2rpx;
+  color: #b99a63;
+}
+.stat-label {
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  color: #8b94a1;
+}
+
+/* 胜率条：底色暗，进度用绿→金渐变区分 */
+.winbar {
+  margin-top: 22rpx;
+  height: 10rpx;
+  border-radius: 6rpx;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+.winbar-fill {
+  height: 100%;
+  border-radius: 6rpx;
+  background: linear-gradient(90deg, #2eb478, #e8c27c);
+}
+
+.honor-line {
+  display: flex;
+  align-items: center;
+}
+.honor-chip {
+  font-size: 22rpx;
+  padding: 4rpx 16rpx;
+  border-radius: 8rpx;
+  margin-right: 12rpx;
+}
+.honor-gold {
+  background: rgba(232, 194, 124, 0.16);
+  color: #e8c27c;
+}
+.honor-silver {
+  background: rgba(180, 190, 205, 0.14);
+  color: #c3ccd8;
+}
+.honor-bronze {
+  background: rgba(200, 140, 90, 0.16);
+  color: #d09a6e;
+}
+
+/* 本赛季积分 */
+.season-points {
+  display: flex;
+  align-items: baseline;
+}
+.season-points-value {
+  font-size: 48rpx;
+  font-weight: 700;
+  color: #e8c27c;
+  font-family: Menlo, Consolas, monospace;
+}
+.season-points-unit {
+  font-size: 24rpx;
+  color: #b99a63;
+  margin-left: 4rpx;
+}
+.season-meta {
+  margin-top: 14rpx;
+  display: flex;
+  justify-content: space-between;
+  font-size: 22rpx;
+  color: #8b94a1;
+}
+
+/* 最近战绩 */
+.record-row {
+  display: flex;
+  align-items: center;
+  padding: 20rpx 16rpx;
+  border-radius: 10rpx;
+}
+.record-row-pressed {
+  background: rgba(224, 181, 111, 0.08);
+}
+.rank-badge {
+  min-width: 96rpx;
+  text-align: center;
+  padding: 6rpx 10rpx;
+  border-radius: 8rpx;
+  font-size: 22rpx;
+  color: #c3ccd8;
+  background: rgba(255, 255, 255, 0.08);
+  margin-right: 18rpx;
+  box-sizing: border-box;
+}
+.rank-badge.gold {
+  background: rgba(232, 194, 124, 0.2);
+  color: #e8c27c;
+  font-weight: 600;
+}
+.rank-badge.silver {
+  background: rgba(180, 190, 205, 0.18);
+  color: #d5dde7;
+}
+.rank-badge.bronze {
+  background: rgba(200, 140, 90, 0.2);
+  color: #d09a6e;
+}
+.record-main {
+  min-width: 0;
+  flex: 1;
+}
+.record-name {
+  font-size: 28rpx;
+  color: #e8e4da;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.record-meta {
+  margin-top: 4rpx;
+  font-size: 22rpx;
+  color: #8b94a1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.record-date {
+  font-size: 22rpx;
+  color: #6d7480;
+  margin-left: 12rpx;
+}
+
+/* 最佳搭档 */
+.partner-row {
+  display: flex;
+  align-items: center;
+  padding: 18rpx 16rpx;
+  border-radius: 10rpx;
+}
+.partner-avatar {
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 50%;
+  background: rgba(224, 181, 111, 0.16);
+  color: #e8c27c;
+  font-size: 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 18rpx;
+}
+.partner-main {
+  min-width: 0;
+}
+.partner-name {
+  font-size: 28rpx;
+  color: #e8e4da;
+}
+.partner-arrow {
+  color: #6d7480;
+  font-size: 32rpx;
+}
+
+.empty-tip {
+  color: #6d7480;
+  font-size: 24rpx;
+  padding: 20rpx 16rpx 30rpx;
+  line-height: 1.6;
+}
+
+.poster-btn {
+  margin-top: 36rpx;
+}
+.poster-hint {
+  text-align: center;
+  font-size: 22rpx;
+  color: #6d7480;
+  margin: 12rpx 0 40rpx;
+}

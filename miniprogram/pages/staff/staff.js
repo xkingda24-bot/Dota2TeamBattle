@@ -48,10 +48,6 @@ Page({
     userListPageCount: 1,
     userListSortBy: 'nickname',
     userListOrder: 'asc',
-    seasonBackfillBusy: false,
-    seasonBackfillPaused: false,
-    seasonBackfillCursor: null,
-    seasonBackfillProgress: '',
     // 资料编辑弹窗
     profileModal: false,
     pf: {
@@ -74,8 +70,6 @@ Page({
   },
 
   onShow() {
-    const savedCursor = wx.getStorageSync('seasonPointsBackfillCursor_v2') || null;
-    if (savedCursor && !this.data.seasonBackfillCursor) this.setData({ seasonBackfillCursor: savedCursor });
     this.load();
   },
 
@@ -132,86 +126,6 @@ Page({
   retryLoad() {
     this._databaseInitAttempted = false;
     this.load();
-  },
-
-  onBackfillSeasonPoints() {
-    if (!this.data.isSuper || this.data.seasonBackfillBusy) return;
-    const cursor = this.data.seasonBackfillCursor || null;
-    wx.showModal({
-      title: cursor ? '继续补算历史积分' : '补算历史积分',
-      content: '按已确认规则扫描已归档赛事。每次云端请求处理 1 场，扫描会自动连续运行，可随时暂停；重复执行不会重复发分。',
-      confirmText: cursor ? '继续' : '开始补算',
-      success: (result) => {
-        if (result.confirm) this.runSeasonBackfill(cursor);
-      },
-    });
-  },
-
-  runSeasonBackfill(cursor) {
-    if (!this.data.isSuper || this.data.seasonBackfillBusy) return;
-    this._seasonBackfillPauseRequested = false;
-    this._seasonBackfillTotals = { processed: 0, skipped: 0 };
-    this.setData({ seasonBackfillBusy: true, seasonBackfillPaused: false, seasonBackfillProgress: '正在扫描已归档赛事…' });
-    this.processSeasonBackfillBatch(cursor || null);
-  },
-
-  async processSeasonBackfillBatch(cursor) {
-    if (!this.data.isSuper) return;
-    try {
-      while (true) {
-        if (this._seasonBackfillPauseRequested) {
-          this.setData({ seasonBackfillBusy: false, seasonBackfillPaused: true });
-          return;
-        }
-        const result = await api.callFunction('seasonPoints', 'backfillArchived', { cursor: cursor || null });
-        const nextCursor = result.nextCursor || null;
-        const processed = Number(result.processed) || 0;
-        const skipped = Number(result.skipped) || 0;
-        const done = !!result.done;
-        const errors = Array.isArray(result.errors) ? result.errors : [];
-        const totals = this._seasonBackfillTotals || { processed: 0, skipped: 0 };
-        totals.processed += processed;
-        totals.skipped += skipped;
-        this._seasonBackfillTotals = totals;
-        const errorSummary = errors.length
-          ? ' · 跳过原因：' + errors.map((item) => String(item.tournamentName || '赛事') + '（' + String(item.reason || '数据异常') + '）').join('；')
-          : '';
-        const pending = result.pending || null;
-        const pendingText = pending
-          ? '正在结算《' + String(pending.tournamentName || '赛事') + '》 ' +
-            (Number(pending.appliedEntries) || 0) + '/' + (Number(pending.participantCount) || 0) + ' 人'
-          : '';
-        if (done) wx.removeStorageSync('seasonPointsBackfillCursor_v2');
-        else wx.setStorageSync('seasonPointsBackfillCursor_v2', nextCursor);
-        const tailText = '已检查 ' + totals.processed + ' 场，跳过 ' + totals.skipped + ' 场' + errorSummary;
-        const pausedPrefix = this._seasonBackfillPauseRequested ? '扫描已暂停' : '';
-        const progressPrefix = done ? '' : (pendingText || pausedPrefix);
-        this.setData({
-          seasonBackfillBusy: !done && !this._seasonBackfillPauseRequested,
-          seasonBackfillPaused: !done && !!this._seasonBackfillPauseRequested,
-          seasonBackfillCursor: done ? null : nextCursor,
-          seasonBackfillProgress: done
-            ? '历史扫描完成 · ' + tailText
-            : progressPrefix ? progressPrefix + ' · ' + tailText : tailText,
-        });
-        if (done) {
-          wx.showToast({ title: '历史积分扫描完成', icon: 'success' });
-          return;
-        }
-        cursor = nextCursor;
-        if (this._seasonBackfillPauseRequested) return;
-        await new Promise((resolve) => setTimeout(resolve, 150));
-      }
-    } catch (error) {
-      this.setData({ seasonBackfillBusy: false, seasonBackfillPaused: true, seasonBackfillProgress: error.message || '补算失败，可继续重试' });
-      wx.showToast({ title: error.message || '历史积分补算失败', icon: 'none' });
-    }
-  },
-
-  pauseSeasonBackfill() {
-    if (!this.data.seasonBackfillBusy) return;
-    this._seasonBackfillPauseRequested = true;
-    this.setData({ seasonBackfillProgress: '当前赛事处理完成后暂停…' });
   },
 
   /* ---------- 最高管理员：只读用户列表 ---------- */
@@ -593,6 +507,12 @@ Page({
       return;
     }
     wx.navigateTo({ url: '/pages/card-style/card-style' });
+  },
+
+  /* 我的生涯：带自己的 openid 进档案页，未设置资料也能看（会提示还没有名片） */
+  goPlayerProfile() {
+    const openid = String((this.data.user && this.data.user.openid) || '');
+    wx.navigateTo({ url: '/pages/player/player' + (openid ? '?openid=' + encodeURIComponent(openid) : '') });
   },
 
   noop() {},

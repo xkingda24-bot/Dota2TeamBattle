@@ -1,0 +1,27 @@
+/* pages/poster/poster.wxss - 战报长图 */
+
+.poster-frame {
+  display: flex;
+  justify-content: center;
+  padding: 8rpx 0 20rpx;
+}
+
+.poster-canvas {
+  border-radius: 12rpx;
+  background: #0d1017;
+  box-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.45);
+}
+
+.poster-tip {
+  text-align: center;
+  font-size: 22rpx;
+  color: #6d7480;
+  margin-bottom: 24rpx;
+}
+
+.poster-hint {
+  text-align: center;
+  font-size: 22rpx;
+  color: #6d7480;
+  margin: 16rpx 0 40rpx;
+}

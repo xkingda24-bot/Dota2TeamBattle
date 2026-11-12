@@ -89,6 +89,9 @@
       wx:for="{{leaderboard}}"
       wx:key="seq"
       class="leader-card-row {{item.isMine ? 'leader-card-row-mine' : ''}}"
+      data-openid="{{item.player.openid}}"
+      bindtap="onTapPlayer"
+      hover-class="season-choice-pressed"
     >
       <view class="leader-card-wrap">
         <player-card player="{{item.player}}" card-style="{{item.player.cardStyle}}" honorsText="{{item.honorsText}}" />

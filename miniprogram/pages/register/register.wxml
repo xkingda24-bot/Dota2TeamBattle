@@ -32,6 +32,7 @@
       </view>
     </view>
 
+
     <!-- 报名暗号 -->
     <view class="card" wx:if="{{t.status === 'registration' && !myReg && !secretOk && !canManage && !readonly}}">
       <view class="card-title">报名暗号</view>

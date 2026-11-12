@@ -34,6 +34,7 @@
       <view class="profile-actions">
         <view class="btn-small btn-plain" bindtap="onEditProfile">{{user ? '编辑资料' : '设置资料'}}</view>
         <view class="btn-small btn-plain" bindtap="goCardStyle">{{user ? '装扮名片' : '先设置资料'}}</view>
+        <view class="btn-small btn-plain" bindtap="goPlayerProfile">我的生涯</view>
       </view>
     </view>
     <player-card wx:if="{{user}}" player="{{user}}" card-style="{{user.cardStyle}}" />
@@ -54,17 +55,6 @@
     <view wx:elif="{{canInitializeSuperAdmin}}" class="sub">请先设置个人资料，再初始化最高管理员。</view>
   </view>
 
-  <!-- 最高管理员 -->
-  <view class="card" wx:if="{{superAdmin && isSuper}}">
-    <view class="card-title">最高管理员</view>
-    <view class="staff-row">
-      <view class="staff-nick">{{superAdmin.nickname}}</view>
-      <view class="spacer"></view>
-      <view class="tag tag-red">最高权限</view>
-    </view>
-    <view class="sub" wx:if="{{isSuper}}">（你）拥有所有比赛的管理权限</view>
-  </view>
-
   <!-- 普通管理员 -->
   <view class="card" wx:if="{{!isSuper && isAdmin}}">
     <view class="card-title">普通管理员</view>
@@ -76,14 +66,6 @@
     <view class="card-title">用户列表查看</view>
     <view class="sub">分页查看全部用户，可按 Dota ID、天梯分、用户名或段位排序。</view>
     <view class="btn" bindtap="onOpenUserList">查看用户列表</view>
-  </view>
-
-  <view class="card" wx:if="{{isSuper}}">
-    <view class="card-title">赛季积分历史补算</view>
-    <view class="sub">扫描已归档赛事并按当前规则补充积分流水；同一赛事重复运行不会重复发分。</view>
-    <view wx:if="seasonBackfillProgress" class="sub season-backfill-progress">{{seasonBackfillProgress}}</view>
-    <view wx:if="{{seasonBackfillBusy}}" class="btn" bindtap="pauseSeasonBackfill">暂停历史补算</view>
-    <view wx:else class="btn" bindtap="onBackfillSeasonPoints">{{seasonBackfillCursor ? '继续补算历史赛事' : '开始补算历史赛事'}}</view>
   </view>
   </block>
 </view>
