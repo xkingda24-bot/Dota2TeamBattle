@@ -64,4 +64,27 @@ function buildAdminUsers(records, superAdminOpenid, sortBy, order, now) {
   return sortAdminUsers(users, sortBy, order);
 }
 
-module.exports = { ADMIN_USER_SORT_FIELDS, sortAdminUsers, buildAdminUsers };
+/**
+ * 把「普通管理员 openid 列表」翻译成带昵称的名册，供超管在弹窗顶部一眼看清管理员是谁。
+ * 昵称取自已经读进内存的全量用户列表，不额外查库；查不到人时标成「未设置昵称」。
+ */
+function buildAdminRoster(adminOpenids, users, superAdminOpenid) {
+  const source = Array.isArray(adminOpenids) ? adminOpenids : [];
+  const byOpenid = new Map((users || []).map((user) => [String(user && user.openid || ''), user]));
+  const seen = new Set();
+  const roster = [];
+  source.forEach((value) => {
+    const openid = String(value || '').trim();
+    if (!openid || seen.has(openid)) return;
+    seen.add(openid);
+    const user = byOpenid.get(openid);
+    roster.push({
+      openid,
+      nickname: String(user && user.nickname || '') || '未设置昵称',
+      isSuper: !!superAdminOpenid && openid === String(superAdminOpenid),
+    });
+  });
+  return roster;
+}
+
+module.exports = { ADMIN_USER_SORT_FIELDS, sortAdminUsers, buildAdminUsers, buildAdminRoster };

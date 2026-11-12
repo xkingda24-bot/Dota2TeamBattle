@@ -1,8 +1,13 @@
 const { publicDotaCardFields } = require('./card-profile');
 
 function buildRegistration(tournament, openid, member, requestedRole, secret, dotaFields, now, skipSecret) {
-  if (!tournament || tournament.status !== 'registration') return { error: '当前不在报名阶段' };
-  if (!skipSecret && String(secret || '') !== String(tournament.secret || '')) return { error: '报名暗号错误' };
+  const status = tournament && tournament.status;
+  // 分组流程中（status=draft）替补席位未满时仍可报名替补：进入分组后迟到的玩家只能补替补，不能挤进首发。
+  const draftStage = status === 'draft';
+  if (!tournament || (status !== 'registration' && !draftStage)) return { error: '当前不在报名阶段' };
+  // 分组阶段报名替补免暗号：能进到分组页的已是群内成员，非管理者页面也不展示暗号，再要求输入只会输错被拒。
+  const skipSecretCheck = skipSecret || (draftStage && requestedRole === 'waitlist');
+  if (!skipSecretCheck && String(secret || '') !== String(tournament.secret || '')) return { error: '报名暗号错误' };
 
   const registrations = Array.isArray(tournament.registrations) ? tournament.registrations : [];
   if (registrations.some((registration) => registration && registration.openid === openid)) {
@@ -17,6 +22,7 @@ function buildRegistration(tournament, openid, member, requestedRole, secret, do
   let auto = false;
 
   if (requestedRole === 'captain') {
+    if (draftStage) return { error: '分组进行中，只能报名替补' };
     if (tournament.mode === 'auto') return { error: '本场比赛为系统分组模式，请报名队员或替补' };
     role = 'captain';
     if (captains.length >= tournament.N) return { error: '队长名额已满' };
@@ -24,11 +30,14 @@ function buildRegistration(tournament, openid, member, requestedRole, secret, do
     role = 'waitlist';
     if (waitLimit <= 0) return { error: '本场比赛未设置替补' };
     if (waitlist.length >= waitLimit) return { error: '替补名额已满' };
-  } else if (players.length >= tournament.N * tournament.K) {
-    if (waitLimit <= 0) return { error: '队员名额已满' };
-    if (waitlist.length >= waitLimit) return { error: '队员名额已满，替补也已满' };
-    role = 'waitlist';
-    auto = true;
+  } else {
+    if (draftStage) return { error: '分组进行中，只能报名替补' };
+    if (players.length >= tournament.N * tournament.K) {
+      if (waitLimit <= 0) return { error: '队员名额已满' };
+      if (waitlist.length >= waitLimit) return { error: '队员名额已满，替补也已满' };
+      role = 'waitlist';
+      auto = true;
+    }
   }
 
   const registration = {

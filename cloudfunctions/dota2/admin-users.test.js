@@ -1,6 +1,6 @@
 const assert = require('assert');
 const { RANK_VERIFICATION_TTL } = require('./card-profile');
-const { buildAdminUsers, sortAdminUsers } = require('./admin-users');
+const { buildAdminUsers, sortAdminUsers, buildAdminRoster } = require('./admin-users');
 
 const now = Date.UTC(2026, 9, 23, 12, 0, 0);
 const records = [
@@ -39,5 +39,21 @@ assert.deepStrictEqual(
   ['a', 'c', 'b'],
   'descending numeric sort keeps empty values last'
 );
+
+// 管理员名册：把 openid 列表翻译成带昵称的展示名册（弹窗顶部「普通管理员 2/20：张三、李四」）
+assert.deepStrictEqual(
+  buildAdminRoster(['user-b', 'user-c'], users, 'user-a').map((item) => item.nickname),
+  ['波波', '陈'],
+  'openid 列表按原顺序映射到昵称'
+);
+assert.deepStrictEqual(
+  buildAdminRoster([' user-b ', 'user-b', '', null, 'user-c'], users, 'user-a').map((item) => item.openid),
+  ['user-b', 'user-c'],
+  '空白与重复 openid 被剔除，首尾空格被清理'
+);
+assert.strictEqual(buildAdminRoster(['no-such-user'], users, 'user-a')[0].nickname, '未设置昵称', '查不到人时给出兜底文案');
+assert.strictEqual(buildAdminRoster(['user-a'], users, 'user-a')[0].isSuper, true, '超管出现在名册时会被标记');
+assert.deepStrictEqual(buildAdminRoster([], users, 'user-a'), [], '没有管理员时返回空名册');
+assert.deepStrictEqual(buildAdminRoster(null, users, 'user-a'), [], '非数组入参返回空名册');
 
 console.log('Verified admin user listing tests passed.');

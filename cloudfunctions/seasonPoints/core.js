@@ -108,6 +108,26 @@ function nextSettleRange(total, applied, batchSize) {
   return { start, end, done: start >= count };
 }
 
+/** 积分榜展示上限：只公布前 30 名（每页 10 人，正好 3 页），更靠后的名次不进榜单。 */
+const LEADERBOARD_MAX_PLAYERS = 30;
+
+/**
+ * 积分榜分页窗口：总人数先按展示上限收口，页数只覆盖展示出来的名次。
+ * 返回的 page 已夹在 1..totalPages 之间，skip / limit 直接用于数据库分页；
+ * limit 为 0 表示本期没有任何可展示的名次（调用方不必再查库）。
+ */
+function leaderboardWindow(totalPlayers, page, pageSize, maxPlayers) {
+  const total = Math.max(0, Math.floor(Number(totalPlayers) || 0));
+  const size = Math.max(1, Math.floor(Number(pageSize) || 1));
+  const cap = Math.max(1, Math.floor(Number(maxPlayers) || LEADERBOARD_MAX_PLAYERS));
+  const shownPlayers = Math.min(total, cap);
+  const totalPages = Math.max(1, Math.ceil(shownPlayers / size));
+  const current = Math.min(Math.max(Math.floor(Number(page) || 1), 1), totalPages);
+  const skip = (current - 1) * size;
+  const limit = Math.max(0, Math.min(size, shownPlayers - skip));
+  return { totalPlayers: total, shownPlayers, totalPages, page: current, skip, limit };
+}
+
 function validationError(code, message) {
   const error = new Error(message);
   error.code = code;
@@ -309,6 +329,8 @@ module.exports = {
   defaultSeason,
   unitsForRank,
   nextSettleRange,
+  LEADERBOARD_MAX_PLAYERS,
+  leaderboardWindow,
   validationError,
   buildSettlementPlan,
   applyLedgerEntry,

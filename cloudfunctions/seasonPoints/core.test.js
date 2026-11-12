@@ -6,6 +6,8 @@ const {
   getSeasonByTimestamp,
   unitsForRank,
   nextSettleRange,
+  LEADERBOARD_MAX_PLAYERS,
+  leaderboardWindow,
   buildSettlementPlan,
   applyLedgerEntry,
 } = require('./core');
@@ -273,7 +275,31 @@ async function main() {
   assert.deepStrictEqual(nextSettleRange(32, 40, 6), { start: 32, end: 32, done: true });
   assert.deepStrictEqual(nextSettleRange(32, 5, 0), { start: 5, end: 6, done: false });
   assert.deepStrictEqual(nextSettleRange(32, 33, 6), { start: 32, end: 32, done: true });
-  console.log('Season points core tests passed for quarter boundaries, 4/8/16-team all-positive scoring, roster validation, idempotent ledger writes, and resumable settle ranges.');
+
+  // 积分榜分页窗口：本赛季 80 人只公布前 30 名（3 页），更靠后的页一律收敛到最后一页
+  assert.strictEqual(LEADERBOARD_MAX_PLAYERS, 30);
+  assert.deepStrictEqual(leaderboardWindow(80, 1, 10, LEADERBOARD_MAX_PLAYERS),
+    { totalPlayers: 80, shownPlayers: 30, totalPages: 3, page: 1, skip: 0, limit: 10 });
+  assert.deepStrictEqual(leaderboardWindow(80, 3, 10, LEADERBOARD_MAX_PLAYERS),
+    { totalPlayers: 80, shownPlayers: 30, totalPages: 3, page: 3, skip: 20, limit: 10 });
+  assert.deepStrictEqual(leaderboardWindow(80, 9, 10, LEADERBOARD_MAX_PLAYERS),
+    { totalPlayers: 80, shownPlayers: 30, totalPages: 3, page: 3, skip: 20, limit: 10 });
+  // 不足 30 人时页数按真实人数收敛，最后一页只取剩下的名次
+  assert.deepStrictEqual(leaderboardWindow(25, 3, 10, LEADERBOARD_MAX_PLAYERS),
+    { totalPlayers: 25, shownPlayers: 25, totalPages: 3, page: 3, skip: 20, limit: 5 });
+  assert.deepStrictEqual(leaderboardWindow(21, 3, 10, LEADERBOARD_MAX_PLAYERS),
+    { totalPlayers: 21, shownPlayers: 21, totalPages: 3, page: 3, skip: 20, limit: 1 });
+  assert.deepStrictEqual(leaderboardWindow(30, 1, 10, LEADERBOARD_MAX_PLAYERS),
+    { totalPlayers: 30, shownPlayers: 30, totalPages: 3, page: 1, skip: 0, limit: 10 });
+  assert.deepStrictEqual(leaderboardWindow(31, 4, 10, LEADERBOARD_MAX_PLAYERS),
+    { totalPlayers: 31, shownPlayers: 30, totalPages: 3, page: 3, skip: 20, limit: 10 });
+  // 空赛季不查库（limit=0），页码仍是第 1 页
+  assert.deepStrictEqual(leaderboardWindow(0, 3, 10, LEADERBOARD_MAX_PLAYERS),
+    { totalPlayers: 0, shownPlayers: 0, totalPages: 1, page: 1, skip: 0, limit: 0 });
+  // 非法入参：page 非数字、pageSize 缺失、上限缺失时回落到默认
+  assert.deepStrictEqual(leaderboardWindow(80, 'x', 0, 0),
+    { totalPlayers: 80, shownPlayers: 30, totalPages: 30, page: 1, skip: 0, limit: 1 });
+  console.log('Season points core tests passed for quarter boundaries, 4/8/16-team all-positive scoring, roster validation, idempotent ledger writes, resumable settle ranges, and the 30-player leaderboard window.');
 }
 
 main().catch((error) => {

@@ -12,6 +12,8 @@ const {
   buildSettlementPlan,
   applyLedgerEntry,
   nextSettleRange,
+  LEADERBOARD_MAX_PLAYERS,
+  leaderboardWindow,
 } = require('./core');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
@@ -486,20 +488,23 @@ async function getSeasonPage(openid, event) {
 
   // 分页交给数据库：昵称已在结算时冗余进 seasonAccounts，可以按 (积分降序, 昵称升序, _id 升序)
   // 排序后用 skip/limit 取一页，不再把全赛季账户读进内存排序。
+  // 榜单只公布前 LEADERBOARD_MAX_PLAYERS 名（30 人 = 3 页），更靠后的账户只参与「我的名次」。
   const countResult = await db.collection('seasonAccounts').where({ seasonId }).count();
   const totalPlayers = Number(countResult && countResult.total) || 0;
-  const totalPages = Math.max(1, Math.ceil(totalPlayers / CARD_PAGE_SIZE));
-  const page = Math.min(Math.max(Math.floor(Number(event.page) || 1), 1), totalPages);
-  const pageStart = (page - 1) * CARD_PAGE_SIZE;
-  const pageResult = await db.collection('seasonAccounts')
-    .where({ seasonId })
-    .orderBy('balanceUnits', 'desc')
-    .orderBy('nickname', 'asc')
-    .orderBy('_id', 'asc')
-    .skip(pageStart)
-    .limit(CARD_PAGE_SIZE)
-    .get();
-  const pageAccounts = pageResult.data || [];
+  const boardWindow = leaderboardWindow(totalPlayers, event.page, CARD_PAGE_SIZE, LEADERBOARD_MAX_PLAYERS);
+  const pageStart = boardWindow.skip;
+  let pageAccounts = [];
+  if (boardWindow.limit > 0) {
+    const pageResult = await db.collection('seasonAccounts')
+      .where({ seasonId })
+      .orderBy('balanceUnits', 'desc')
+      .orderBy('nickname', 'asc')
+      .orderBy('_id', 'asc')
+      .skip(boardWindow.skip)
+      .limit(boardWindow.limit)
+      .get();
+    pageAccounts = (pageResult && pageResult.data) || [];
+  }
   const myUnits = Number(myAccount && myAccount.balanceUnits) || 0;
   const myRank = myAccount ? await rankOfAccount(seasonId, myAccount, myUnits, totalPlayers) : null;
   const profileMap = await getUsersByOpenids(pageAccounts.map((item) => item.openid).concat(openid));
@@ -548,10 +553,12 @@ async function getSeasonPage(openid, event) {
     },
     leaderboard,
     leaderboardPage: {
-      page,
+      page: boardWindow.page,
       pageSize: CARD_PAGE_SIZE,
-      totalPages,
+      totalPages: boardWindow.totalPages,
       totalPlayers,
+      shownPlayers: boardWindow.shownPlayers,
+      maxPlayers: LEADERBOARD_MAX_PLAYERS,
     },
     canBackfill: await isSuperAdmin(openid),
     records: ledger.map((item) => ({
@@ -582,6 +589,7 @@ async function getCardPoints(event) {
       enabled: !!(config && config.enabled),
       points: unique.map(() => 0),
       matches: unique.map(() => 0),
+      honors: unique.map(() => ({ champions: 0, runnersUp: 0, thirds: 0 })),
     };
   }
 
@@ -591,6 +599,8 @@ async function getCardPoints(event) {
     .get();
   const pointsByOpenid = new Map((accounts.data || []).map((account) => [String(account.openid), displayPoints(account.balanceUnits)]));
   const matchesByOpenid = new Map((accounts.data || []).map((account) => [String(account.openid), Number(account.settledMatches) || 0]));
+  // 冠亚季和榜单页用同一个 countHonorsFor(seasonId, openids) 统计口径，名片与榜单不会出现两套数字
+  const honorsByOpenid = await countHonorsFor(season.seasonId, unique);
   return {
     seasonId: season.seasonId,
     seasonLabel: config.displayName || season.label,
@@ -598,6 +608,8 @@ async function getCardPoints(event) {
     points: unique.map((openid) => pointsByOpenid.has(openid) ? pointsByOpenid.get(openid) : 0),
     // 赛季参与场次（已结算的场数），名片上与积分同一排展示
     matches: unique.map((openid) => matchesByOpenid.get(openid) || 0),
+    // 冠 / 亚 / 季次数：让任何页面的名片都能自己带上，不必各页面单独取
+    honors: unique.map((openid) => honorsByOpenid.get(openid) || { champions: 0, runnersUp: 0, thirds: 0 }),
   };
 }
 

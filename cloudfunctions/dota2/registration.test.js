@@ -44,7 +44,8 @@ assert.strictEqual(
   buildRegistration(Object.assign({}, base, { registrations: [{ openid: 'u1', role: 'player' }] }), 'u1', member, 'player', 'letmein', noDotaFields, 123).error,
   '你已经报名过了'
 );
-assert.strictEqual(buildRegistration(Object.assign({}, base, { status: 'draft' }), 'u1', member, 'player', 'letmein', noDotaFields, 123).error, '当前不在报名阶段');
+// 分组阶段不再允许首发报名，但改成更明确的提示（替补仍可报名，见文件末尾用例）
+assert.strictEqual(buildRegistration(Object.assign({}, base, { status: 'draft' }), 'u1', member, 'player', 'letmein', noDotaFields, 123).error, '分组进行中，只能报名替补');
 assert.strictEqual(buildRegistration(base, 'u1', member, 'player', 'wrong', noDotaFields, 123).error, '报名暗号错误');
 
 /* 普通管理员 / 比赛创建者报名免暗号（skipSecret） */
@@ -87,5 +88,41 @@ assert.deepStrictEqual(synced.registrations[0].roles, [2, 3]);
 assert.strictEqual(synced.registrations[0].signature, '新签名');
 assert.strictEqual(synced.registrations[0].ts, 123);
 assert.strictEqual(synced.registrations[1].mmr, 3000);
+
+// 分组流程（status=draft）：替补席位未满仍可报名替补；首发/队长不允许再挤进来
+const draftOpen = Object.assign({}, base, { status: 'draft', registrations: [{ openid: 'p1', role: 'player' }] });
+let draftResult = buildRegistration(draftOpen, 'late1', member, 'waitlist', 'letmein', noDotaFields, 123);
+assert.strictEqual(draftResult.registration.role, 'waitlist', '分组阶段替补未满时可以报名替补');
+assert.strictEqual(draftResult.result.waitlistFilled, 1);
+
+assert.strictEqual(
+  buildRegistration(draftOpen, 'late2', member, 'player', 'letmein', noDotaFields, 123).error,
+  '分组进行中，只能报名替补',
+  '分组阶段不能按首发报名'
+);
+assert.strictEqual(
+  buildRegistration(Object.assign({}, draftOpen, { mode: 'captain' }), 'late3', member, 'captain', 'letmein', noDotaFields, 123).error,
+  '分组进行中，只能报名替补',
+  '分组阶段不能再报队长'
+);
+
+const draftFull = Object.assign({}, draftOpen, {
+  registrations: [{ openid: 'p1', role: 'player' }, { openid: 'w1', role: 'waitlist' }],
+});
+assert.strictEqual(
+  buildRegistration(draftFull, 'late4', member, 'waitlist', 'letmein', noDotaFields, 123).error,
+  '替补名额已满',
+  '替补席位满员时拒绝报名'
+);
+assert.strictEqual(
+  buildRegistration(Object.assign({}, draftOpen, { status: 'battle' }), 'late5', member, 'waitlist', 'letmein', noDotaFields, 123).error,
+  '当前不在报名阶段',
+  '对战阶段不再允许报名替补'
+);
+assert.strictEqual(
+  buildRegistration(draftOpen, 'late6', member, 'waitlist', 'wrong', noDotaFields, 123).error,
+  undefined,
+  '分组阶段报名替补免暗号'
+);
 
 console.log('Registration validation tests passed.');
