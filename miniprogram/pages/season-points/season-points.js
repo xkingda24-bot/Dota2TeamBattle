@@ -1,4 +1,5 @@
 const api = require('../../utils/api');
+const { formatHonors } = require('../../utils/honors');
 
 const SEASONS = [
   { code: '2026Q1', short: 'Q1', label: '2026 Q1', period: '1月 1日 — 3月 31日' },
@@ -27,15 +28,6 @@ function buildScoreTable(title, rows, columns) {
       })),
     })),
   };
-}
-
-// 名片上的名次荣誉：固定三段，没拿过也写 0，例如「0 冠 2 亚 4 季」，保证所有名片第二排格式一致
-function formatHonors(honors) {
-  const source = honors || {};
-  const champions = Number(source.champions) || 0;
-  const runnersUp = Number(source.runnersUp) || 0;
-  const thirds = Number(source.thirds) || 0;
-  return champions + ' 冠 ' + runnersUp + ' 亚 ' + thirds + ' 季';
 }
 
 // 页码条：页数少时全部列出，页数多时只留首页、末页和当前页附近，中间用「…」占位。
@@ -90,6 +82,9 @@ function buildSeasonView(data, fallbackSeasonId) {
   const totalPages = Math.max(1, Number(boardPage.totalPages) || 1);
   const page = Math.min(Math.max(Number(boardPage.page) || 1, 1), totalPages);
   const pageSize = Math.max(1, Number(boardPage.pageSize) || 10);
+  const totalPlayers = Number(boardPage.totalPlayers) || Number(me.totalPlayers) || 0;
+  // 榜单只公布前 N 名（服务端收口，默认 30 人 = 3 页），页脚要说明剩下的玩家不在榜上
+  const shownPlayers = Math.min(Number(boardPage.shownPlayers) || totalPlayers, totalPlayers);
   return {
     seasons: SEASONS.map((item) => Object.assign({}, item, {
       status: seasonStatusText(seasonStatusByCode.get(item.code)),
@@ -122,7 +117,9 @@ function buildSeasonView(data, fallbackSeasonId) {
       canNext: page < totalPages,
       pageText: '第 ' + page + ' / ' + totalPages + ' 页',
       pageItems: buildPageItems(page, totalPages),
-      summaryText: '共 ' + (Number(boardPage.totalPlayers) || Number(me.totalPlayers) || 0) + ' 位玩家 · 每页 ' + pageSize + ' 人',
+      summaryText: shownPlayers < totalPlayers
+        ? '共 ' + totalPlayers + ' 位玩家 · 榜单只展示前 ' + shownPlayers + ' 名'
+        : '共 ' + totalPlayers + ' 位玩家 · 每页 ' + pageSize + ' 人',
     },
     records: records.map((item) => ({
       date: formatDate(item.date),

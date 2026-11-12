@@ -26,6 +26,10 @@ Page({
     seasonPointsRankText: '正在读取赛季数据…',
     seasonPointsStatus: '积分服务连接中',
     historyExpanded: false,
+    // 历史赛事改为懒加载：展开时才请求，收起状态首页不查历史
+    historyLoaded: false,
+    historyLoading: false,
+    historyError: '',
     historyBusyId: '',
     // 暗号验证弹窗
     secretModal: false,
@@ -71,7 +75,8 @@ Page({
   onShow() {
     // scene 1154 = 从朋友圈单页模式打开，只渲染这一页且登录态受限，取数失败要给出可理解的提示
     this._timelinePreview = wx.getLaunchOptionsSync().scene === 1154;
-    this._rpxScale = wx.getSystemInfoSync().windowWidth / 750;
+    const win = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync();
+    this._rpxScale = win.windowWidth / 750;
     this.loadSeasonPointsFeature();
     this.load();
   },
@@ -130,18 +135,6 @@ Page({
             swipeOpen: false,
           })
         );
-        const older = (d.older || []).map((item) =>
-          Object.assign({}, item, {
-            phaseText:
-              item.status === 'registration'
-                ? '报名中'
-                : item.status === 'draft'
-                ? '选人中'
-                : item.status === 'battle'
-                ? '对战中'
-                : '已结束',
-          })
-        );
         this.setData({
           user: d.user,
           isSuper: !!d.isSuper,
@@ -150,10 +143,12 @@ Page({
           todayCreateRemaining: d.todayCreateRemaining == null ? 5 : Number(d.todayCreateRemaining),
           todayCreateLimit: Number(d.todayCreateLimit || d.dailyLimit) || 5,
           today,
-          older,
+          // 首页不再预取历史；已展开时顺手刷新，收起时等下次展开再拉
+          historyLoaded: this.data.historyExpanded ? this.data.historyLoaded : false,
           loading: false,
           loadError: '',
         });
+        if (this.data.historyExpanded) this.loadHistory();
         // 登录后未设置昵称 → 自动弹窗
         if (!d.user && !this._nickPrompted) {
           this._nickPrompted = true;
@@ -417,7 +412,39 @@ Page({
   },
 
   toggleHistory() {
-    this.setData({ historyExpanded: !this.data.historyExpanded });
+    const expanded = !this.data.historyExpanded;
+    this.setData({ historyExpanded: expanded });
+    if (expanded && !this.data.historyLoaded) this.loadHistory();
+  },
+
+  // 历史赛事懒加载：只在展开历史区时调用云函数（收起状态首页不发这次请求）
+  loadHistory() {
+    if (this.data.historyLoading) return Promise.resolve();
+    this.setData({ historyLoading: true, historyError: '' });
+    const todayStart = getTodayBoundary(new Date());
+    return api
+      .call('listHistory', { todayStart })
+      .then((d) => {
+        const older = (d.older || []).map((item) =>
+          Object.assign({}, item, {
+            phaseText:
+              item.status === 'registration'
+                ? '报名中'
+                : item.status === 'draft'
+                ? '选人中'
+                : item.status === 'battle'
+                ? '对战中'
+                : '已结束',
+          })
+        );
+        this.setData({ older, historyLoaded: true, historyLoading: false, historyError: '' });
+      })
+      .catch((err) => {
+        this.setData({
+          historyLoading: false,
+          historyError: err.message || '历史赛事加载失败，点此重试',
+        });
+      });
   },
 
   /* 历史比赛条目与「今天的比赛」走同一个入口，点进去就是同一个比赛页面。 */
@@ -467,7 +494,8 @@ Page({
         api.call('deleteTournament', { id })
           .then(() => {
             wx.showToast({ title: '已删除', icon: 'success' });
-            return this.load();
+            this.setData({ historyLoaded: false });
+            return this.loadHistory();
           })
           .catch((err) => wx.showToast({ title: err.message || '删除失败，请重试', icon: 'none' }))
           .finally(() => this.setData({ historyBusyId: '' }));

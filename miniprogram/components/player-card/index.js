@@ -2,6 +2,7 @@ const { DEFAULT_CARD_STYLE, normalizeCardStyle } = require('../../utils/card-sty
 const { dotaRankLabel, hasCurrentRankVerification } = require('../../utils/dota-rank');
 const { ROLE_NUMS, VERSATILE_LABEL, normalizeRoles, isVersatileText } = require('../../utils/roles');
 const { getSeasonCardStats } = require('../../utils/season-points-cache');
+const { formatHonors } = require('../../utils/honors');
 
 Component({
   properties: {
@@ -21,11 +22,7 @@ Component({
         this.setData({ normalizedStyle: normalizeCardStyle(value) });
       },
     },
-    compact: {
-      type: Boolean,
-      value: false,
-    },
-    // 名次荣誉文案（如「1 冠 2 亚 4 季」）：由榜单页算好传入，其他页面不传就不显示
+    // 名次荣誉文案（如「1 冠 2 亚 4 季」）：不传时组件自己算（来自 getCardPoints），传了以传入值为准
     honorsText: {
       type: String,
       value: '',
@@ -38,6 +35,8 @@ Component({
     seasonPointsReady: false,
     seasonPoints: '0',
     seasonMatches: '0',
+    // 组件自己从赛季数据算出的冠亚季文案；外部传入的 honorsText 优先（榜单页仍可覆盖）
+    seasonHonorsText: '',
     roleNums: [],
     hasRoleChips: false,
     roleVersatile: false,
@@ -65,7 +64,7 @@ Component({
       const openid = String(player && player.openid || '').trim();
       const requestId = (this._seasonPointsRequestId || 0) + 1;
       this._seasonPointsRequestId = requestId;
-      this.setData({ seasonPointsReady: false, seasonPoints: '0', seasonMatches: '0' });
+      this.setData({ seasonPointsReady: false, seasonPoints: '0', seasonMatches: '0', seasonHonorsText: '' });
       if (!openid) return;
       getSeasonCardStats(openid).then((stats) => {
         if (requestId !== this._seasonPointsRequestId || !stats) return;
@@ -74,6 +73,7 @@ Component({
           seasonPointsReady: true,
           seasonPoints: Number.isInteger(value) ? String(value) : value.toFixed(1),
           seasonMatches: String(Number(stats.matches) || 0),
+          seasonHonorsText: formatHonors(stats.honors),
         });
       });
     },

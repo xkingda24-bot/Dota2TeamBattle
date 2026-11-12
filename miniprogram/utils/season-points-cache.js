@@ -43,6 +43,7 @@ function flushQueue() {
         batch.forEach((openid, index) => settle(openid, {
           points: result.points[index],
           matches: Array.isArray(result.matches) ? result.matches[index] : 0,
+          honors: Array.isArray(result.honors) ? result.honors[index] : null,
         }, seasonId));
       })
       .catch(() => batch.forEach((openid) => settle(openid, null, seasonId)));
@@ -57,6 +58,12 @@ function settle(openid, stats, seasonId) {
     : {
       points: Number.isFinite(Number(stats.points)) ? Number(stats.points) : null,
       matches: Number.isFinite(Number(stats.matches)) ? Number(stats.matches) : 0,
+      // 冠 / 亚 / 季：云函数按积分流水统计，缺失时归零，名片据此决定显不显示
+      honors: {
+        champions: Number(stats.honors && stats.honors.champions) || 0,
+        runnersUp: Number(stats.honors && stats.honors.runnersUp) || 0,
+        thirds: Number(stats.honors && stats.honors.thirds) || 0,
+      },
     };
   cache.set(key, { stats: cached, expiresAt: Date.now() + CACHE_TTL_MS });
   const resolve = pendingResolvers.get(key);
@@ -68,7 +75,7 @@ function settle(openid, stats, seasonId) {
 
 const pendingResolvers = new Map();
 
-/** 返回 { points, matches } 或 null（未启用/读取失败）。 */
+/** 返回 { points, matches, honors } 或 null（未启用/读取失败）。 */
 function getSeasonCardStats(openidValue) {
   const openid = String(openidValue || '').trim();
   if (!openid) return Promise.resolve(null);

@@ -93,6 +93,21 @@
   <view class="panel admin-panel" catchtap="noop">
     <view class="panel-title">用户列表查看</view>
     <view class="panel-sub">共 {{userListTotal}} 位用户 · 仅最高管理员可查看</view>
+    <view class="admin-roster">
+      <view class="admin-roster-head">普通管理员 {{adminRoster.length}} / 20</view>
+      <view wx:if="{{adminRoster.length === 0 && adminOpenids.length === 0}}" class="admin-roster-empty">还没有普通管理员</view>
+      <view wx:elif="{{adminRoster.length === 0}}" class="admin-roster-empty">{{adminOpenids.length}} 位（云函数更新后显示昵称）</view>
+      <view wx:else class="admin-roster-chips">
+        <view wx:for="{{adminRoster}}" wx:key="openid" class="admin-roster-chip">
+          <text class="admin-roster-name">{{item.nickname}}</text>
+          <view
+            class="admin-roster-remove {{adminsSaving ? 'admin-roster-remove-disabled' : ''}}"
+            data-openid="{{item.openid}}"
+            catchtap="onRemoveRosterAdmin"
+          >×</view>
+        </view>
+      </view>
+    </view>
     <view class="sort-label">排序（点击切换升序 / 降序）</view>
     <view class="user-sort-options">
       <view class="user-sort-option {{userListSortBy === 'dota2Id' ? 'user-sort-active' : ''}}" data-sort="dota2Id" bindtap="onChangeUserSort">Dota ID{{userListSortBy === 'dota2Id' ? (userListOrder === 'asc' ? ' ↑' : ' ↓') : ''}}</view>

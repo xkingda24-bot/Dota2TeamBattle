@@ -102,10 +102,14 @@ Page({
       : null;
     const t = Object.assign({}, current, snapshot, { id: snapshot.id || current.id });
     const activeTab = t.mode === 'auto' && this.data.activeTab === 'captain' ? 'player' : this.data.activeTab;
+    // 分组阶段（draft）替补席位未满时仍可报名替补：页面保留报名入口，不强制跳去分组页
+    const waitlistLeft = Math.max(0, (Number(t.waitLimit) || 0) - regs.filter((r) => r.role === 'waitlist').length);
     this.setData({
       t,
       myReg,
       activeTab,
+      waitlistLeft,
+      draftWaitlistOpen: t.status === 'draft' && waitlistLeft > 0,
       captainList: regs.filter((r) => r.role === 'captain'),
       playerList: regs.filter((r) => r.role === 'player'),
       waitlistList: regs.filter((r) => r.role === 'waitlist'),
@@ -118,7 +122,9 @@ Page({
     if (!this.id) return this.load(true);
     return api.call('tournamentRegistrationSnapshot', { id: this.id }).then((snapshot) => {
       const previous = this.data.t;
-      if (!snapshot || !previous || snapshot.status !== previous.status || snapshot.status !== 'registration') {
+      // 分组阶段仍在收替补：状态虽非 registration，但只需用快照刷新名单，避免整页重载
+      const stayForWaitlist = !!snapshot && snapshot.status === 'draft' && this.data.draftWaitlistOpen;
+      if (!snapshot || !previous || snapshot.status !== previous.status || (snapshot.status !== 'registration' && !stayForWaitlist)) {
         return this.load(true);
       }
       this.applyRegistrationSnapshot(snapshot);
@@ -163,6 +169,9 @@ Page({
       this._stageRedirecting ||
       !tournament
     ) return;
+
+    // 分组阶段替补席位未满、本人还没报名：留在报名页让他补替补，不强制跳去分组页
+    if (tournament.status === 'draft' && this.data.draftWaitlistOpen && !this.data.myReg) return;
 
     let url = '';
     if (tournament.mode === 'auto' && tournament.status === 'draft') {
@@ -211,12 +220,15 @@ Page({
         const secretOk = !!t.canManage || !!this.getStoredSecret() || !!t.myReg;
         const myReg = t.myReg ? Object.assign(fmtReg(t.myReg), { teamIconEmoji: emojiById[t.myReg.teamIcon] || '' }) : null;
         const activeTab = t.mode === 'auto' && this.data.activeTab === 'captain' ? 'player' : this.data.activeTab;
+        const waitlistLeft = Math.max(0, (Number(t.waitLimit) || 0) - regs.filter((r) => r.role === 'waitlist').length);
         this._lastTournamentVersion = tournamentPolling.versionToken(t);
         this._lastFullSyncAt = Date.now();
         this.setData({
           t,
           myReg,
           activeTab,
+          waitlistLeft,
+          draftWaitlistOpen: t.status === 'draft' && waitlistLeft > 0,
           canManage: !!t.canManage && !this.data.readonly,
           loading: false,
           loadError: '',
@@ -258,7 +270,7 @@ Page({
 
   onVerifySecret() {
     const t = this.data.t;
-    if (!t || this.data.readonly || t.status !== 'registration' || this.data.myReg) return;
+    if (!t || this.data.readonly || (t.status !== 'registration' && t.status !== 'draft') || this.data.myReg) return;
     const secret = this.data.secretInput.trim();
     if (!secret) {
       wx.showToast({ title: '请输入报名暗号', icon: 'none' });
@@ -283,8 +295,13 @@ Page({
     const t = this.data.t;
     if (!t || this.data.readonly || this.data.regSubmitting) return;
     if (['captain', 'player', 'waitlist'].indexOf(role) < 0) return;
-    if (t.status !== 'registration') {
+    const draftStage = t.status === 'draft';
+    if (!draftStage && t.status !== 'registration') {
       wx.showToast({ title: '当前不在报名阶段', icon: 'none' });
+      return;
+    }
+    if (draftStage && role !== 'waitlist') {
+      wx.showToast({ title: '分组进行中，只能报名替补', icon: 'none' });
       return;
     }
     if (this.data.myReg) {
@@ -379,7 +396,8 @@ Page({
   onCancelReg() {
     const t = this.data.t;
     if (!t || this.data.readonly) return;
-    if (t.status !== 'registration') {
+    const draftWaitlist = t.status === 'draft' && this.data.myReg && this.data.myReg.role === 'waitlist';
+    if (t.status !== 'registration' && !draftWaitlist) {
       wx.showToast({ title: '报名已锁定，无法取消', icon: 'none' });
       return;
     }

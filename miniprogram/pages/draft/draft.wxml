@@ -38,14 +38,13 @@
           <view class="tag tag-gray">{{item.players.length}}/{{t.K}}</view>
         </view>
         <view class="team-players" wx:if="{{item.captain || item.players.length}}">
-          <player-card wx:if="{{item.captain}}" player="{{item.captain}}" card-style="{{item.captain.cardStyle}}" compact="{{true}}" />
+          <player-card wx:if="{{item.captain}}" player="{{item.captain}}" card-style="{{item.captain.cardStyle}}" />
           <player-card
             wx:for="{{item.players}}"
             wx:key="openid"
             wx:for-item="p"
             player="{{p}}"
             card-style="{{p.cardStyle}}"
-            compact="{{true}}"
           />
         </view>
         <view class="sub" wx:else>未选队员</view>
@@ -57,7 +56,7 @@
       <view class="section">可选队员（{{t.draftInfo.remainingPlayers.length}}）</view>
       <view wx:if="{{t.draftInfo.remainingPlayers.length === 0}}" class="empty">没有剩余队员了</view>
       <view class="card draft-player-row" wx:for="{{t.draftInfo.remainingPlayers}}" wx:key="openid">
-        <player-card player="{{item}}" card-style="{{item.cardStyle}}" compact="{{true}}" />
+        <player-card player="{{item}}" card-style="{{item.cardStyle}}" />
         <view class="row">
           <view wx:if="{{canPick || canManage}}" class="btn-small" data-openid="{{item.openid}}" data-name="{{item.nickname}}" bindtap="onPick">选他</view>
           <view wx:else class="sub">等待轮到你</view>
@@ -74,6 +73,46 @@
       <view class="btn btn-plain" bindtap="onResetDraft">重置选人（重新随机队长顺序）</view>
       <view wx:if="{{canDelete && !readonly}}" class="btn btn-danger" bindtap="onDelete">删除比赛</view>
     </view>
+
+    <!-- 替补席（分组阶段仍可继续收替补，管理者可移出） -->
+    <view class="card waitlist-card" wx:if="{{t.status === 'draft'}}">
+      <view class="row">
+        <view class="card-title">替补席</view>
+        <view class="spacer"></view>
+        <view class="tag {{waitlistPlayers.length ? 'tag-blue' : 'tag-gray'}}">{{waitlistPlayers.length}} / {{t.waitLimit}}</view>
+        <view class="waitlist-view" bindtap="onOpenWaitlistPanel">查看 <text class="waitlist-view-arrow">›</text></view>
+      </view>
+      <view class="sub">{{waitlistPlayers.length ? (canManage && !readonly ? '分组还在进行，替补席位没报满前其他玩家仍可报名替补；点「查看替补」可看名单并移出替补。' : '分组还在进行，替补席位没报满前仍可报名替补。') : (t.waitLimit > 0 ? '替补席位还空着，其他玩家仍可报名替补。' : '本场比赛没有设置替补席位。')}}</view>
+      <view wx:if="{{!t.myReg && t.waitLimit > 0 && waitlistPlayers.length < t.waitLimit && !readonly}}" class="btn btn-plain waitlist-join {{waitlistJoining ? 'btn-disabled' : ''}}" aria-disabled="{{waitlistJoining}}" bindtap="onJoinWaitlist">
+          {{waitlistJoining ? '报名中…' : '我要报名替补'}}<text wx:if="{{!waitlistJoining}}">（剩 {{t.waitLimit - waitlistPlayers.length}} 个席位）</text>
+        </view>
+        <view wx:elif="{{t.myReg && t.myReg.role === 'waitlist' && !readonly}}" class="btn btn-plain waitlist-join waitlist-cancel {{waitlistRemoving === 'self' ? 'btn-disabled' : ''}}" aria-disabled="{{waitlistRemoving === 'self'}}" bindtap="confirmCancelWaitlist">
+          {{waitlistRemoving === 'self' ? '正在取消…' : '取消自己的替补报名'}}
+      </view>
+    </view>
+
+    <!-- 替补席弹窗：名单收起来，点「查看替补」才展开 -->
+    <view wx:if="{{waitlistPanelVisible}}" class="waitlist-mask" catchtap="onCloseWaitlistPanel">
+      <view class="waitlist-panel" catchtap="noopStop">
+        <view class="row">
+          <view class="card-title">替补席</view>
+          <view class="spacer"></view>
+          <view class="tag {{waitlistPlayers.length ? 'tag-blue' : 'tag-gray'}}">{{waitlistPlayers.length}} / {{t.waitLimit}}</view>
+        </view>
+        <view class="sub">{{waitlistPlayers.length ? (canManage && !readonly ? '点替补名片可把他移出替补席（确认后生效）。' : '当前替补名单。') : '替补席还没有人报名。'}}</view>
+        <scroll-view scroll-y class="waitlist-panel-list">
+          <view class="waitlist-row" wx:for="{{waitlistPlayers}}" wx:key="openid">
+            <view class="waitlist-target {{waitlistRemoving === item.openid ? 'waitlist-target-disabled' : ''}}" data-openid="{{item.openid}}" data-nickname="{{item.nickname}}" catchtap="onTapWaitlistMember">
+              <player-card player="{{item}}" card-style="{{item.cardStyle}}" />
+              <view wx:if="{{t.myOpenid === item.openid}}" class="waitlist-target-tip">我自己</view>
+              <view wx:elif="{{canManage && !readonly}}" class="waitlist-target-tip">点名片可移出替补席</view>
+            </view>
+          </view>
+        </scroll-view>
+        <view class="btn btn-plain waitlist-close" catchtap="onCloseWaitlistPanel">关闭</view>
+      </view>
+    </view>
+
   </block>
 
   <view wx:elif="{{loading}}" class="card">

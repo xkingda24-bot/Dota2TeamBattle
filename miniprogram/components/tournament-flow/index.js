@@ -102,7 +102,13 @@ Component({
       const currentRoute = pages.length ? pages[pages.length - 1].route : '';
       const id = encodeURIComponent(tournament.id);
       const returningToLiveBattle = tournament.status === 'battle' && index === activeIndex;
-      const targetReadonly = index < activeIndex || (this.properties.readonly && !returningToLiveBattle);
+      // 分组阶段替补席位未满时，报名步骤继续可进（否则会被「已过的步骤」强制 readonly，挡住报名替补）
+      const draftWaitlistOpen = tournament.status === 'draft' &&
+        (Number(tournament.waitLimit) > 0 &&
+          Number(tournament.waitlistFilled || 0) < Number(tournament.waitLimit) ||
+          !!(tournament.myReg && tournament.myReg.role === 'waitlist'));
+      const targetReadonly = (index < activeIndex && !(index === 0 && draftWaitlistOpen)) ||
+        (this.properties.readonly && !returningToLiveBattle);
       const draftAnchor = tournament.mode === 'auto' && tournament.status === 'draft' &&
         tournament.canManage && !this.properties.readonly
         ? 'team-stage-edit-anchor'

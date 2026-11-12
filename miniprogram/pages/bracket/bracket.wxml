@@ -42,7 +42,7 @@
         <view class="flow-team-members">
           <view wx:for="{{item.members}}" wx:key="openid" wx:for-item="member" class="group-edit-member-row">
             <view class="group-edit-select {{groupSelection.openid === member.openid ? 'group-edit-member-selected' : ''}}" data-team-index="{{item.teamIndex}}" data-openid="{{member.openid}}" bindtap="onOpenGroupSwap">
-              <player-card player="{{member}}" card-style="{{member.cardStyle}}" compact="{{true}}" />
+              <player-card player="{{member}}" card-style="{{member.cardStyle}}" />
             </view>
             <view class="group-edit-replace" data-team-index="{{item.teamIndex}}" data-openid="{{member.openid}}" catchtap="onOpenGroupSubstitution">替换</view>
           </view>
@@ -70,7 +70,6 @@
             wx:for-item="member"
             player="{{member}}"
             card-style="{{member.cardStyle}}"
-            compact="{{true}}"
           />
         </view>
       </view>
@@ -160,10 +159,10 @@
           </view>
         </view>
         <view class="team-members" wx:if="{{pm.expandedA && pm.membersA}}">
-          <player-card wx:for="{{pm.membersA}}" wx:key="openid" player="{{item}}" card-style="{{item.cardStyle}}" compact="{{true}}" />
+          <player-card wx:for="{{pm.membersA}}" wx:key="openid" player="{{item}}" card-style="{{item.cardStyle}}" />
         </view>
         <view class="team-members" wx:if="{{pm.expandedB && pm.membersB}}">
-          <player-card wx:for="{{pm.membersB}}" wx:key="openid" player="{{item}}" card-style="{{item.cardStyle}}" compact="{{true}}" />
+          <player-card wx:for="{{pm.membersB}}" wx:key="openid" player="{{item}}" card-style="{{item.cardStyle}}" />
         </view>
         <view class="row admin-row" wx:if="{{pm.showAdmin && pm.status !== 'done'}}">
           <picker mode="selector" range="{{pm.boRange}}" value="{{pm.boIndex}}" bindchange="onBoChange" data-id="{{pm.id}}">
@@ -227,7 +226,6 @@
                 wx:for-item="member"
                 player="{{member}}"
                 card-style="{{member.cardStyle}}"
-                compact="{{true}}"
               />
             </view>
           </view>
@@ -257,7 +255,6 @@
             wx:for-item="member"
             player="{{member}}"
             card-style="{{member.cardStyle}}"
-            compact="{{true}}"
           />
         </view>
       </view>
@@ -306,7 +303,6 @@
               wx:for-item="m"
               player="{{m}}"
               card-style="{{m.cardStyle}}"
-              compact="{{true}}"
             />
           </view>
         </view>
@@ -339,6 +335,45 @@
     </view>
 
     <view wx:if="{{stageView === 'battle' && t.matches.length === 0}}" class="empty">赛程还未生成（需先完成选人）</view>
+
+    <!-- 分组页替补席：分组阶段仍可继续收替补，房主 / 超管 / 管理员可把替补移出 -->
+    <view class="card waitlist-card" wx:if="{{t.status === 'draft'}}">
+      <view class="row">
+        <view class="card-title">替补席</view>
+        <view class="spacer"></view>
+        <view class="tag {{waitlistPlayers.length ? 'tag-blue' : 'tag-gray'}}">{{waitlistPlayers.length}} / {{t.waitLimit}}</view>
+        <view class="waitlist-view" bindtap="onOpenWaitlistPanel">查看 <text class="waitlist-view-arrow">›</text></view>
+      </view>
+      <view class="sub">{{waitlistPlayers.length ? (canManage && !readonly ? '分组还在进行，替补席位没报满前其他玩家仍可报名替补；点「查看替补」可看名单并移出替补。' : '分组还在进行，替补席位没报满前仍可报名替补。') : (t.waitLimit > 0 ? '替补席位还空着，其他玩家仍可报名替补。' : '本场比赛没有设置替补席位。')}}</view>
+      <view wx:if="{{!t.myReg && t.waitLimit > 0 && waitlistPlayers.length < t.waitLimit && !readonly}}" class="btn btn-plain waitlist-join {{waitlistJoining ? 'btn-disabled' : ''}}" aria-disabled="{{waitlistJoining}}" bindtap="onJoinWaitlist">
+          {{waitlistJoining ? '报名中…' : '我要报名替补'}}<text wx:if="{{!waitlistJoining}}">（剩 {{t.waitLimit - waitlistPlayers.length}} 个席位）</text>
+        </view>
+        <view wx:elif="{{t.myReg && t.myReg.role === 'waitlist' && !readonly}}" class="btn btn-plain waitlist-join waitlist-cancel {{waitlistRemoving === 'self' ? 'btn-disabled' : ''}}" aria-disabled="{{waitlistRemoving === 'self'}}" bindtap="confirmCancelWaitlist">
+          {{waitlistRemoving === 'self' ? '正在取消…' : '取消自己的替补报名'}}
+      </view>
+    </view>
+
+    <!-- 替补席弹窗：名单收起来，点「查看替补」才展开 -->
+    <view wx:if="{{waitlistPanelVisible}}" class="waitlist-mask" catchtap="onCloseWaitlistPanel">
+      <view class="waitlist-panel" catchtap="noopStop">
+        <view class="row">
+          <view class="card-title">替补席</view>
+          <view class="spacer"></view>
+          <view class="tag {{waitlistPlayers.length ? 'tag-blue' : 'tag-gray'}}">{{waitlistPlayers.length}} / {{t.waitLimit}}</view>
+        </view>
+        <view class="sub">{{waitlistPlayers.length ? (canManage && !readonly ? '点替补名片可把他移出替补席（确认后生效）。' : '当前替补名单。') : '替补席还没有人报名。'}}</view>
+        <scroll-view scroll-y class="waitlist-panel-list">
+          <view class="waitlist-row" wx:for="{{waitlistPlayers}}" wx:key="openid">
+            <view class="waitlist-target {{waitlistRemoving === item.openid ? 'waitlist-target-disabled' : ''}}" data-openid="{{item.openid}}" data-nickname="{{item.nickname}}" catchtap="onTapWaitlistMember">
+              <player-card player="{{item}}" card-style="{{item.cardStyle}}" />
+              <view wx:if="{{t.myOpenid === item.openid}}" class="waitlist-target-tip">我自己</view>
+              <view wx:elif="{{canManage && !readonly}}" class="waitlist-target-tip">点名片可移出替补席</view>
+            </view>
+          </view>
+        </scroll-view>
+        <view class="btn btn-plain waitlist-close" catchtap="onCloseWaitlistPanel">关闭</view>
+      </view>
+    </view>
 
     <!-- 对战阶段管理 -->
     <view class="card" wx:if="{{canManage && !readonly && t.status === 'battle' && t.mode === 'auto'}}">
@@ -416,7 +451,6 @@
         wx:for-item="p"
         player="{{p}}"
         card-style="{{p.cardStyle}}"
-        compact="{{true}}"
       />
       <view class="row">
         <view class="btn panel-btn" bindtap="closeMembers">关闭</view>
@@ -432,14 +466,14 @@
       <view class="field">
         <view class="label">换下</view>
         <view class="replacement-choice">
-          <player-card player="{{replacementPanel.outPlayers[replacementPanel.outIndex]}}" card-style="{{replacementPanel.outPlayers[replacementPanel.outIndex].cardStyle}}" compact="{{true}}" />
+          <player-card player="{{replacementPanel.outPlayers[replacementPanel.outIndex]}}" card-style="{{replacementPanel.outPlayers[replacementPanel.outIndex].cardStyle}}" />
           <view wx:if="{{t.mode !== 'auto'}}" class="btn-small btn-plain replacement-change" bindtap="onOpenReplacementOptions" data-field="outIndex">选择其他队员</view>
         </view>
       </view>
       <view class="field">
         <view class="label">换上</view>
         <view class="replacement-choice">
-          <player-card player="{{replacementPanel.inPlayers[replacementPanel.inIndex]}}" card-style="{{replacementPanel.inPlayers[replacementPanel.inIndex].cardStyle}}" compact="{{true}}" />
+          <player-card player="{{replacementPanel.inPlayers[replacementPanel.inIndex]}}" card-style="{{replacementPanel.inPlayers[replacementPanel.inIndex].cardStyle}}" />
           <view class="btn-small btn-plain replacement-change" bindtap="onOpenReplacementOptions" data-field="inIndex">选择其他队员</view>
         </view>
       </view>
@@ -461,7 +495,7 @@
             data-index="{{index}}"
             bindtap="onSelectReplacementPlayer"
           >
-            <player-card player="{{item}}" card-style="{{item.cardStyle}}" compact="{{true}}" />
+            <player-card player="{{item}}" card-style="{{item.cardStyle}}" />
           </view>
         </scroll-view>
         <view class="panel-btns">
@@ -527,7 +561,6 @@
         wx:key="openid"
         player="{{item}}"
         card-style="{{item.cardStyle}}"
-        compact="{{true}}"
       />
     </view>
     <view class="team-members" wx:if="{{expandedB && membersB}}">
@@ -536,7 +569,6 @@
         wx:key="openid"
         player="{{item}}"
         card-style="{{item.cardStyle}}"
-        compact="{{true}}"
       />
     </view>
     <view class="row admin-row" wx:if="{{showAdmin && status !== 'done'}}">

@@ -27,18 +27,15 @@
 .player-card-meta { display: flex; align-items: center; justify-content: flex-end; gap: 14rpx; margin-top: 0; color: rgba(223, 208, 177, .83); font-size: 22rpx; }
 .player-card-dota { flex: 0 1 auto; min-width: 0; margin-top: 0; color: rgba(230, 214, 183, .9); font-size: 21rpx; line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .player-card-location { flex-shrink: 0; white-space: nowrap; }
-/* 全站统一名片三排：第一排昵称+段位，第二排「N 场 · 冠亚季 · 积分」，第三排签名 */
+/* 全站统一名片两段式：第一排「昵称 / 段位与位次」，第二排「赛季战绩在昵称正下方，签名靠右」 */
 .player-card-season-label { color: rgba(222, 204, 164, .58); }
 .player-card-season-value { color: #f0cd7e; font-size: 22rpx; font-weight: 700; font-variant-numeric: tabular-nums; }
 .player-card-season-dot { margin: 0 3rpx; color: rgba(222, 204, 164, .42); }
-/* 积分榜名片的三排：第二排「N 场 · 冠亚季 · 积分」，第三排签名，各自独占一行 */
-.player-card-honors-block { position: relative; z-index: 2; margin-top: 6rpx; }
-.player-card-honors-line { display: flex; align-items: baseline; justify-content: flex-end; gap: 6rpx; color: rgba(222, 204, 164, .78); font-size: 18rpx; line-height: 1.3; white-space: nowrap; overflow: hidden; }
+/* 第二排：左侧战绩贴左对齐到昵称下方，签名占右侧剩余宽度，过长时省略 */
+.player-card-sub { position: relative; z-index: 2; display: flex; align-items: baseline; gap: 18rpx; margin-top: 4rpx; }
+.player-card-honors-line { display: flex; align-items: baseline; flex: none; gap: 6rpx; color: rgba(222, 204, 164, .78); font-size: 18rpx; line-height: 1.3; white-space: nowrap; overflow: hidden; }
 .player-card-honors { flex: none; color: rgba(240, 205, 126, .86); font-size: 18rpx; line-height: 1.3; white-space: nowrap; }
-.player-card-signature-row { margin-top: 2rpx; color: rgba(235, 229, 216, .72); font-size: 19rpx; line-height: 1.3; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.player-card-compact .player-card-honors-line { font-size: 16rpx; }
-.player-card-compact .player-card-honors { font-size: 16rpx; }
-.player-card-compact .player-card-signature-row { font-size: 17rpx; }
+.player-card-signature-row { flex: 1 1 auto; min-width: 0; margin-top: 0; color: rgba(235, 229, 216, .72); font-size: 19rpx; line-height: 1.3; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* 位次数字徽章：组件样式隔离，样式必须自带 */
 .player-card-roles { display: flex; align-items: center; flex-shrink: 0; }
 .player-card-role-chip {
@@ -61,13 +58,7 @@
 .player-card-roles .player-card-role-chip:first-child { margin-left: 0; }
 /* 「全能」徽章：五个位次全选时折叠成一个，去掉方块固定宽，按文字自适应 */
 .player-card-role-chip-versatile { min-width: 0; padding: 0 10rpx; letter-spacing: 2rpx; }
-.player-card-compact { min-height: 84rpx; padding: 10rpx 14rpx; }
-.player-card-compact .player-card-name { font-size: 32rpx; }
-.player-card-compact .player-card-dota { font-size: 19rpx; }
-.player-card-compact .player-card-meta { margin-top: 0; font-size: 20rpx; }
-.player-card-compact .player-card-season-value { font-size: 19rpx; }
-.player-card-compact .player-card-role-chip { min-width: 26rpx; height: 26rpx; padding: 0 5rpx; font-size: 19rpx; }
-.player-card-compact .player-card-role-chip-versatile { min-width: 0; padding: 0 8rpx; letter-spacing: 1rpx; }
+/* 全站名片统一尺寸：不再有小号名片，任何页面渲染出来的名片都与「我的名片」同一套尺寸与字号 */
 
 /* 背景 */
 .card-bg-arena { background: radial-gradient(ellipse at 82% 5%, rgba(213, 159, 76, .25), transparent 43%), linear-gradient(135deg, #283142, #111722 74%); }

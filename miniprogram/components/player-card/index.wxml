@@ -1,4 +1,4 @@
-<view class="player-card card-bg-{{normalizedStyle.background}} card-border-{{normalizedStyle.border}} card-font-{{normalizedStyle.font}} card-color-{{normalizedStyle.color}} {{compact ? 'player-card-compact' : ''}}">
+<view class="player-card card-bg-{{normalizedStyle.background}} card-border-{{normalizedStyle.border}} card-font-{{normalizedStyle.font}} card-color-{{normalizedStyle.color}}">
   <view class="player-card-glow" aria-hidden="true"></view>
   <view class="player-card-effect effect-{{normalizedStyle.animation}}" aria-hidden="true">
     <view class="effect-a"></view>
@@ -24,13 +24,14 @@
     </view>
   </view>
 
-  <!-- 全站统一名片：第二排「场次 · 冠亚季 · 积分」，第三排签名；没有赛季数据的名片只显示昵称与签名 -->
-  <view class="player-card-honors-block">
+  <!-- 名片两段式：第一排「昵称 / 段位与位次」；第二排左侧昵称正下方是「场次 · 冠亚季 · 积分」，右侧是签名。
+       没有赛季数据也没有签名的名片保持单排。 -->
+  <view wx:if="{{seasonPointsReady || player.signature}}" class="player-card-sub">
     <view wx:if="{{seasonPointsReady}}" class="player-card-honors-line">
       <text class="player-card-season-value">{{seasonMatches}}</text>
       <text class="player-card-season-label">场</text>
-      <text wx:if="{{honorsText}}" class="player-card-season-dot">·</text>
-      <text wx:if="{{honorsText}}" class="player-card-honors">{{honorsText}}</text>
+      <text wx:if="{{honorsText || seasonHonorsText}}" class="player-card-season-dot">·</text>
+      <text wx:if="{{honorsText || seasonHonorsText}}" class="player-card-honors">{{honorsText || seasonHonorsText}}</text>
       <text class="player-card-season-dot">·</text>
       <text class="player-card-season-label">积分</text>
       <text class="player-card-season-value">{{seasonPoints}}</text>

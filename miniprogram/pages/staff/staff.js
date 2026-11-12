@@ -32,6 +32,8 @@ Page({
     isSuper: false,
     isAdmin: false,
     adminOpenids: [],
+    // 普通管理员名册（带昵称），弹窗顶部直接展示，避免逐页找蓝色标签
+    adminRoster: [],
     adminsSaving: false,
     canInitializeSuperAdmin: false,
     bootstrapOpenid: '',
@@ -250,8 +252,10 @@ Page({
           isAdminUser: this.data.adminOpenids.indexOf(user.openid) >= 0,
         }));
         const total = Number(d.total) || 0;
+        const roster = Array.isArray(d.adminRoster) ? d.adminRoster : [];
         this.setData({
           userList: users,
+          adminRoster: roster,
           userListPage: Number(d.page) || page,
           userListPageSize: Number(d.pageSize) || this.data.userListPageSize,
           userListTotal: total,
@@ -296,19 +300,10 @@ Page({
 
   /* ---------- 超管：设置 / 取消普通管理员（全量提交，≤ 20 人） ---------- */
 
-  onToggleAdmin(e) {
-    if (!this.data.isSuper || this.data.adminsSaving || !this.data.userListModal) return;
-    const openid = String(e.currentTarget.dataset.openid || '');
-    if (!openid) return;
-    const admins = this.data.adminOpenids.slice();
-    const i = admins.indexOf(openid);
-    if (i >= 0) {
-      admins.splice(i, 1);
-    } else {
-      admins.push(openid);
-    }
+  // 全量提交普通管理员名单（≤ 20 人）：设置与取消都走这里，成功后刷新列表与名册
+  commitAdmins(admins) {
     this.setData({ adminsSaving: true });
-    api
+    return api
       .call('setAdmins', { openids: admins })
       .then((d) => {
         this.setData({
@@ -322,6 +317,29 @@ Page({
         this.setData({ adminsSaving: false });
         wx.showToast({ title: err.message || '设置失败，请重试', icon: 'none' });
       });
+  },
+
+  onToggleAdmin(e) {
+    if (!this.data.isSuper || this.data.adminsSaving || !this.data.userListModal) return;
+    const openid = String(e.currentTarget.dataset.openid || '');
+    if (!openid) return;
+    const admins = this.data.adminOpenids.slice();
+    const i = admins.indexOf(openid);
+    if (i >= 0) {
+      admins.splice(i, 1);
+    } else {
+      admins.push(openid);
+    }
+    this.commitAdmins(admins);
+  },
+
+  // 名册里点「×」直接取消，不弹确认框
+  onRemoveRosterAdmin(e) {
+    if (!this.data.isSuper || this.data.adminsSaving || !this.data.userListModal) return;
+    const openid = String(e.currentTarget.dataset.openid || '');
+    if (!openid) return;
+    const admins = this.data.adminOpenids.filter((id) => id !== openid);
+    this.commitAdmins(admins);
   },
 
   /* ---------- 资料编辑 ---------- */

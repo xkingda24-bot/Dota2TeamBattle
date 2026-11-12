@@ -48,7 +48,7 @@
       <view wx:if="{{myReg}}" class="row">
         <view class="tag tag-green">已报名：{{myReg.roleText}}</view>
         <view class="spacer"></view>
-        <view wx:if="{{t.status === 'registration' && !readonly}}" class="btn-small btn-danger" bindtap="onCancelReg">取消报名</view>
+        <view wx:if="{{(t.status === 'registration' || (t.status === 'draft' && myReg.role === 'waitlist')) && !readonly}}" class="btn-small btn-danger" bindtap="onCancelReg">取消报名</view>
         <view wx:else class="tag tag-gray">报名已锁定</view>
       </view>
 
@@ -74,8 +74,18 @@
         <view wx:if="{{!canManage}}" class="change-secret" bindtap="onReenterSecret" hover-class="link-pressed">暗号已变更？重新验证 <text>›</text></view>
       </view>
 
+      <!-- 分组阶段：替补席位未满时仍可报名替补 -->
+      <view wx:if="{{!myReg && t.status === 'draft' && draftWaitlistOpen && !readonly}}">
+        <view class="divider"></view>
+        <view class="sub">分组已经开始，首发队员不再接受报名；替补席位还有 {{waitlistLeft}} 个空位，可以继续报名替补。</view>
+        <view class="btn btn-plain {{regSubmitting ? 'btn-disabled' : ''}}" aria-disabled="{{regSubmitting}}" bindtap="onReg" data-role="waitlist">
+          {{regSubmitting ? '提交中…' : '报名替补'}}<text wx:if="{{!regSubmitting}}">（剩 {{waitlistLeft}} 个席位）</text>
+        </view>
+      </view>
+
       <view wx:if="{{!myReg && t.status === 'registration' && !secretOk}}" class="registration-hint">输入上方暗号验证后即可选择报名身份。</view>
-      <view wx:if="{{!myReg && t.status !== 'registration'}}" class="registration-hint">当前不在报名阶段，暂时不能加入本场比赛。</view>
+      <view wx:if="{{!myReg && t.status === 'draft' && !draftWaitlistOpen}}" class="registration-hint">分组已开始，替补席位也已报满，暂时不能加入本场比赛。</view>
+      <view wx:if="{{!myReg && t.status !== 'registration' && t.status !== 'draft'}}" class="registration-hint">当前不在报名阶段，暂时不能加入本场比赛。</view>
       <view wx:if="{{myReg && t.status !== 'registration' && myReg.role === 'captain'}}" class="registration-hint">报名已锁定，队伍名称不能再修改。</view>
     </view>
 
@@ -187,14 +197,14 @@
 </view>
 <!-- 比赛管理者：点击报名名片弹出的成员操作面板 -->
 <view class="mask" wx:if="{{memberAction.show}}" catchtap="onCloseMemberAction">
-  <view class="panel team-config-panel" catchtap="noop">
+  <view class="panel team-config-panel member-action-panel" catchtap="noop">
     <view class="panel-title">{{memberAction.nickname}}</view>
     <view class="panel-sub">{{memberAction.role === 'captain' ? '队长报名' : memberAction.role === 'waitlist' ? '替补报名' : '队员报名'}} · 比赛管理操作</view>
     <view class="divider"></view>
     <view class="panel-btns">
-      <view wx:if="{{memberAction.role === 'player'}}" class="panel-btn btn-plain" data-openid="{{memberAction.openid}}" data-nickname="{{memberAction.nickname}}" data-to="waitlist" bindtap="onMoveReg">移入替补</view>
-      <view wx:if="{{memberAction.role === 'waitlist'}}" class="panel-btn btn-plain" data-openid="{{memberAction.openid}}" data-nickname="{{memberAction.nickname}}" data-to="player" bindtap="onMoveReg">移入队员</view>
-      <view class="panel-btn btn-danger" data-openid="{{memberAction.openid}}" data-nickname="{{memberAction.nickname}}" bindtap="onRemoveReg">移除</view>
+      <view wx:if="{{memberAction.role === 'player'}}" class="panel-btn btn-plain" hover-class="panel-btn-pressed" data-openid="{{memberAction.openid}}" data-nickname="{{memberAction.nickname}}" data-to="waitlist" bindtap="onMoveReg">移入替补</view>
+      <view wx:if="{{memberAction.role === 'waitlist'}}" class="panel-btn btn-plain" hover-class="panel-btn-pressed" data-openid="{{memberAction.openid}}" data-nickname="{{memberAction.nickname}}" data-to="player" bindtap="onMoveReg">移入队员</view>
+      <view class="panel-btn btn-danger" hover-class="panel-btn-pressed" data-openid="{{memberAction.openid}}" data-nickname="{{memberAction.nickname}}" bindtap="onRemoveReg">移除</view>
     </view>
   </view>
 </view>

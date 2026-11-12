@@ -32,6 +32,10 @@ Page({
     pickStateText: '',
     bracketTypeVisible: false,
     bracketTypeSaving: false,
+    waitlistPlayers: [],
+    waitlistRemoving: '',
+    waitlistJoining: false,
+    waitlistPanelVisible: false,
   },
 
   onLoad(options) {
@@ -110,7 +114,14 @@ Page({
         }
         this._lastTournamentVersion = tournamentPolling.versionToken(t);
         this._lastFullSyncAt = Date.now();
-        this.setData({ t, canManage: !!t.canManage && !this.data.readonly, loading: false, loadError: '', refreshError: false }, () => {
+        // 选人页替补席：分组阶段仍可继续收替补，管理者可把人移出替补席
+        const cardStyles = t.cardStyles || {};
+        const waitlistPlayers = (t.registrations || [])
+          .filter((registration) => registration && registration.role === 'waitlist')
+          .map((registration) => fmtPlayer(Object.assign({}, registration, {
+            cardStyle: registration.cardStyle || cardStyles[registration.openid] || null,
+          })));
+        this.setData({ t, waitlistPlayers, canManage: !!t.canManage && !this.data.readonly, loading: false, loadError: '', refreshError: false }, () => {
           this.redirectToBattle(t);
         });
         this.computeDraft();
@@ -194,6 +205,143 @@ Page({
         },
       });
     }
+  },
+
+  // 选人页替补席：比赛管理者把某个替补移出替补席（房主 / 超管 / 普通管理员）
+  onOpenWaitlistPanel() {
+    this.setData({ waitlistPanelVisible: true });
+  },
+
+  onCloseWaitlistPanel() {
+    this.setData({ waitlistPanelVisible: false });
+  },
+
+  // 弹窗内点空白不穿透
+  noopStop() {},
+
+  // 选人页替补席：点名片处理——自己的名片是取消报名，管理者点别人的名片是移出替补
+  onTapWaitlistMember(e) {
+    const t = this.data.t;
+    if (!t || this.data.readonly || this.data.waitlistRemoving) return;
+    const openid = String(e.currentTarget.dataset.openid || '');
+    if (!openid) return;
+    const myOpenid = t.myOpenid || (t.myReg && t.myReg.openid) || '';
+    if (myOpenid && openid === myOpenid) {
+      this.confirmCancelWaitlist();
+      return;
+    }
+    if (!this.data.canManage) {
+      wx.showToast({ title: '只有比赛创建者或管理员可以移出替补', icon: 'none' });
+      return;
+    }
+    const nickname = String(e.currentTarget.dataset.nickname || '该替补');
+    this.setData({ waitlistRemoving: openid });
+    wx.showModal({
+      title: '移出替补席',
+      content: '确定把「' + nickname + '」移出替补席吗？移出后替补席位空出，其他人仍可报名替补。',
+      confirmText: '移除',
+      confirmColor: '#d1543f',
+      success: (res) => {
+        if (!res.confirm) {
+          this.setData({ waitlistRemoving: '' });
+          return;
+        }
+        api.call('removeWaitlistRegistration', { id: t.id || this.id, openid })
+          .then(() => {
+            wx.showToast({ title: '已移出替补席', icon: 'success' });
+            this.load(true);
+          })
+          .catch((err) => {
+            wx.showToast({ title: (err && err.message) || '移出失败', icon: 'none' });
+          })
+          .then(() => this.setData({ waitlistRemoving: '' }));
+      },
+    });
+  },
+
+  // 自己的替补报名可以自己取消（首发/队长仍锁定）
+  confirmCancelWaitlist() {
+    const t = this.data.t;
+    if (!t || this.data.readonly) return;
+    wx.showModal({
+      title: '取消报名',
+      content: '确定取消自己的替补报名吗？取消后替补席位空出，之后仍可重新报名。',
+      confirmText: '取消报名',
+      confirmColor: '#d1543f',
+      success: (res) => {
+        if (!res.confirm) return;
+        this.setData({ waitlistRemoving: 'self' });
+        api.call('cancelRegister', { id: t.id || this.id })
+          .then(() => {
+            wx.showToast({ title: '已取消替补报名', icon: 'success' });
+            this.load(true);
+          })
+          .catch((err) => {
+            wx.showToast({ title: (err && err.message) || '取消失败', icon: 'none' });
+          })
+          .then(() => this.setData({ waitlistRemoving: '' }));
+      },
+    });
+  },
+
+  // 分组页替补席：不跳页，直接在这里输入暗号报名替补
+  onJoinWaitlist() {
+    const t = this.data.t;
+    if (!t || this.data.readonly || this.data.waitlistJoining) return;
+    if (t.myReg) {
+      wx.showToast({ title: '你已经在名单里了', icon: 'none' });
+      return;
+    }
+    const id = t.id || this.id || '';
+    if (!id) return;
+    const left = Math.max(0, (Number(t.waitLimit) || 0) - (this.data.waitlistPlayers || []).length);
+    if (left <= 0) {
+      wx.showToast({ title: '替补席位已满', icon: 'none' });
+      return;
+    }
+    // 分组阶段报名替补不需要暗号（后端同口径免校验），点按钮直接报名
+    const stored = wx.getStorageSync('dota2_secret_' + id) || '';
+    const tip = '替补席位还有 ' + left + ' 个空位，报名后进入替补席。';
+    if (t.canManage) {
+      wx.showModal({
+        title: '报名替补',
+        content: tip,
+        confirmText: '报名',
+        success: (res) => {
+          if (res.confirm) this.submitWaitlist(id, '');
+        },
+      });
+      return;
+    }
+    this.submitWaitlist(id, stored);
+  },
+
+  submitWaitlist(id, secret) {
+    if (!id || this.data.waitlistJoining) return;
+    this.setData({ waitlistJoining: true });
+    api.call('register', { id, role: 'waitlist', secret })
+      .then(() => {
+        if (secret) wx.setStorageSync('dota2_secret_' + id, secret);
+        wx.showToast({ title: '已加入替补席', icon: 'success' });
+        this.load(true);
+      })
+      .catch((err) => {
+        const message = (err && err.message) || '报名失败';
+        if (message === '报名暗号错误') {
+          try { wx.removeStorageSync('dota2_secret_' + id); } catch (e) { /* 忽略存储异常 */ }
+        }
+        if (/请先设置昵称|请先在「我的-编辑资料」/.test(message)) {
+          wx.showModal({
+            title: '报名前先补资料',
+            content: message + '。去「我的 - 编辑资料」补全后再来报名。',
+            showCancel: false,
+            confirmText: '知道了',
+          });
+          return;
+        }
+        wx.showToast({ title: message, icon: 'none' });
+      })
+      .then(() => this.setData({ waitlistJoining: false }));
   },
 
   onResetDraft() {

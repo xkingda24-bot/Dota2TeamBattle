@@ -140,12 +140,14 @@
     <view class="history-heading" bindtap="toggleHistory" aria-expanded="{{historyExpanded}}" hover-class="link-pressed">
       <view class="history-heading-copy">
         <view class="history-kicker">TOURNAMENT HISTORY</view>
-        <view class="history-title">历史赛事 <text class="history-count">{{older.length}}</text></view>
+        <view class="history-title">历史赛事 <text wx:if="{{historyLoaded}}" class="history-count">{{older.length}}</text></view>
       </view>
       <view class="history-chevron {{historyExpanded ? 'history-chevron-open' : ''}}">›</view>
     </view>
     <view wx:if="{{historyExpanded}}" class="history-body">
-      <view wx:if="{{older.length === 0}}" class="history-empty">暂无历史赛事</view>
+      <view wx:if="{{historyLoading && !older.length}}" class="history-empty">正在加载历史赛事…</view>
+      <view wx:elif="{{historyError && !older.length}}" class="history-empty" bindtap="loadHistory">{{historyError}}（点此重试）</view>
+      <view wx:elif="{{older.length === 0}}" class="history-empty">暂无历史赛事</view>
       <view wx:for="{{older}}" wx:for-item="item" wx:key="id" class="history-item" data-index="{{index}}" bindtap="goHistoryTournament">
         <view class="history-item-main">
           <view class="history-item-top">
@@ -157,6 +159,7 @@
         </view>
         <button wx:if="{{item.canDelete}}" class="history-action history-delete-action" data-index="{{index}}" catch:tap="deleteFromHistory" hover-class="btn-pressed">{{historyBusyId === item.id || historyBusyId === item._id ? '处理中…' : '删除'}}</button>
       </view>
+      <view wx:if="{{historyError && older.length}}" class="history-footnote" bindtap="loadHistory">刷新失败 · 点此重试</view>
       <view wx:if="{{older.length === 50}}" class="history-footnote">显示最近 50 场历史赛事</view>
     </view>
   </view>

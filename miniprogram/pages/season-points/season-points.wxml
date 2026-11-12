@@ -91,7 +91,7 @@
       class="leader-card-row {{item.isMine ? 'leader-card-row-mine' : ''}}"
     >
       <view class="leader-card-wrap">
-        <player-card player="{{item.player}}" compact="{{true}}" honorsText="{{item.honorsText}}" />
+        <player-card player="{{item.player}}" card-style="{{item.player.cardStyle}}" honorsText="{{item.honorsText}}" />
       </view>
     </view>
 
