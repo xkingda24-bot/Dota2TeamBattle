@@ -1,4 +1,5 @@
 // pages/staff/staff.js - 我的（资料 + 超管用户列表查看）
+const { buildCareerView, summarizeCareer } = require('../../utils/career');
 const api = require('../../utils/api');
 const { formatDateTime } = require('../../utils/date-time');
 const { hasCurrentRankVerification, rankVerifiedAt, normalizeRankTier, dotaRankLabel, leaderboardRank } = require('../../utils/dota-rank');
@@ -67,6 +68,9 @@ Page({
     },
     lookingUpDota: false,
     saving: false,
+    career: null,
+    careerLoading: false,
+    careerError: '',
   },
 
   onShow() {
@@ -74,6 +78,7 @@ Page({
   },
 
   load() {
+    this.loadCareer();
     const hadData = this.data.hasLoaded;
     if (!hadData) this.setData({ loading: true, loadError: '' });
     return api
@@ -111,6 +116,33 @@ Page({
         }
         this.showLoadError(e);
       });
+  },
+
+  /* 我的生涯摘要：独立拉取，失败不影响资料卡；requestId 防止连续 onShow 时旧响应覆盖新数据 */
+  loadCareer() {
+    const requestId = (this._careerRequestId || 0) + 1;
+    this._careerRequestId = requestId;
+    this.setData({ careerLoading: true, careerError: '' });
+    return api
+      .call('getPlayerProfile', {})
+      .then((result) => {
+        if (requestId !== this._careerRequestId) return;
+        const career = summarizeCareer(buildCareerView(result, ''));
+        this.setData({ careerLoading: false, career });
+      })
+      .catch((error) => {
+        if (requestId !== this._careerRequestId) return;
+        this.setData({
+          careerLoading: false,
+          careerError: (error && error.message) || '生涯数据暂时无法加载',
+        });
+      });
+  },
+
+  onCareerPlacement(event) {
+    const id = String((event.detail && event.detail.id) || '');
+    if (!id) return;
+    wx.navigateTo({ url: '/pages/bracket/bracket?id=' + encodeURIComponent(id) + '&view=settlement' });
   },
 
   showLoadError(e) {

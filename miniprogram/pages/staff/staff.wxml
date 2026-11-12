@@ -34,12 +34,21 @@
       <view class="profile-actions">
         <view class="btn-small btn-plain" bindtap="onEditProfile">{{user ? '编辑资料' : '设置资料'}}</view>
         <view class="btn-small btn-plain" bindtap="goCardStyle">{{user ? '装扮名片' : '先设置资料'}}</view>
-        <view class="btn-small btn-plain" bindtap="goPlayerProfile">我的生涯</view>
       </view>
     </view>
     <player-card wx:if="{{user}}" player="{{user}}" card-style="{{user.cardStyle}}" />
     <view wx:else class="sub">设置昵称后即可创建并预览自己的专属名片。</view>
   </view>
+
+  <!-- 我的生涯摘要：独立成卡，完整档案仍在生涯页 -->
+  <career-summary
+    career="{{career}}"
+    loading="{{careerLoading}}"
+    error="{{careerError}}"
+    bind:more="goPlayerProfile"
+    bind:retry="loadCareer"
+    bind:placement="onCareerPlacement"
+  />
 
   <!-- 未初始化 -->
   <view class="card" wx:if="{{!superAdmin}}">

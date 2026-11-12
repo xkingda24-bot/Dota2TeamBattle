@@ -1,0 +1,79 @@
+<view class="card career-card">
+  <view class="career-head">
+    <view class="card-title">我的生涯</view>
+    <view class="spacer"></view>
+    <view class="career-more" bindtap="onMore" hover-class="career-more-pressed">完整生涯 <text class="career-arrow">›</text></view>
+  </view>
+
+  <view wx:if="{{loading && !career}}" class="career-tip">正在读取生涯数据…</view>
+  <view wx:elif="{{error && !career}}" class="career-tip career-tip-row">
+    <text class="career-tip-text">{{error}}</text>
+    <view class="career-retry" bindtap="onRetry" hover-class="career-more-pressed">重试</view>
+  </view>
+
+  <block wx:elif="{{career}}">
+    <view class="stat-grid">
+      <view class="stat">
+        <view class="stat-value">{{career.stats.playedTournaments}}</view>
+        <view class="stat-label">参赛</view>
+      </view>
+      <view class="stat">
+        <view class="stat-value">{{career.stats.winRate}}<text class="stat-unit">%</text></view>
+        <view class="stat-label">{{career.stats.wins}} 胜 {{career.stats.losses}} 负</view>
+      </view>
+      <view class="stat">
+        <view class="stat-value">{{career.stats.championships}}</view>
+        <view class="stat-label">冠军</view>
+      </view>
+      <view class="stat">
+        <view class="stat-value">{{career.stats.bestStreak}}</view>
+        <view class="stat-label">最佳连胜</view>
+      </view>
+    </view>
+
+    <view class="winbar" wx:if="{{career.stats.matches > 0}}">
+      <view class="winbar-fill" style="width: {{career.stats.winRate}}%"></view>
+    </view>
+
+    <view class="honor-line">
+      <text class="honor-chip honor-gold">{{career.stats.championships}} 冠</text>
+      <text class="honor-chip honor-silver">{{career.stats.runnerUps}} 亚</text>
+      <text class="honor-chip honor-bronze">{{career.stats.thirds}} 季</text>
+      <view class="spacer"></view>
+      <text class="honor-extra" wx:if="{{career.stats.captainTimes > 0}}">带队 {{career.stats.captainTimes}} 次</text>
+    </view>
+
+    <view wx:if="{{!career.placements.length}}" class="career-tip">还没有上过场，报名参赛后会在这里留下记录。</view>
+
+    <block wx:else>
+      <view class="career-section">最近战绩</view>
+      <view
+        wx:for="{{career.placements}}"
+        wx:key="key"
+        class="record-row"
+        data-id="{{item.id}}"
+        bindtap="onPlacement"
+        hover-class="record-row-pressed"
+      >
+        <view class="rank-badge {{item.rankClass}}">{{item.label}}</view>
+        <view class="record-main">
+          <view class="record-name">{{item.name}}</view>
+          <view class="record-meta">
+            <text wx:if="{{item.teamName}}">{{item.teamName}} · </text>
+            <text>{{item.recordText}}</text>
+            <text wx:if="{{item.isCaptain}}"> · 队长</text>
+            <text wx:if="{{item.dateText}}"> · {{item.dateText}}</text>
+          </view>
+        </view>
+      </view>
+
+      <view wx:if="{{career.partners.length}}" class="career-section">最佳搭档</view>
+      <view wx:for="{{career.partners}}" wx:key="key" class="partner-row">
+        <view class="partner-name">{{item.nickname}}</view>
+        <view class="partner-meta">同队 {{item.matches}} 场 · {{item.wins}} 胜 · 胜率 {{item.winRate}}%</view>
+      </view>
+    </block>
+
+    <view wx:if="{{error}}" class="career-tip">生涯数据刷新失败，当前显示的是上次的数据。</view>
+  </block>
+</view>

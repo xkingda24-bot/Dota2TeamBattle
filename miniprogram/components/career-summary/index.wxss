@@ -1,0 +1,206 @@
+/* components/career-summary - 生涯摘要卡（样式自带，组件样式隔离，app.wxss 的全局类在这里不生效） */
+.card {
+  background: linear-gradient(180deg, #171d29 0%, #12161f 100%);
+  border: 1rpx solid rgba(224, 181, 111, 0.14);
+  border-radius: 12rpx;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+}
+.card-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #e8c27c;
+  letter-spacing: 1rpx;
+}
+.spacer {
+  flex: 1;
+}
+.career-card {
+  /* 与「我的名片」卡片视觉成组，但不共用内部结构 */
+}
+.career-head {
+  display: flex;
+  align-items: center;
+}
+.career-more {
+  padding: 6rpx 0 6rpx 16rpx;
+  font-size: 24rpx;
+  color: #e0b56f;
+  letter-spacing: 1rpx;
+}
+.career-more-pressed {
+  opacity: 0.6;
+}
+.career-arrow {
+  font-size: 28rpx;
+}
+.career-tip {
+  margin-top: 20rpx;
+  font-size: 24rpx;
+  line-height: 1.7;
+  color: #8b94a1;
+}
+.career-tip-row {
+  display: flex;
+  align-items: center;
+}
+.career-tip-text {
+  flex: 1;
+  min-width: 0;
+}
+.career-retry {
+  margin-left: 20rpx;
+  color: #e0b56f;
+}
+
+.stat-grid {
+  display: flex;
+  align-items: flex-end;
+  margin-top: 26rpx;
+}
+.stat {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+}
+.stat-value {
+  font-size: 40rpx;
+  font-weight: 700;
+  color: #e8c27c;
+  line-height: 1.2;
+  font-family: Menlo, Consolas, monospace;
+}
+.stat-unit {
+  font-size: 22rpx;
+  font-weight: 400;
+  margin-left: 2rpx;
+  color: #b99a63;
+}
+.stat-label {
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  color: #8b94a1;
+}
+
+.winbar {
+  margin-top: 22rpx;
+  height: 10rpx;
+  border-radius: 6rpx;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+.winbar-fill {
+  height: 100%;
+  border-radius: 6rpx;
+  background: linear-gradient(90deg, #2eb478, #e8c27c);
+}
+
+.honor-line {
+  display: flex;
+  align-items: center;
+  margin-top: 22rpx;
+}
+.honor-chip {
+  font-size: 22rpx;
+  padding: 4rpx 16rpx;
+  border-radius: 8rpx;
+  margin-right: 12rpx;
+}
+.honor-gold {
+  background: rgba(232, 194, 124, 0.16);
+  color: #e8c27c;
+}
+.honor-silver {
+  background: rgba(180, 190, 205, 0.14);
+  color: #c3ccd8;
+}
+.honor-bronze {
+  background: rgba(200, 140, 90, 0.16);
+  color: #d09a6e;
+}
+.honor-extra {
+  font-size: 22rpx;
+  color: #8b94a1;
+}
+
+.career-section {
+  margin-top: 28rpx;
+  margin-bottom: 4rpx;
+  font-size: 24rpx;
+  color: #b99a63;
+  letter-spacing: 2rpx;
+}
+
+.record-row {
+  display: flex;
+  align-items: center;
+  padding: 18rpx 12rpx;
+  margin: 0 -12rpx;
+  border-radius: 10rpx;
+}
+.record-row-pressed {
+  background: rgba(224, 181, 111, 0.08);
+}
+.rank-badge {
+  min-width: 96rpx;
+  text-align: center;
+  padding: 6rpx 10rpx;
+  border-radius: 8rpx;
+  font-size: 22rpx;
+  color: #c3ccd8;
+  background: rgba(255, 255, 255, 0.08);
+  margin-right: 18rpx;
+  box-sizing: border-box;
+  flex: none;
+}
+.rank-badge.gold {
+  background: rgba(232, 194, 124, 0.2);
+  color: #e8c27c;
+  font-weight: 600;
+}
+.rank-badge.silver {
+  background: rgba(180, 190, 205, 0.18);
+  color: #d4dbe4;
+}
+.rank-badge.bronze {
+  background: rgba(200, 140, 90, 0.18);
+  color: #d8a678;
+}
+.record-main {
+  flex: 1;
+  min-width: 0;
+}
+.record-name {
+  font-size: 26rpx;
+  color: #e6e9ef;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.record-meta {
+  margin-top: 4rpx;
+  font-size: 22rpx;
+  color: #8b94a1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.partner-row {
+  padding: 16rpx 12rpx;
+  margin: 0 -12rpx;
+  display: flex;
+  align-items: baseline;
+  border-radius: 10rpx;
+}
+.partner-name {
+  font-size: 26rpx;
+  color: #e6e9ef;
+  margin-right: 18rpx;
+}
+.partner-meta {
+  flex: 1;
+  min-width: 0;
+  font-size: 22rpx;
+  color: #8b94a1;
+}

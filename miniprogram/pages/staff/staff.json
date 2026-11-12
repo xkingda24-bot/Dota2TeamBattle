@@ -3,6 +3,7 @@
   "backgroundColor": "#131821",
   "usingComponents": {
     "nav-bar": "/components/nav-bar/index",
-    "player-card": "/components/player-card/index"
+    "player-card": "/components/player-card/index",
+    "career-summary": "/components/career-summary/index"
   }
 }
