@@ -30,6 +30,7 @@ Page({
     historyLoaded: false,
     historyLoading: false,
     historyError: '',
+    historyHasMore: false,
     historyBusyId: '',
     // 暗号验证弹窗
     secretModal: false,
@@ -417,13 +418,13 @@ Page({
     if (expanded && !this.data.historyLoaded) this.loadHistory();
   },
 
-  // 历史赛事懒加载：只在展开历史区时调用云函数（收起状态首页不发这次请求）
+  // 历史赛事懒加载：首页只取最近几场，完整历史进「历史赛事」页看
   loadHistory() {
     if (this.data.historyLoading) return Promise.resolve();
     this.setData({ historyLoading: true, historyError: '' });
     const todayStart = getTodayBoundary(new Date());
     return api
-      .call('listHistory', { todayStart })
+      .call('listHistory', { todayStart, limit: 5 })
       .then((d) => {
         const older = (d.older || []).map((item) =>
           Object.assign({}, item, {
@@ -437,7 +438,13 @@ Page({
                 : '已结束',
           })
         );
-        this.setData({ older, historyLoaded: true, historyLoading: false, historyError: '' });
+        this.setData({
+          older,
+          historyLoaded: true,
+          historyLoading: false,
+          historyError: '',
+          historyHasMore: !!d.hasMore,
+        });
       })
       .catch((err) => {
         this.setData({
@@ -445,6 +452,10 @@ Page({
           historyError: err.message || '历史赛事加载失败，点此重试',
         });
       });
+  },
+
+  goHistoryPage() {
+    wx.navigateTo({ url: '/pages/history/history' });
   },
 
   /* 历史比赛条目与「今天的比赛」走同一个入口，点进去就是同一个比赛页面。 */
@@ -543,7 +554,7 @@ Page({
       this.deleteToday(index);
       return;
     }
-    const itemList = ['归档到历史', '删除比赛'];
+    const itemList = ['结算积分', '删除比赛'];
     wx.showActionSheet({
       itemList,
       success: (res) => {
@@ -562,8 +573,9 @@ Page({
     const item = this.data.today[Number(index)];
     if (!item || !item.canDelete) return;
     wx.showModal({
-      title: '归档比赛',
-      content: '将「' + item.name + '」归档到历史比赛，确定归档？',
+      title: '结算积分',
+      content: '将为「' + item.name + '」结算赛季积分并归档到历史比赛（主页不再显示），确定？',
+      confirmText: '结算积分',
       success: (res) => {
         if (!res.confirm) return;
         api

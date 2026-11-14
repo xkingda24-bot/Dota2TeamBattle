@@ -136,6 +136,8 @@
 .history-empty { padding:22rpx 0; color:#7f8997; font-size:23rpx; }
 .history-action { display:flex; align-items:center; justify-content:center; min-width:112rpx; min-height:54rpx; padding:0 18rpx; box-sizing:border-box; border:1rpx solid rgba(206,99,87,.28); border-radius:8rpx; color:#e1998f; background:rgba(206,99,87,.08); font-size:21rpx; font-weight:600; }
 .history-footnote { padding:12rpx 0 4rpx; color:#626e7d; font-size:19rpx; }
+.history-more { display:flex; align-items:center; justify-content:center; gap:8rpx; margin-top:6rpx; padding:20rpx 0 6rpx; border-top:1rpx solid rgba(218,190,133,.09); color:#c8a86a; font-size:23rpx; font-weight:600; }
+.history-more-arrow { font-size:30rpx; line-height:1; }
 
 .profile-panel { max-height:83vh; }
 .role-help { margin-top:10rpx; }

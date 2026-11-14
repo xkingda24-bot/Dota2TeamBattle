@@ -9,6 +9,7 @@
     "pages/card-style/card-style",
     "pages/season-points/season-points",
     "pages/player/player",
+    "pages/history/history",
     "pages/poster/poster"
   ],
   "window": {

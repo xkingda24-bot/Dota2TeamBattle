@@ -1,0 +1,91 @@
+<!--pages/history/history.wxml - 完整历史赛事-->
+<nav-bar title="历史赛事" />
+
+<view class="page">
+  <!-- 搜索 -->
+  <view class="search-row">
+    <view class="search-box">
+      <text class="search-icon">⌕</text>
+      <input
+        class="search-input"
+        value="{{keywordInput}}"
+        placeholder="搜索赛事名称"
+        placeholder-class="ph"
+        confirm-type="search"
+        bindinput="onKeywordInput"
+        bindconfirm="onKeywordConfirm"
+      />
+      <view wx:if="{{keywordInput}}" class="search-clear" catchtap="onClearKeyword">×</view>
+    </view>
+  </view>
+
+  <!-- 赛季筛选 -->
+  <view class="season-row">
+    <view class="season-chip {{seasonId === '' ? 'season-chip-active' : ''}}" data-id="" bindtap="onSelectSeason">全部</view>
+    <view
+      wx:for="{{seasons}}"
+      wx:for-item="season"
+      wx:key="seasonId"
+      class="season-chip {{seasonId === season.seasonId ? 'season-chip-active' : ''}}"
+      data-id="{{season.seasonId}}"
+      bindtap="onSelectSeason"
+    >{{season.label}}<text wx:if="{{season.seasonId === currentSeasonId}}" class="season-chip-current">当前</text></view>
+  </view>
+
+  <!-- 列表 -->
+  <view class="list">
+    <view wx:if="{{loading}}" class="state">正在加载历史赛事…</view>
+    <view wx:elif="{{error && !items.length}}" class="state state-error" bindtap="retry">{{error}}（点此重试）</view>
+    <view wx:elif="{{!items.length}}" class="state">{{keyword || seasonId ? '没有匹配的历史赛事' : '暂无历史赛事'}}</view>
+
+    <view
+      wx:for="{{items}}"
+      wx:for-item="item"
+      wx:key="id"
+      class="item"
+      data-index="{{index}}"
+      bindtap="openItem"
+      hover-class="item-pressed"
+    >
+      <view class="item-main">
+        <view class="item-top">
+          <view class="item-title">{{item.name}}</view>
+          <view class="phase-tag {{item.phaseClass}}">{{item.phaseText}}</view>
+        </view>
+        <view class="item-meta">
+          <text>{{item.time}}</text>
+          <text wx:if="{{item.N}}"> · {{item.N}} 支队伍</text>
+          <text wx:if="{{item.seasonLabel}}"> · {{item.seasonLabel}}</text>
+          <text wx:if="{{!item.archivedAt}}"> · 未结算</text>
+        </view>
+        <view wx:if="{{item.champion}}" class="item-meta item-champion">冠军：{{item.champion.name}}</view>
+      </view>
+      <button
+        wx:if="{{item.canDelete}}"
+        class="item-delete"
+        data-index="{{index}}"
+        catch:tap="deleteItem"
+        hover-class="btn-pressed"
+      >{{deleteBusyId === item.id ? '处理中…' : '删除'}}</button>
+    </view>
+  </view>
+
+  <!-- 分页 -->
+  <view wx:if="{{error && items.length}}" class="state state-error" bindtap="retry">加载失败 · 点此重试</view>
+  <view wx:elif="{{loadingMore}}" class="state">正在加载更多…</view>
+  <view wx:elif="{{hasMore}}" class="more" bindtap="loadMore" hover-class="link-pressed">加载更多</view>
+  <view wx:elif="{{items.length}}" class="end">已经到底了 · 共 {{items.length}} 场</view>
+</view>
+
+<!-- 报名暗号验证 -->
+<view class="mask" wx:if="{{secretModal}}" bindtap="onCloseSecret">
+  <view class="panel" catchtap="noop">
+    <view class="panel-title">输入报名暗号</view>
+    <view class="panel-sub">{{secretTargetName}}</view>
+    <input class="input secret-input" placeholder="请输入暗号" placeholder-class="ph" value="{{secretInput}}" bindinput="onSecretInput" />
+    <view class="panel-btns">
+      <view class="panel-btn btn-plain" bindtap="onCloseSecret">取消</view>
+      <view class="panel-btn btn" bindtap="onConfirmSecret">{{secretChecking ? '验证中…' : '确认报名'}}</view>
+    </view>
+  </view>
+</view>

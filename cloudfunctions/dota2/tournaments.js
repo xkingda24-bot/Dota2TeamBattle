@@ -14,6 +14,8 @@ const { resolveBracket } = require('./bracket-resolve');
 const { buildRegistrationSummary } = require('./tournament-transaction');
 const { TOURNAMENT_SUMMARY_FIELDS, summarize } = require('./tournament-summary');
 const { chinaDayRange, createQuotaId, effectiveDailyCount, createDailyLimit } = require('./daily-quota');
+const { describeHistoryQuery } = require('./history-query');
+const { seasonOfTimestamp } = require('./season-window');
 
 /* ---------------- 赛后感言辅助 ---------------- */
 
@@ -276,6 +278,118 @@ async function getRecentTournamentSummaries(filter, limit, openid, archived) {
   return summaries.slice(0, limit);
 }
 
+/* ---------------- 历史列表：createdAt 游标分页 ---------------- */
+
+/* 历史列表的 where 条件：往期赛事 + 今天已归档的赛事；今天的进行中赛事留在首页「今天的比赛」。 */
+function buildHistoryFilter(desc) {
+  const keywordPart = desc.regexp ? { name: db.RegExp({ regexp: desc.regexp, options: 'i' }) } : {};
+  const seasonPart = desc.season
+    ? { archivedAt: _.gte(desc.season.startAt).and(_.lt(desc.season.endAt)) }
+    : {};
+  // 游标是「上一页最后一条的 createdAt」，用 < cursor+1 表达 <= cursor（createdAt 为整毫秒）
+  const cursorUpper = desc.cursorCreatedAt ? desc.cursorCreatedAt + 1 : 0;
+
+  if (!desc.todayStart) {
+    const parts = Object.assign({}, keywordPart, seasonPart);
+    if (cursorUpper) parts.createdAt = _.lt(cursorUpper);
+    return parts;
+  }
+
+  // 第一段：往期全部（含尚未归档的旧比赛）
+  const older = Object.assign({}, keywordPart, seasonPart, {
+    createdAt: _.lt(cursorUpper ? Math.min(desc.todayStart, cursorUpper) : desc.todayStart),
+  });
+  // 第二段：今天已归档的比赛（今天还在报名/对战中的留在首页）
+  const todayRange = cursorUpper
+    ? _.gte(desc.todayStart).and(_.lt(cursorUpper))
+    : _.gte(desc.todayStart);
+  const todayArchived = Object.assign({}, keywordPart, {
+    createdAt: todayRange,
+    archivedAt: seasonPart.archivedAt ? seasonPart.archivedAt : _.gt(0),
+  });
+  return _.or([older, todayArchived]);
+}
+
+/*
+ * 历史赛事分页查询。
+ * 返回 { items, hasMore, cursor: { createdAt, id } }：前端把 cursor 原样带回即可续页。
+ * 同一毫秒创建的赛事用 id 兜底去重，保证不会有记录被跳过或重复出现。
+ */
+async function queryHistoryPage(options) {
+  const desc = describeHistoryQuery(options);
+  const openid = String((options && options.openid) || '');
+  const cfg = await getAdminsConfig();
+  const superFlag = !!openid && openid === cfg.superAdmin;
+  const adminList = Array.isArray(cfg.admins) ? cfg.admins : [];
+  const seen = new Set(desc.cursorId ? [desc.cursorId] : []);
+  const items = [];
+  let cursorAt = desc.cursorCreatedAt;
+  let hasMore = false;
+  let rounds = 0;
+  const pageSize = Math.min(100, Math.max(desc.limit * 2, 30));
+
+  while (items.length < desc.limit && rounds < 4) {
+    rounds += 1;
+    const where = buildHistoryFilter(Object.assign({}, desc, { cursorCreatedAt: cursorAt }));
+    const result = await db.collection('tournaments')
+      .where(where)
+      .field(TOURNAMENT_SUMMARY_FIELDS)
+      .orderBy('createdAt', 'desc')
+      .limit(pageSize)
+      .get();
+    const batch = (result && result.data) || [];
+    if (!batch.length) break;
+
+    const fresh = batch.filter((tournament) => tournament && tournament._id &&
+      !tournament.deletedAt && !seen.has(tournament._id));
+    let leftover = false;
+    if (fresh.length) {
+      const hydrated = await hydrateLegacyRegistrationSummaries(fresh);
+      const summaries = hydrated.map((tournament) => {
+        const isOwner = !!(openid && tournament.createdBy && tournament.createdBy === openid);
+        const isAdminFlag = superFlag || (adminList.indexOf(openid) >= 0);
+        const season = seasonOfTimestamp(tournament.archivedAt);
+        return Object.assign(summarize(tournament, openid), {
+          createdBy: tournament.createdBy || '',
+          isOwner,
+          isSuper: superFlag,
+          isAdmin: isAdminFlag,
+          canManage: isOwner || isAdminFlag,
+          canDelete: isOwner || superFlag,
+          seasonId: season ? season.seasonId : '',
+          seasonLabel: season ? season.label : '',
+        });
+      });
+      for (let index = 0; index < summaries.length; index += 1) {
+        if (items.length >= desc.limit) {
+          leftover = true;
+          break;
+        }
+        items.push(summaries[index]);
+      }
+    }
+    // 本页已处理过的记录不再重复处理，避免同一毫秒的多条赛事导致翻页打转
+    batch.forEach((tournament) => {
+      if (tournament && tournament._id) seen.add(tournament._id);
+    });
+    const last = batch[batch.length - 1];
+    const lastAt = Number(last && last.createdAt) || 0;
+    const advanced = lastAt > 0 && lastAt !== cursorAt;
+    if (lastAt > 0) cursorAt = lastAt;
+    if (items.length >= desc.limit) {
+      // 本页还有没返回的记录，或这一页还没读到底，都说明后面还有数据
+      hasMore = leftover || batch.length >= pageSize;
+      break;
+    }
+    if (batch.length < pageSize) break;
+    if (!advanced) break;
+  }
+
+  const lastItem = items[items.length - 1];
+  const cursor = lastItem ? { createdAt: Number(lastItem.createdAt) || 0, id: lastItem.id } : null;
+  return { items, hasMore: items.length >= desc.limit ? hasMore : false, cursor, desc };
+}
+
 /* 读取赛事 + 管理权限校验，action 里统一用它拿 (tournament, openid)。 */
 async function requireTournamentManager(event, includeDeleted) {
   const openid = getOpenId();
@@ -492,6 +606,8 @@ module.exports = {
   getTournamentRegistrationSnapshot,
   decorateRegistrationSnapshot,
   getRecentTournamentSummaries,
+  queryHistoryPage,
+  buildHistoryFilter,
   requireTournamentManager,
   getTodayCreateStats,
   normalizeBracketType,

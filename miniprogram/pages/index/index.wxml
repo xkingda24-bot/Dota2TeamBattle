@@ -81,7 +81,7 @@
   >
     <view class="swipe-actions {{item.champion ? 'swipe-actions-wide' : ''}}" wx:if="{{item.canDelete}}">
       <view class="swipe-action" wx:if="{{item.champion}}" data-index="{{index}}" data-action="archive" catch:tap="onSwipeAction">
-        <text class="action-symbol">✓</text><text>归档</text>
+        <text class="action-symbol">✓</text><text>结算积分</text>
       </view>
       <view class="swipe-action danger" data-index="{{index}}" data-action="delete" catch:tap="onSwipeAction">
         <text class="action-symbol">×</text><text>删除</text>
@@ -140,7 +140,7 @@
     <view class="history-heading" bindtap="toggleHistory" aria-expanded="{{historyExpanded}}" hover-class="link-pressed">
       <view class="history-heading-copy">
         <view class="history-kicker">TOURNAMENT HISTORY</view>
-        <view class="history-title">历史赛事 <text wx:if="{{historyLoaded}}" class="history-count">{{older.length}}</text></view>
+        <view class="history-title">历史赛事 <text wx:if="{{historyLoaded && older.length}}" class="history-count">最近 {{older.length}} 场</text></view>
       </view>
       <view class="history-chevron {{historyExpanded ? 'history-chevron-open' : ''}}">›</view>
     </view>
@@ -160,7 +160,9 @@
         <button wx:if="{{item.canDelete}}" class="history-action history-delete-action" data-index="{{index}}" catch:tap="deleteFromHistory" hover-class="btn-pressed">{{historyBusyId === item.id || historyBusyId === item._id ? '处理中…' : '删除'}}</button>
       </view>
       <view wx:if="{{historyError && older.length}}" class="history-footnote" bindtap="loadHistory">刷新失败 · 点此重试</view>
-      <view wx:if="{{older.length === 50}}" class="history-footnote">显示最近 50 场历史赛事</view>
+      <view wx:if="{{historyHasMore}}" class="history-more" bindtap="goHistoryPage" hover-class="link-pressed">
+        <text>查看全部历史</text><text class="history-more-arrow">›</text>
+      </view>
     </view>
   </view>
 

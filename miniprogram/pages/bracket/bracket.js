@@ -1663,10 +1663,11 @@ Page({
     if (!t || this.data.readonly || !t.canDelete || t.archivedAt) return;
     const isFinished = t.status === 'finished';
     wx.showModal({
-      title: isFinished ? '归档比赛' : '结束并归档',
+      title: '结算积分',
       content: isFinished
-        ? '将本场比赛归档到历史比赛（主页不再显示），确定归档？'
-        : '结束本场比赛（需已有冠军，未结束不能归档），确定？',
+        ? '将为本场比赛结算赛季积分并归档到历史比赛（主页不再显示），确定？'
+        : '结束本场比赛并结算积分（需已有冠军，未结束不能结算），确定？',
+      confirmText: '结算积分',
       success: (res) => {
         if (res.confirm) {
           api
