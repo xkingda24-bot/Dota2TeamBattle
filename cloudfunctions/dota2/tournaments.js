@@ -14,7 +14,7 @@ const { resolveBracket } = require('./bracket-resolve');
 const { buildRegistrationSummary } = require('./tournament-transaction');
 const { TOURNAMENT_SUMMARY_FIELDS, summarize } = require('./tournament-summary');
 const { chinaDayRange, createQuotaId, effectiveDailyCount, createDailyLimit } = require('./daily-quota');
-const { describeHistoryQuery } = require('./history-query');
+const { describeHistoryQuery, applySettlementStates } = require('./history-query');
 const { seasonOfTimestamp } = require('./season-window');
 
 /* ---------------- 赛后感言辅助 ---------------- */
@@ -385,9 +385,35 @@ async function queryHistoryPage(options) {
     if (!advanced) break;
   }
 
-  const lastItem = items[items.length - 1];
+  const states = await loadSettlementStates(items.map((item) => item.id));
+  const settledItems = applySettlementStates(items, states);
+  const lastItem = settledItems[settledItems.length - 1];
   const cursor = lastItem ? { createdAt: Number(lastItem.createdAt) || 0, id: lastItem.id } : null;
-  return { items, hasMore: items.length >= desc.limit ? hasMore : false, cursor, desc };
+  return { items: settledItems, hasMore: settledItems.length >= desc.limit ? hasMore : false, cursor, desc };
+}
+
+/* 批量读取赛季结算记录：status = processing / settled / failed；集合不存在或读取失败按未结算处理。 */
+async function loadSettlementStates(ids) {
+  const states = {};
+  const source = (Array.isArray(ids) ? ids : []).filter(Boolean);
+  if (!source.length) return states;
+  try {
+    for (let offset = 0; offset < source.length; offset += 100) {
+      const chunk = source.slice(offset, offset + 100);
+      const result = await db.collection('seasonSettlements')
+        .where({ tournamentId: _.in(chunk) })
+        .field({ tournamentId: true, status: true })
+        .limit(100)
+        .get();
+      ((result && result.data) || []).forEach((doc) => {
+        if (doc && doc.tournamentId) states[String(doc.tournamentId)] = doc.status || 'processing';
+      });
+    }
+  } catch (e) {
+    // 赛季积分服务未初始化时不影响历史列表，标记全部未结算
+    return {};
+  }
+  return states;
 }
 
 /* 读取赛事 + 管理权限校验，action 里统一用它拿 (tournament, openid)。 */

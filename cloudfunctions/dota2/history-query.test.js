@@ -55,4 +55,25 @@ const combined = describeHistoryQuery({
 });
 assert(combined.limit === 3 && combined.seasonId === '2026Q2' && combined.regexp === '\\(决赛\\)', '组合参数解析错误');
 
+const { applySettlementStates } = require('./history-query');
+const rows = [
+  { id: 'done', name: '已结算' },
+  { id: 'running', name: '结算中' },
+  { id: 'broken', name: '结算失败' },
+  { id: 'none', name: '没跑过结算' },
+  { _id: 'legacy', name: '旧字段 id' },
+];
+const flagged = applySettlementStates(rows, {
+  done: 'settled',
+  running: 'processing',
+  broken: 'failed',
+  legacy: 'settled',
+});
+assert(flagged[0].settled === true, 'settled 才算已结算');
+assert(flagged[1].settled === false && flagged[1].settlementStatus === 'processing', '结算中断应算未结算');
+assert(flagged[2].settled === false, '结算失败应算未结算');
+assert(flagged[3].settled === false && flagged[3].settlementStatus === '', '没有结算记录应算未结算');
+assert(flagged[4].settled === true, '旧字段 _id 也应能匹配');
+assert(applySettlementStates(null, {}).length === 0, '空列表应安全返回');
+
 console.log('history query tests passed.');

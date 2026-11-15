@@ -48,4 +48,21 @@ function describeHistoryQuery(options) {
   };
 }
 
-module.exports = { DEFAULT_LIMIT, MAX_LIMIT, MAX_KEYWORD, describeHistoryQuery, escapeRegExp };
+/*
+ * 结算状态标注：只有赛季结算记录 status === 'settled' 才算真正结算完成。
+ * 已归档但没跑过结算（无记录）、结算中断（processing）、结算失败（failed）都算未结算。
+ */
+function applySettlementStates(items, states) {
+  const source = Array.isArray(items) ? items : [];
+  const map = states || {};
+  return source.map((item) => {
+    const id = String((item && (item.id || item._id)) || '');
+    const status = String(map[id] || '');
+    return Object.assign({}, item, {
+      settlementStatus: status,
+      settled: status === 'settled',
+    });
+  });
+}
+
+module.exports = { DEFAULT_LIMIT, MAX_LIMIT, MAX_KEYWORD, describeHistoryQuery, escapeRegExp, applySettlementStates };

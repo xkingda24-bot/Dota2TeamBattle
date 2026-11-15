@@ -113,6 +113,16 @@ page {
 .item-meta { margin-top: 8rpx; color: #7f8997; font-size: 22rpx; line-height: 1.5; }
 .item-meta text { margin-right: 2rpx; }
 .item-champion { color: #d6b36c; }
+.item-unsettled {
+  display: inline-block;
+  margin-left: 8rpx;
+  padding: 2rpx 10rpx;
+  border: 1rpx solid rgba(224, 163, 106, 0.4);
+  border-radius: 6rpx;
+  color: #e0a36a;
+  background: rgba(224, 163, 106, 0.08);
+  font-size: 19rpx;
+}
 .item-delete {
   flex: none;
   width: 108rpx;
