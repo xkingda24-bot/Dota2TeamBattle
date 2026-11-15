@@ -154,7 +154,7 @@
             <view class="history-item-title">{{item.name}}</view>
             <view class="phase-tag {{item.status === 'registration' ? 'phase-registration' : item.status === 'draft' ? 'phase-draft' : item.status === 'battle' ? 'phase-battle' : 'phase-finished'}}">{{item.phaseText}}</view>
           </view>
-          <view class="history-item-meta">{{item.time}}<text wx:if="{{item.N}}"> · {{item.N}} 支队伍</text></view>
+          <view class="history-item-meta">{{item.time}}<text wx:if="{{item.N}}"> · {{item.N}} 支队伍</text><text wx:if="{{!item.settled}}" class="history-unsettled">积分未结算</text></view>
           <view wx:if="{{item.champion}}" class="history-item-meta history-champion">冠军：{{item.champion.name}}</view>
         </view>
         <button wx:if="{{item.canDelete}}" class="history-action history-delete-action" data-index="{{index}}" catch:tap="deleteFromHistory" hover-class="btn-pressed">{{historyBusyId === item.id || historyBusyId === item._id ? '处理中…' : '删除'}}</button>
