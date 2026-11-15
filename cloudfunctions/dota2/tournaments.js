@@ -283,31 +283,58 @@ async function getRecentTournamentSummaries(filter, limit, openid, archived) {
 /* 历史列表的 where 条件：往期赛事 + 今天已归档的赛事；今天的进行中赛事留在首页「今天的比赛」。 */
 function buildHistoryFilter(desc) {
   const keywordPart = desc.regexp ? { name: db.RegExp({ regexp: desc.regexp, options: 'i' }) } : {};
-  const seasonPart = desc.season
-    ? { archivedAt: _.gte(desc.season.startAt).and(_.lt(desc.season.endAt)) }
-    : {};
   // 游标是「上一页最后一条的 createdAt」，用 < cursor+1 表达 <= cursor（createdAt 为整毫秒）
   const cursorUpper = desc.cursorCreatedAt ? desc.cursorCreatedAt + 1 : 0;
+  const season = desc.season;
+  const seasonRange = season ? _.gte(season.startAt).and(_.lt(season.endAt)) : null;
+  const branches = [];
 
   if (!desc.todayStart) {
-    const parts = Object.assign({}, keywordPart, seasonPart);
-    if (cursorUpper) parts.createdAt = _.lt(cursorUpper);
-    return parts;
+    if (season) {
+      // 已归档：按归档时间归属赛季；未归档/未结束：按创建时间归属赛季
+      const archived = Object.assign({}, keywordPart, { archivedAt: seasonRange });
+      if (cursorUpper) archived.createdAt = _.lt(cursorUpper);
+      branches.push(archived);
+      const unarchived = Object.assign({}, keywordPart, {
+        archivedAt: null,
+        createdAt: cursorUpper
+          ? _.gte(season.startAt).and(_.lt(Math.min(season.endAt, cursorUpper)))
+          : _.gte(season.startAt).and(_.lt(season.endAt)),
+      });
+      branches.push(unarchived);
+    } else {
+      const all = Object.assign({}, keywordPart);
+      if (cursorUpper) all.createdAt = _.lt(cursorUpper);
+      branches.push(all);
+    }
+    return branches.length === 1 ? branches[0] : _.or(branches);
   }
 
-  // 第一段：往期全部（含尚未归档的旧比赛）
-  const older = Object.assign({}, keywordPart, seasonPart, {
-    createdAt: _.lt(cursorUpper ? Math.min(desc.todayStart, cursorUpper) : desc.todayStart),
-  });
-  // 第二段：今天已归档的比赛（今天还在报名/对战中的留在首页）
+  const olderUpper = cursorUpper ? Math.min(desc.todayStart, cursorUpper) : desc.todayStart;
+  if (season) {
+    // 往期已归档：归档时间落在赛季内
+    branches.push(Object.assign({}, keywordPart, {
+      createdAt: _.lt(olderUpper),
+      archivedAt: seasonRange,
+    }));
+    // 往期未归档/未结束：创建时间落在赛季内（archivedAt 为空或不存在）
+    branches.push(Object.assign({}, keywordPart, {
+      archivedAt: null,
+      createdAt: _.gte(season.startAt).and(_.lt(Math.min(season.endAt, olderUpper))),
+    }));
+  } else {
+    // 往期全部（含尚未归档的旧比赛）
+    branches.push(Object.assign({}, keywordPart, { createdAt: _.lt(olderUpper) }));
+  }
+  // 今天已归档的比赛（今天还在报名/对战中的留在首页）
   const todayRange = cursorUpper
     ? _.gte(desc.todayStart).and(_.lt(cursorUpper))
     : _.gte(desc.todayStart);
-  const todayArchived = Object.assign({}, keywordPart, {
+  branches.push(Object.assign({}, keywordPart, {
     createdAt: todayRange,
-    archivedAt: seasonPart.archivedAt ? seasonPart.archivedAt : _.gt(0),
-  });
-  return _.or([older, todayArchived]);
+    archivedAt: season ? seasonRange : _.gt(0),
+  }));
+  return branches.length === 1 ? branches[0] : _.or(branches);
 }
 
 /*
@@ -348,7 +375,7 @@ async function queryHistoryPage(options) {
       const summaries = hydrated.map((tournament) => {
         const isOwner = !!(openid && tournament.createdBy && tournament.createdBy === openid);
         const isAdminFlag = superFlag || (adminList.indexOf(openid) >= 0);
-        const season = seasonOfTimestamp(tournament.archivedAt);
+        const season = seasonOfTimestamp(tournament.archivedAt || tournament.createdAt);
         return Object.assign(summarize(tournament, openid), {
           createdBy: tournament.createdBy || '',
           isOwner,
