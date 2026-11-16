@@ -1,9 +1,101 @@
 <view class="player-card card-bg-{{normalizedStyle.background}} card-border-{{normalizedStyle.border}} card-font-{{normalizedStyle.font}} card-color-{{normalizedStyle.color}}">
   <view class="player-card-glow" aria-hidden="true"></view>
   <view class="player-card-effect effect-{{normalizedStyle.animation}}" aria-hidden="true">
-    <view class="effect-a"></view>
-    <view class="effect-b"></view>
-    <view class="effect-c"></view>
+    <block wx:if="{{normalizedStyle.animation === 'reincarnation'}}">
+      <text class="reincarnation-cross" style="left:6%; top:92%; font-size:16rpx; animation-delay:-1.4s; animation-duration:6.7s;">✚</text>
+      <text class="reincarnation-cross" style="left:17%; top:76%; font-size:20rpx; animation-delay:-4.8s; animation-duration:7.9s;">✚</text>
+      <text class="reincarnation-cross" style="left:28%; top:105%; font-size:14rpx; animation-delay:-2.1s; animation-duration:6.2s;">✚</text>
+      <text class="reincarnation-cross" style="left:39%; top:84%; font-size:18rpx; animation-delay:-6.3s; animation-duration:8.1s;">✚</text>
+      <text class="reincarnation-cross" style="left:51%; top:98%; font-size:22rpx; animation-delay:-3.7s; animation-duration:7.2s;">✚</text>
+      <text class="reincarnation-cross" style="left:63%; top:72%; font-size:15rpx; animation-delay:-5.5s; animation-duration:6.5s;">✚</text>
+      <text class="reincarnation-cross" style="left:76%; top:110%; font-size:19rpx; animation-delay:-0.8s; animation-duration:8.3s;">✚</text>
+      <text class="reincarnation-cross" style="left:89%; top:86%; font-size:16rpx; animation-delay:-7.1s; animation-duration:7.6s;">✚</text>
+      <text class="reincarnation-cross" style="left:11%; top:118%; font-size:14rpx; animation-delay:-3.2s; animation-duration:6.9s;">✚</text>
+      <text class="reincarnation-cross" style="left:24%; top:91%; font-size:22rpx; animation-delay:-6.8s; animation-duration:8s;">✚</text>
+      <text class="reincarnation-cross" style="left:35%; top:70%; font-size:16rpx; animation-delay:-1.9s; animation-duration:5.8s;">✚</text>
+      <text class="reincarnation-cross" style="left:47%; top:113%; font-size:18rpx; animation-delay:-5.1s; animation-duration:7.4s;">✚</text>
+      <text class="reincarnation-cross" style="left:59%; top:88%; font-size:14rpx; animation-delay:-2.7s; animation-duration:6.4s;">✚</text>
+      <text class="reincarnation-cross" style="left:71%; top:101%; font-size:20rpx; animation-delay:-7.6s; animation-duration:8.2s;">✚</text>
+      <text class="reincarnation-cross" style="left:84%; top:75%; font-size:15rpx; animation-delay:-4.1s; animation-duration:6.1s;">✚</text>
+      <text class="reincarnation-cross" style="left:94%; top:108%; font-size:18rpx; animation-delay:-1.1s; animation-duration:7.7s;">✚</text>
+      <text class="reincarnation-cross" style="left:32%; top:96%; font-size:14rpx; animation-delay:-5.9s; animation-duration:6.6s;">✚</text>
+      <text class="reincarnation-cross" style="left:67%; top:117%; font-size:16rpx; animation-delay:-3.5s; animation-duration:7.1s;">✚</text>
+    </block>
+    <block wx:elif="{{normalizedStyle.animation === 'freezingfield'}}">
+      <view class="effect-a"></view>
+      <view class="effect-b"></view>
+      <text class="freezing-snowflake" style="left:6%; top:-12%; font-size:18rpx; animation-delay:-1.3s; animation-duration:6.8s;">❄</text>
+      <text class="freezing-snowflake" style="left:14%; top:32%; font-size:14rpx; animation-delay:-4.7s; animation-duration:7.6s;">❄</text>
+      <text class="freezing-snowflake" style="left:22%; top:68%; font-size:22rpx; animation-delay:-2.1s; animation-duration:5.9s;">❄</text>
+      <text class="freezing-snowflake" style="left:31%; top:8%; font-size:16rpx; animation-delay:-6.4s; animation-duration:8.1s;">❄</text>
+      <text class="freezing-snowflake" style="left:39%; top:46%; font-size:20rpx; animation-delay:-3.5s; animation-duration:7.2s;">❄</text>
+      <text class="freezing-snowflake" style="left:48%; top:-20%; font-size:13rpx; animation-delay:-5.8s; animation-duration:6.4s;">❄</text>
+      <text class="freezing-snowflake" style="left:56%; top:74%; font-size:24rpx; animation-delay:-0.9s; animation-duration:8.3s;">❄</text>
+      <text class="freezing-snowflake" style="left:64%; top:20%; font-size:15rpx; animation-delay:-7.2s; animation-duration:7.8s;">❄</text>
+      <text class="freezing-snowflake" style="left:72%; top:54%; font-size:19rpx; animation-delay:-2.8s; animation-duration:6.6s;">❄</text>
+      <text class="freezing-snowflake" style="left:81%; top:-6%; font-size:14rpx; animation-delay:-5.1s; animation-duration:7.4s;">❄</text>
+      <text class="freezing-snowflake" style="left:90%; top:38%; font-size:22rpx; animation-delay:-1.7s; animation-duration:5.8s;">❄</text>
+      <text class="freezing-snowflake" style="left:10%; top:82%; font-size:16rpx; animation-delay:-6.9s; animation-duration:8s;">❄</text>
+      <text class="freezing-snowflake" style="left:27%; top:-18%; font-size:20rpx; animation-delay:-3.9s; animation-duration:6.2s;">❄</text>
+      <text class="freezing-snowflake" style="left:44%; top:62%; font-size:14rpx; animation-delay:-7.7s; animation-duration:8.4s;">❄</text>
+      <text class="freezing-snowflake" style="left:60%; top:4%; font-size:18rpx; animation-delay:-2.4s; animation-duration:7s;">❄</text>
+      <text class="freezing-snowflake" style="left:77%; top:86%; font-size:16rpx; animation-delay:-5.6s; animation-duration:7.7s;">❄</text>
+      <text class="freezing-snowflake" style="left:87%; top:12%; font-size:20rpx; animation-delay:-1.1s; animation-duration:6.5s;">❄</text>
+      <text class="freezing-snowflake" style="left:95%; top:58%; font-size:13rpx; animation-delay:-4.3s; animation-duration:7.3s;">❄</text>
+    </block>
+    <block wx:elif="{{normalizedStyle.animation === 'omnislash'}}">
+      <view class="omnislash-angle" style="left:-90rpx; top:16%; transform:rotate(-28deg);"><view class="omnislash-blade" style="animation-delay:-0.2s; animation-duration:2.6s;"></view></view>
+      <view class="omnislash-angle" style="left:-30rpx; top:58%; transform:rotate(22deg);"><view class="omnislash-blade" style="animation-delay:-1.1s; animation-duration:3.4s;"></view></view>
+      <view class="omnislash-angle" style="left:-70rpx; top:32%; transform:rotate(-12deg);"><view class="omnislash-blade" style="animation-delay:-2.3s; animation-duration:4.1s;"></view></view>
+      <view class="omnislash-angle" style="left:-10rpx; top:72%; transform:rotate(38deg);"><view class="omnislash-blade" style="animation-delay:-0.7s; animation-duration:2.9s;"></view></view>
+      <view class="omnislash-angle" style="left:-100rpx; top:44%; transform:rotate(-45deg);"><view class="omnislash-blade" style="animation-delay:-3.2s; animation-duration:3.8s;"></view></view>
+      <view class="omnislash-angle" style="left:-45rpx; top:8%; transform:rotate(12deg);"><view class="omnislash-blade" style="animation-delay:-1.8s; animation-duration:2.4s;"></view></view>
+      <view class="omnislash-angle" style="left:-80rpx; top:62%; transform:rotate(52deg);"><view class="omnislash-blade" style="animation-delay:-2.7s; animation-duration:3.2s;"></view></view>
+      <view class="omnislash-angle" style="left:-20rpx; top:82%; transform:rotate(-35deg);"><view class="omnislash-blade" style="animation-delay:-1.4s; animation-duration:4.3s;"></view></view>
+      <view class="omnislash-angle" style="left:-65rpx; top:26%; transform:rotate(28deg);"><view class="omnislash-blade" style="animation-delay:-3.7s; animation-duration:3.6s;"></view></view>
+      <view class="omnislash-angle" style="left:-35rpx; top:52%; transform:rotate(-58deg);"><view class="omnislash-blade" style="animation-delay:-2s; animation-duration:2.8s;"></view></view>
+    </block>
+    <block wx:elif="{{normalizedStyle.animation === 'eclipse'}}">
+      <view class="effect-a"></view>
+      <view class="effect-b"></view>
+      <view class="eclipse-beam" style="left:4%; animation-delay:-0.8s; animation-duration:5.2s;"></view>
+      <view class="eclipse-beam" style="left:20%; animation-delay:-3.1s; animation-duration:6.1s;"></view>
+      <view class="eclipse-beam" style="left:37%; animation-delay:-1.7s; animation-duration:4.8s;"></view>
+      <view class="eclipse-beam" style="left:54%; animation-delay:-4.2s; animation-duration:5.7s;"></view>
+      <view class="eclipse-beam" style="left:71%; animation-delay:-2.4s; animation-duration:6.3s;"></view>
+      <view class="eclipse-beam" style="left:88%; animation-delay:-3.6s; animation-duration:5.4s;"></view>
+    </block>
+    <block wx:elif="{{normalizedStyle.animation === 'lagunablade'}}">
+      <view class="effect-a"></view>
+      <view class="effect-c"></view>
+    </block>
+    <block wx:elif="{{normalizedStyle.animation === 'haunt'}}">
+      <view class="effect-a"></view>
+      <view class="effect-b"></view>
+      <view class="haunt-shadow" style="left:5%; top:12%; width:42rpx; height:66rpx; animation-delay:-0.7s; animation-duration:4.9s;"></view>
+      <view class="haunt-shadow" style="left:18%; top:58%; width:54rpx; height:80rpx; animation-delay:-3.2s; animation-duration:5.8s;"></view>
+      <view class="haunt-shadow" style="left:35%; top:6%; width:36rpx; height:58rpx; animation-delay:-1.8s; animation-duration:4.5s;"></view>
+      <view class="haunt-shadow" style="left:68%; top:62%; width:48rpx; height:72rpx; animation-delay:-4.1s; animation-duration:6.2s;"></view>
+      <view class="haunt-shadow" style="left:82%; top:18%; width:58rpx; height:86rpx; animation-delay:-2.5s; animation-duration:5.3s;"></view>
+      <view class="haunt-shadow" style="left:91%; top:52%; width:34rpx; height:54rpx; animation-delay:-3.7s; animation-duration:4.7s;"></view>
+    </block>
+    <block wx:elif="{{normalizedStyle.animation === 'chainfrost'}}">
+      <view class="effect-a"></view>
+      <view class="chain-frost-orb" style="animation-delay:-1.2s;"></view>
+      <view class="chain-frost-orb" style="animation-delay:-1.36s;"></view>
+      <view class="chain-frost-orb" style="animation-delay:-1.52s;"></view>
+      <view class="chain-frost-shard" style="left:35%; top:45%; animation-delay:-0.2s;"></view>
+      <view class="chain-frost-shard" style="left:70%; top:20%; animation-delay:-1s;"></view>
+      <view class="chain-frost-shard" style="left:50%; top:75%; animation-delay:-1.8s;"></view>
+      <view class="chain-frost-shard" style="left:82%; top:55%; animation-delay:-2.6s;"></view>
+      <view class="chain-frost-shard" style="left:25%; top:68%; animation-delay:-3.4s;"></view>
+      <view class="chain-frost-shard" style="left:60%; top:38%; animation-delay:-4.2s;"></view>
+    </block>
+    <block wx:else>
+      <view class="effect-a"></view>
+      <view class="effect-b"></view>
+      <view class="effect-c"></view>
+    </block>
   </view>
   <view class="player-card-content">
     <view class="player-card-heading">

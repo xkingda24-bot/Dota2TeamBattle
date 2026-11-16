@@ -23,6 +23,13 @@ assert.strictEqual(created.result.registration, created.registration);
 created = buildRegistration(base, 'u1', member, 'player', 'letmein', noDotaFields, 123);
 assert.strictEqual(created.registration.role, 'player');
 
+// 报名成功后会立即把 result.registration 插入页面名单，必须在首次渲染前带上名片样式。
+const styledCard = { background: 'moon', border: 'frost', font: 'mono', color: 'arcane', animation: 'omnislash' };
+created = buildRegistration(base, 'u-style', Object.assign({}, member, { cardStyle: styledCard }), 'player', 'letmein', noDotaFields, 123);
+assert.deepStrictEqual(created.registration.cardStyle, styledCard);
+assert.deepStrictEqual(created.result.registration.cardStyle, styledCard);
+assert.deepStrictEqual(created.registrations[0].cardStyle, styledCard);
+
 const fullPlayers = Object.assign({}, base, {
   registrations: [
     { openid: 'p1', role: 'player' },

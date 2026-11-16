@@ -11,11 +11,11 @@ const DEFAULT_CARD_STYLE = {
   animation: 'none',
 };
 const CARD_STYLE_OPTIONS = {
-  background: ['arena', 'dire', 'ice', 'arcane'],
-  border: ['gold', 'rune', 'steel'],
-  font: ['standard', 'serif', 'rune'],
-  color: ['gold', 'arcane', 'frost', 'toxic', 'ember'],
-  animation: ['none', 'blink', 'bkb', 'ward', 'illusion', 'roshan', 'arcane'],
+  background: ['arena', 'dire', 'ice', 'arcane', 'river', 'forest', 'lava', 'moon', 'desert'],
+  border: ['gold', 'rune', 'steel', 'ember', 'frost', 'toxic', 'dire', 'radiant', 'shadow', 'pearl'],
+  font: ['standard', 'serif', 'rune', 'bold', 'light', 'italic', 'wide', 'compact', 'mono', 'round'],
+  color: ['gold', 'arcane', 'frost', 'toxic', 'ember', 'crimson', 'amber', 'pink', 'pearl', 'silver'],
+  animation: ['none', 'blink', 'bkb', 'ward', 'arcane', 'blackhole', 'thunder', 'chronosphere', 'reincarnation', 'sunstrike', 'freezingfield', 'omnislash', 'deathscythe', 'ghostship', 'eclipse', 'lagunablade', 'haunt', 'chainfrost'],
 };
 
 function normalizeCardStyle(style) {

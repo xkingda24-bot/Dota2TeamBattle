@@ -11,10 +11,27 @@ Page({
     cardStyle: DEFAULT_CARD_STYLE,
     previewPlayer: {},
     options: CARD_STYLE_OPTIONS,
+    previewStickyTop: 64,
   },
 
   onLoad() {
+    this.setupPreviewLayout();
     this.load();
+  },
+
+  setupPreviewLayout() {
+    const win = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync();
+    const statusBarHeight = (win && win.statusBarHeight) || 20;
+    let navHeight = 44;
+    if (wx.getMenuButtonBoundingClientRect) {
+      try {
+        const menu = wx.getMenuButtonBoundingClientRect();
+        if (menu && menu.height) navHeight = (menu.top - statusBarHeight) * 2 + menu.height;
+      } catch (e) {
+        /* 与导航栏一致，读取失败时使用默认高度 */
+      }
+    }
+    this.setData({ previewStickyTop: statusBarHeight + navHeight });
   },
 
   goProfile() {

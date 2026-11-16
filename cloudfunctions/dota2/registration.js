@@ -1,4 +1,5 @@
 const { publicDotaCardFields } = require('./card-profile');
+const { normalizeCardStyle } = require('./cards');
 
 function buildRegistration(tournament, openid, member, requestedRole, secret, dotaFields, now, skipSecret) {
   const status = tournament && tournament.status;
@@ -49,6 +50,7 @@ function buildRegistration(tournament, openid, member, requestedRole, secret, do
     ...(dotaFields || {}),
     roles: member.roles || [],
     signature: member.signature || '',
+    cardStyle: normalizeCardStyle(member.cardStyle),
   };
   if (role === 'captain') {
     registration.teamName = '';

@@ -1,4 +1,4 @@
-<nav-bar title="名片装扮" />
+<view class="card-style-nav"><nav-bar title="名片装扮" /></view>
 <view class="container card-style-page">
   <view wx:if="{{loading}}" class="card"><view class="card-title">正在读取名片</view><view class="sub">请稍候…</view></view>
   <view wx:elif="{{!user}}" class="card">
@@ -11,6 +11,8 @@
       <view class="card-style-kicker">HERO PROFILE</view>
       <view class="card-style-heading">打造你的战场名片</view>
       <view class="card-style-copy">选择背景、边框、字体、强调色和 Dota 风格动画。装扮会在赛事队伍资料中对群友展示。</view>
+    </view>
+    <view id="full-card-preview" class="card-preview-sticky" style="top: {{previewStickyTop}}px;">
       <player-card player="{{previewPlayer}}" card-style="{{cardStyle}}" />
       <view class="preview-caption">实时预览 · {{user.nickname}}</view>
     </view>
@@ -19,7 +21,7 @@
       <view class="style-heading">战场背景</view>
       <view class="option-grid">
         <view class="style-option {{cardStyle.background === item.id ? 'style-option-active' : ''}}" wx:for="{{options.backgrounds}}" wx:for-item="item" wx:key="id" data-group="background" data-value="{{item.id}}" bindtap="selectOption">
-          <view class="option-swatch swatch-{{item.id}}"></view><view class="option-name">{{item.label}}</view><view class="option-desc">{{item.description}}</view>
+          <view class="option-swatch swatch-{{item.id}}"></view><view class="option-name">{{item.label}}</view>
         </view>
       </view>
     </view>
@@ -51,7 +53,7 @@
       <view class="animation-list">
         <view class="animation-option {{cardStyle.animation === item.id ? 'animation-option-active' : ''}}" wx:for="{{options.animations}}" wx:key="id" data-group="animation" data-value="{{item.id}}" bindtap="selectOption">
           <view class="animation-icon animation-icon-{{item.id}}"><text>{{item.icon}}</text></view>
-          <view class="animation-copy"><view class="animation-name">{{item.label}}</view><view class="animation-desc">{{item.description}}</view></view>
+          <view class="animation-copy"><view class="animation-name">{{item.label}}</view></view>
           <view class="animation-check">{{cardStyle.animation === item.id ? '✓' : ''}}</view>
         </view>
       </view>
