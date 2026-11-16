@@ -135,15 +135,15 @@ module.exports = {
     return result.error ? fail(result.error) : ok(true);
   },
 
-  /* 退报（报名阶段自己取消；分组阶段替补本人也能取消，首发与队长仍锁定） */
+  /* 退报（报名阶段自己取消；分组/对战阶段替补本人也能取消，首发与队长仍锁定） */
   async cancelRegister(event) {
     const openid = getOpenId();
     const result = await mutateTournament(db, event.id, (t) => {
       const current = Array.isArray(t.registrations) ? t.registrations : [];
       const mine = current.find((r) => r && r.openid === openid);
       if (!mine) return { error: '你尚未报名' };
-      const draftWaitlist = t.status === 'draft' && mine.role === 'waitlist';
-      if (t.status !== 'registration' && !draftWaitlist) {
+      const lateWaitlist = (t.status === 'draft' || t.status === 'battle') && mine.role === 'waitlist';
+      if (t.status !== 'registration' && !lateWaitlist) {
         return { error: '报名已锁定，请联系本场比赛创建者或管理员' };
       }
       const registrations = current.filter((r) => !(r && r.openid === openid));

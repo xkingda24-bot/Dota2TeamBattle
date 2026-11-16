@@ -53,13 +53,19 @@
 
     <!-- 剩余队员（仅选人阶段） -->
     <block wx:if="{{t.status === 'draft' && !readonly}}">
-      <view class="section">可选队员（{{t.draftInfo.remainingPlayers.length}}）</view>
+      <view class="section">可选队员（{{t.draftInfo.remainingPlayers.length}}）<text class="draft-pick-tip">队长点击名片选择，管理员可代选</text></view>
       <view wx:if="{{t.draftInfo.remainingPlayers.length === 0}}" class="empty">没有剩余队员了</view>
-      <view class="card draft-player-row" wx:for="{{t.draftInfo.remainingPlayers}}" wx:key="openid">
-        <player-card player="{{item}}" card-style="{{item.cardStyle}}" />
-        <view class="row">
-          <view wx:if="{{canPick || canManage}}" class="btn-small" data-openid="{{item.openid}}" data-name="{{item.nickname}}" bindtap="onPick">选他</view>
-          <view wx:else class="sub">等待轮到你</view>
+      <view wx:else class="card draft-player-list">
+        <view
+          class="draft-player-row"
+          wx:for="{{t.draftInfo.remainingPlayers}}"
+          wx:key="openid"
+          data-openid="{{item.openid}}"
+          data-name="{{item.nickname}}"
+          bindtap="onPick"
+          aria-disabled="{{!canPick && !canManage}}"
+        >
+          <player-card player="{{item}}" card-style="{{item.cardStyle}}" />
         </view>
       </view>
     </block>
@@ -67,9 +73,9 @@
     <!-- 比赛管理者 -->
     <view class="card" wx:if="{{canManage && !readonly}}">
       <view class="card-title">比赛管理操作</view>
-      <view class="sub">可代当前轮次队长选人（直接点上方「选他」）；选人完成后生成对阵进入对战阶段</view>
+      <view class="sub">可代当前轮次队长选人（直接点击可选队员名片）；选人完成后生成对阵进入对战阶段</view>
       <view class="btn" wx:if="{{t.draftInfo.done}}" bindtap="onStartBracket">生成对阵并进入对战</view>
-      <view class="btn btn-plain" bindtap="onOpenStageManagement">队伍管理与阶段回退</view>
+      <view class="btn btn-plain" bindtap="onOpenStageManagement">退回分组</view>
       <view class="btn btn-plain" bindtap="onResetDraft">重置选人（重新随机队长顺序）</view>
       <view wx:if="{{canDelete && !readonly}}" class="btn btn-danger" bindtap="onDelete">删除比赛</view>
     </view>

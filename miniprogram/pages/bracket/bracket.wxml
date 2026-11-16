@@ -52,6 +52,7 @@
         <view class="btn {{grouping ? 'btn-disabled' : ''}}" bindtap="onRegroup">{{grouping ? '重新分组中…' : '重新分组'}}</view>
         <view class="btn {{groupOrderSaving || groupSaving ? 'btn-disabled' : ''}}" bindtap="onStartBracket">生成对阵并开始</view>
       </view>
+      <view class="btn" data-stage="registration" bindtap="onRollbackStage">退回报名阶段</view>
     </view>
 
     <view id="team-stage-anchor" class="card" wx:if="{{groupedTeams.length && (t.status === 'draft' || stageView === 'draft') && !(t.mode === 'auto' && t.status === 'draft' && canManage && !readonly)}}">
@@ -127,6 +128,11 @@
             </picker>
             <view class="spacer"></view>
             <view class="btn-small tree-rec" data-id="{{nd.id}}" bindtap="recordResult">记录胜负</view>
+          </view>
+          <view class="tree-node-admin" wx:if="{{nd.showAdmin && nd.status === 'done'}}">
+            <view class="sub">已结束</view>
+            <view class="spacer"></view>
+            <view class="btn-small btn-danger" data-id="{{nd.id}}" bindtap="resetResult">修正结果</view>
           </view>
         </view>
       </view>
@@ -324,32 +330,31 @@
     </view>
 
     <!-- 选人/分组阶段管理 -->
-    <view class="card" wx:if="{{canManage && !readonly && t.status === 'draft'}}">
+    <view class="card" wx:if="{{canManage && !readonly && t.status === 'draft' && t.mode !== 'auto'}}">
       <view class="card-title">赛前管理</view>
-      <view class="sub" wx:if="{{t.mode !== 'auto'}}">队伍信息有误时可替换队员；退回报名会清除队伍和选人进度，但保留报名名单。</view>
-      <view class="sub" wx:else>退回报名会清除分组结果，但保留报名名单。</view>
-      <view class="replacement-list" wx:if="{{replacementTeams.length && t.mode !== 'auto'}}">
+      <view class="sub">队伍信息有误时可替换队员；退回报名会清除队伍和选人进度，但保留报名名单。</view>
+      <view class="replacement-list" wx:if="{{replacementTeams.length}}">
         <view class="replacement-row" wx:for="{{replacementTeams}}" wx:key="teamIndex">
           <view class="replacement-team">{{item.teamName}}</view>
           <view class="spacer"></view>
           <view class="btn-small btn-plain" data-index="{{index}}" bindtap="onOpenReplacement">替换队员</view>
         </view>
       </view>
-      <view class="sub" wx:elif="{{t.mode !== 'auto'}}">暂无可替换队员；需要该队已有队员，并且仍有未选队员或候补。</view>
-      <view class="btn btn-plain" data-stage="registration" bindtap="onRollbackStage">退回报名阶段</view>
+      <view class="sub" wx:else>暂无可替换队员；需要该队已有队员，并且仍有未选队员或候补。</view>
+      <view class="btn" data-stage="registration" bindtap="onRollbackStage">退回报名阶段</view>
     </view>
 
     <view wx:if="{{stageView === 'battle' && t.matches.length === 0}}" class="empty">赛程还未生成（需先完成选人）</view>
 
-    <!-- 分组页替补席：分组阶段仍可继续收替补，房主 / 超管 / 管理员可把替补移出 -->
-    <view class="card waitlist-card" wx:if="{{t.status === 'draft'}}">
+    <!-- 分组/对战页替补席：替补未满仍可报名，房主 / 超管 / 管理员可移出替补 -->
+    <view class="card waitlist-card" wx:if="{{t.status === 'draft' || t.status === 'battle'}}">
       <view class="row">
         <view class="card-title">替补席</view>
         <view class="spacer"></view>
         <view class="tag {{waitlistPlayers.length ? 'tag-blue' : 'tag-gray'}}">{{waitlistPlayers.length}} / {{t.waitLimit}}</view>
         <view class="waitlist-view" bindtap="onOpenWaitlistPanel">查看 <text class="waitlist-view-arrow">›</text></view>
       </view>
-      <view class="sub">{{waitlistPlayers.length ? (canManage && !readonly ? '分组还在进行，替补席位没报满前其他玩家仍可报名替补；点「查看替补」可看名单并移出替补。' : '分组还在进行，替补席位没报满前仍可报名替补。') : (t.waitLimit > 0 ? '替补席位还空着，其他玩家仍可报名替补。' : '本场比赛没有设置替补席位。')}}</view>
+      <view class="sub">{{waitlistPlayers.length ? (canManage && !readonly ? '替补席位没报满前其他玩家仍可报名替补；点「查看替补」可看名单并移出替补。' : '替补席位没报满前仍可报名替补。') : (t.waitLimit > 0 ? '替补席位还空着，其他玩家仍可报名替补。' : '本场比赛没有设置替补席位。')}}</view>
       <view wx:if="{{!t.myReg && t.waitLimit > 0 && waitlistPlayers.length < t.waitLimit && !readonly}}" class="btn btn-plain waitlist-join {{waitlistJoining ? 'btn-disabled' : ''}}" aria-disabled="{{waitlistJoining}}" bindtap="onJoinWaitlist">
           {{waitlistJoining ? '报名中…' : '我要报名替补'}}<text wx:if="{{!waitlistJoining}}">（剩 {{t.waitLimit - waitlistPlayers.length}} 个席位）</text>
         </view>
@@ -381,10 +386,10 @@
     </view>
 
     <!-- 对战阶段管理 -->
-    <view class="card" wx:if="{{canManage && !readonly && t.status === 'battle' && t.mode === 'auto'}}">
-      <view class="card-title">系统分组管理</view>
-      <view class="sub">可清除当前赛程和落位，保留现有队伍名单，返回分组页面继续微调；调整完成后需要重新生成对阵。</view>
-      <view class="btn btn-plain" data-stage="draft" bindtap="onRollbackStage">退回分组页面</view>
+    <view class="card" wx:if="{{canManage && !readonly && t.status === 'battle'}}">
+      <view class="card-title">{{t.mode === 'auto' ? '系统分组管理' : '选人/分组管理'}}</view>
+      <view class="sub">{{t.mode === 'auto' ? '可清除当前赛程和落位，保留现有队伍名单，返回分组页面继续微调；调整完成后需要重新生成对阵。' : '可清除当前赛程和落位，保留当前选人进度，返回选人/分组页面继续调整；调整完成后需要重新生成对阵。'}}</view>
+      <view class="btn btn-plain" data-stage="draft" bindtap="onRollbackStage">{{t.mode === 'auto' ? '退回分组页面' : '退回选人/分组'}}</view>
     </view>
 
     <!-- 比赛管理操作（结束/删除） -->
@@ -447,16 +452,22 @@
   <view class="mask" wx:if="{{memberPanel.show}}">
     <view class="panel">
       <view class="card-title">{{memberPanel.title}}</view>
-      <view class="sub">队员名片信息（只读）</view>
+      <view class="sub">{{memberPanel.hint || '队员名片信息（只读）'}}</view>
       <view class="divider"></view>
       <view wx:if="{{!memberPanel.members.length}}" class="sub">暂无队员信息</view>
-      <player-card
-        wx:for="{{memberPanel.members}}"
-        wx:key="openid"
-        wx:for-item="p"
-        player="{{p}}"
-        card-style="{{p.cardStyle}}"
-      />
+      <scroll-view scroll-y class="member-panel-list">
+        <view class="group-edit-member-row member-detail-row" wx:for="{{memberPanel.members}}" wx:key="openid" wx:for-item="p">
+          <view class="group-edit-select">
+            <player-card player="{{p}}" card-style="{{p.cardStyle}}" />
+          </view>
+          <view
+            wx:if="{{p.canReplace}}"
+            class="group-edit-replace"
+            data-openid="{{p.openid}}"
+            catchtap="onMemberPanelReplace"
+          >替换</view>
+        </view>
+      </scroll-view>
       <view class="row">
         <view class="btn panel-btn" bindtap="closeMembers">关闭</view>
       </view>

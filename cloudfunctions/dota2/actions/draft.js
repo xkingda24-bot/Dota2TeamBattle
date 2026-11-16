@@ -8,6 +8,7 @@ const { canManageTournament } = require('../permissions');
 const { getTournamentById, requireTournamentManager } = require('../tournaments');
 const { mutateTournament } = require('../tournament-transaction');
 const { replaceAutoGroupMember } = require('../grouping');
+const { replaceBattleCaptain } = require('../registration');
 
 module.exports = {
   /* 开始选人（比赛创建者或最高管理员）：随机排序队长，初始化蛇形轮次 */
@@ -189,7 +190,9 @@ module.exports = {
       const captainOpenid = typeof captain === 'string' ? captain : captain && captain.openid;
       const memberOpenid = (member) => typeof member === 'string' ? member : member && member.openid;
       const registrations = (t.registrations || []).map((registration) => Object.assign({}, registration));
-      const outRegistration = registrations.find((registration) => registration.openid === outOpenid && registration.role === 'player');
+      const outRegistration = registrations.find((registration) => registration.openid === outOpenid && (
+        registration.role === 'player' || (t.status === 'battle' && t.mode !== 'auto' && registration.role === 'captain')
+      ));
       const inRegistration = registrations.find((registration) => registration.openid === inOpenid && registration.role === 'waitlist');
       if (!outRegistration) return { error: '换下队员资料已失效' };
       if (!inRegistration) return { error: '换入用户不在替补池' };
@@ -202,6 +205,7 @@ module.exports = {
           ...registrationDotaFields(inRegistration),
           roles: inRegistration.roles || [],
           signature: inRegistration.signature || '',
+          cardStyle: inRegistration.cardStyle,
         });
         if (replaced.error) return { error: replaced.error };
         teams[teamIndex] = replaced.team;
@@ -211,7 +215,23 @@ module.exports = {
         };
       }
 
-      if (captainOpenid === outOpenid) return { error: '队长不能被替换' };
+      if (captainOpenid === outOpenid) {
+        const replaced = replaceBattleCaptain(team, registrations, outOpenid, inOpenid, {
+          openid: inRegistration.openid,
+          nickname: inRegistration.nickname,
+          mmr: inRegistration.mmr,
+          ...registrationDotaFields(inRegistration),
+          roles: inRegistration.roles || [],
+          signature: inRegistration.signature || '',
+          cardStyle: inRegistration.cardStyle,
+        });
+        if (replaced.error) return { error: replaced.error };
+        teams[teamIndex] = replaced.team;
+        return {
+          data: { teams, registrations: replaced.registrations },
+          result: { outOpenid, inOpenid, outNickname: replaced.outNickname, inNickname: replaced.inNickname, captainOpenid: replaced.captainOpenid },
+        };
+      }
       const outIndex = team.players.findIndex((member) => memberOpenid(member) === outOpenid);
       if (outIndex < 0) return { error: '该队员不在此队伍' };
 
@@ -223,6 +243,7 @@ module.exports = {
         ...registrationDotaFields(inRegistration),
         roles: inRegistration.roles || [],
         signature: inRegistration.signature || '',
+        cardStyle: inRegistration.cardStyle,
       });
       outRegistration.role = 'waitlist';
       inRegistration.role = 'player';

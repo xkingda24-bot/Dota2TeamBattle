@@ -127,7 +127,7 @@ Page({
     treeLines: [],
     treeW: 1200,
     treeH: 800,
-    memberPanel: { show: false, title: '', members: [] },
+    memberPanel: { show: false, title: '', members: [], teamIndex: -1, hint: '' },
     readonly: false, // 只读模式（历史比赛查看），隐藏所有管理操作
     stageView: '',
     pageTitle: '对战赛程',
@@ -609,7 +609,7 @@ Page({
           return Object.assign({}, m, {
             boRange: BO_LIST,
             boIndex: Math.max(0, BO_LIST.indexOf(m.bo)),
-            showAdmin: t.canManage && !this.data.readonly && t.status === 'battle',
+            showAdmin: t.canManage && !this.data.readonly && (t.status === 'battle' || t.status === 'finished'),
             placementNote,
             teamAInfo,
             teamBInfo,
@@ -713,7 +713,7 @@ Page({
         const keepRequestedView = this._requestedView && (
           this.data.readonly ||
           (this._requestedView === 'draft' ? t.status === 'draft' :
-            this._requestedView === 'battle' ? t.status === 'battle' : t.status === 'finished')
+            this._requestedView === 'battle' ? (t.status === 'battle' || t.status === 'finished') : t.status === 'finished')
         );
         const stageView = keepRequestedView ? this._requestedView : (
           t.status === 'finished' ? (settlement ? 'settlement' : 'battle') : t.status
@@ -782,7 +782,7 @@ Page({
         const replacementTeams = canReplacePlayers ? sourceTeams.map((team, teamIndex) => {
           const captain = team.captain && typeof team.captain === 'object' ? team.captain : regMap[team.captain] || {};
           const outPlayers = (team.players || []).map((member) => typeof member === 'object' ? member : regMap[member] || { openid: member, nickname: '队员' });
-          if (t.mode === 'auto' && captain.openid) outPlayers.unshift(captain);
+          if ((t.mode === 'auto' || t.status === 'battle') && captain.openid) outPlayers.unshift(captain);
           return {
             teamIndex,
             teamName: captain.teamName || captain.nickname + '战队',
@@ -1063,7 +1063,7 @@ Page({
     this.setData({ showTree: false });
   },
 
-  // 树图节点点「队员」→ 弹层展示该队队员
+  // 树图节点点「队员」→ 弹层展示该队队员；管理者可从此处发起替补交换
   showMembers(e) {
     const data = e.currentTarget.dataset || {};
     const id = Number(data.mid !== undefined ? data.mid : data.id);
@@ -1074,12 +1074,53 @@ Page({
       .concat(this.data.gf ? [this.data.gf] : []);
     const m = all.find((x) => x.id === id);
     if (!m) return;
-    const members = side === 'A' ? m.membersA : m.membersB;
+    const sourceMembers = side === 'A' ? m.membersA : m.membersB;
     const title = (side === 'A' ? m.displayA : m.displayB) + ' · 队员';
-    this.setData({ memberPanel: { show: true, title, members: members || [] } });
+    const teamInfo = side === 'A' ? m.teamAInfo : m.teamBInfo;
+    const slotMatch = teamInfo && typeof teamInfo.openid === 'string' ? /^T(\d+)$/.exec(teamInfo.openid) : null;
+    const t = this.data.t || {};
+    const seeding = Array.isArray(t.seeding) && t.seeding.length === t.N ? t.seeding : (t.teams || []).map((_, index) => index);
+    const teamIndex = slotMatch ? Number(seeding[Number(slotMatch[1])]) : -1;
+    const entry = Number.isInteger(teamIndex)
+      ? (this.data.replacementTeams || []).find((team) => team.teamIndex === teamIndex)
+      : null;
+    const members = (sourceMembers || []).map((player) => Object.assign({}, player, {
+      canReplace: !!(entry && entry.outPlayers.some((candidate) => candidate.openid === player.openid)),
+    }));
+    let hint = '';
+    if (this.data.canManage && !this.data.readonly) {
+      if (entry) hint = '点击「替换」可调整阵容，换下队员会进入替补席。';
+      else if ((t.matches || []).some((match) => match.status === 'done')) hint = '已有比赛记录比分，不能再替换队员。';
+      else if (!(this.data.waitlistPlayers || []).length) hint = '替补席暂无可换入人员。';
+      else hint = '当前队伍暂无可替换队员。';
+    }
+    this.setData({ memberPanel: { show: true, title, members, teamIndex, hint } });
   },
   closeMembers() {
-    this.setData({ memberPanel: { show: false, title: '', members: [] } });
+    this.setData({ memberPanel: { show: false, title: '', members: [], teamIndex: -1, hint: '' } });
+  },
+
+  onMemberPanelReplace(e) {
+    if (!this.data.canManage || this.data.readonly || this.data.replacementSaving) return;
+    const panel = this.data.memberPanel;
+    const openid = String(e.currentTarget.dataset.openid || '');
+    const entry = (this.data.replacementTeams || []).find((team) => team.teamIndex === panel.teamIndex);
+    if (!entry) return;
+    const outIndex = entry.outPlayers.findIndex((player) => player.openid === openid);
+    if (outIndex < 0) return;
+    if (!entry.inPlayers.length) {
+      wx.showToast({ title: '替补池暂无队员', icon: 'none' });
+      return;
+    }
+    this.setData({
+      memberPanel: { show: false, title: '', members: [], teamIndex: -1, hint: '' },
+      replacementPanel: Object.assign({}, entry, {
+        show: true,
+        selecting: 'inIndex',
+        outIndex,
+        inIndex: 0,
+      }),
+    });
   },
 
   toggleSettlementMembers(e) {
@@ -1471,6 +1512,7 @@ Page({
           icon: 'none',
         });
         this.closePanel();
+        if (d.finished) this._requestedView = '';
         this.load();
       })
       .catch((err) => wx.showToast({ title: err.message, icon: 'none' }));
@@ -1578,6 +1620,7 @@ Page({
         }).catch((err) => {
           this.setData({ replacementSaving: false });
           wx.showToast({ title: err.message || '替换失败', icon: 'none' });
+          this.load(true);
         });
       },
     });

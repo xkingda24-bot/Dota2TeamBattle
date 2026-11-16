@@ -3,11 +3,13 @@ const { normalizeCardStyle } = require('./cards');
 
 function buildRegistration(tournament, openid, member, requestedRole, secret, dotaFields, now, skipSecret) {
   const status = tournament && tournament.status;
-  // 分组流程中（status=draft）替补席位未满时仍可报名替补：进入分组后迟到的玩家只能补替补，不能挤进首发。
+  // 分组/对战流程中只能补报替补，不能挤进首发；是否上场仍由比赛管理者决定。
   const draftStage = status === 'draft';
-  if (!tournament || (status !== 'registration' && !draftStage)) return { error: '当前不在报名阶段' };
-  // 分组阶段报名替补免暗号：能进到分组页的已是群内成员，非管理者页面也不展示暗号，再要求输入只会输错被拒。
-  const skipSecretCheck = skipSecret || (draftStage && requestedRole === 'waitlist');
+  const battleStage = status === 'battle';
+  if (!tournament || (status !== 'registration' && !draftStage && !battleStage)) return { error: '当前不在报名阶段' };
+  if (battleStage && requestedRole !== 'waitlist') return { error: '对战阶段只能报名替补' };
+  // 分组和对战阶段报名替补免暗号，与页面直接报名入口保持一致。
+  const skipSecretCheck = skipSecret || ((draftStage || battleStage) && requestedRole === 'waitlist');
   if (!skipSecretCheck && String(secret || '') !== String(tournament.secret || '')) return { error: '报名暗号错误' };
 
   const registrations = Array.isArray(tournament.registrations) ? tournament.registrations : [];
@@ -72,6 +74,50 @@ function buildRegistration(tournament, openid, member, requestedRole, secret, do
   };
 }
 
+function replaceBattleCaptain(team, sourceRegistrations, outOpenid, inOpenid, replacementMember) {
+  const registrations = (Array.isArray(sourceRegistrations) ? sourceRegistrations : [])
+    .map((registration) => Object.assign({}, registration));
+  const sourceTeam = team || {};
+  const captainOpenid = typeof sourceTeam.captain === 'string'
+    ? sourceTeam.captain
+    : sourceTeam.captain && sourceTeam.captain.openid;
+  if (captainOpenid !== outOpenid) return { error: '该队长不在此队伍' };
+  const outRegistration = registrations.find((registration) => registration.openid === outOpenid && registration.role === 'captain');
+  const inRegistration = registrations.find((registration) => registration.openid === inOpenid && registration.role === 'waitlist');
+  if (!outRegistration) return { error: '换下队长资料已失效' };
+  if (!inRegistration) return { error: '换入用户不在替补池' };
+
+  const originalCaptain = typeof sourceTeam.captain === 'object' ? sourceTeam.captain : outRegistration;
+  const incoming = replacementMember || {};
+  const nextCaptain = Object.assign({}, incoming, {
+    openid: inRegistration.openid,
+    nickname: inRegistration.nickname,
+    mmr: inRegistration.mmr,
+    roles: inRegistration.roles || [],
+    signature: inRegistration.signature || '',
+    cardStyle: incoming.cardStyle || inRegistration.cardStyle,
+    teamName: originalCaptain.teamName || '',
+    teamIcon: originalCaptain.teamIcon || '',
+  });
+  const nextTeam = Object.assign({}, sourceTeam, {
+    captain: nextCaptain,
+    players: (sourceTeam.players || []).slice(),
+  });
+  outRegistration.role = 'waitlist';
+  inRegistration.role = 'captain';
+  inRegistration.teamName = nextCaptain.teamName;
+  inRegistration.teamIcon = nextCaptain.teamIcon;
+  outRegistration.teamName = '';
+  outRegistration.teamIcon = '';
+  return {
+    team: nextTeam,
+    registrations,
+    outNickname: outRegistration.nickname,
+    inNickname: inRegistration.nickname,
+    captainOpenid: nextCaptain.openid,
+  };
+}
+
 /* 报名免暗号判定：管理员，或本场比赛的创建者。
    报名页对 canManage（含创建者）不再显示暗号输入框，后端必须用同一口径放行，
    否则普通用户创建房间后自己报名会被判成「报名暗号错误」。 */
@@ -108,4 +154,4 @@ function syncRegistrationProfiles(registrations, profiles) {
   return { registrations: synced, changed };
 }
 
-module.exports = { buildRegistration, syncRegistrationProfiles, skipRegistrationSecret };
+module.exports = { buildRegistration, replaceBattleCaptain, syncRegistrationProfiles, skipRegistrationSecret };

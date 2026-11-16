@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { buildRegistration, syncRegistrationProfiles, skipRegistrationSecret } = require('./registration');
+const { buildRegistration, replaceBattleCaptain, syncRegistrationProfiles, skipRegistrationSecret } = require('./registration');
 
 const member = { nickname: '队员甲', mmr: 4200, roles: [1, 3], signature: '冲分' };
 const base = {
@@ -122,14 +122,66 @@ assert.strictEqual(
   '替补席位满员时拒绝报名'
 );
 assert.strictEqual(
-  buildRegistration(Object.assign({}, draftOpen, { status: 'battle' }), 'late5', member, 'waitlist', 'letmein', noDotaFields, 123).error,
+  buildRegistration(Object.assign({}, draftOpen, { status: 'finished' }), 'late5', member, 'waitlist', 'letmein', noDotaFields, 123).error,
   '当前不在报名阶段',
-  '对战阶段不再允许报名替补'
+  '比赛结束后不再允许报名替补'
 );
 assert.strictEqual(
   buildRegistration(draftOpen, 'late6', member, 'waitlist', 'wrong', noDotaFields, 123).error,
   undefined,
   '分组阶段报名替补免暗号'
 );
+
+// 对战阶段替补未满时，未报名者仍可免暗号补报替补，但不能补报正式队员或队长。
+const battleOpen = Object.assign({}, base, {
+  status: 'battle',
+  waitLimit: 2,
+  registrations: [{ openid: 'captain', role: 'captain' }],
+});
+created = buildRegistration(battleOpen, 'battle-sub', member, 'waitlist', 'wrong', noDotaFields, 123);
+assert.strictEqual(created.error, undefined);
+assert.strictEqual(created.registration.role, 'waitlist');
+assert.strictEqual(created.result.waitlistFilled, 1);
+assert.strictEqual(
+  buildRegistration(battleOpen, 'battle-player', member, 'player', 'letmein', noDotaFields, 123).error,
+  '对战阶段只能报名替补'
+);
+assert.strictEqual(
+  buildRegistration(battleOpen, 'battle-captain', member, 'captain', 'letmein', noDotaFields, 123).error,
+  '对战阶段只能报名替补'
+);
+assert.strictEqual(
+  buildRegistration(Object.assign({}, battleOpen, { registrations: [{ openid: 'sub', role: 'waitlist' }, { openid: 'sub2', role: 'waitlist' }] }), 'late', member, 'waitlist', '', noDotaFields, 123).error,
+  '替补名额已满'
+);
+
+// 队长模式对战换队长：新队长继承队名队标，原队长进入替补，角色与人数守恒。
+const battleTeam = {
+  captain: { openid: 'captain', nickname: '原队长', mmr: 6000, teamName: '夜魇', teamIcon: 'wolf' },
+  players: [{ openid: 'player', nickname: '正式队员', mmr: 4200 }],
+};
+const battleRegistrations = [
+  { openid: 'captain', nickname: '原队长', role: 'captain', mmr: 6000 },
+  { openid: 'player', nickname: '正式队员', role: 'player', mmr: 4200 },
+  { openid: 'sub', nickname: '新队长', role: 'waitlist', mmr: 4500 },
+];
+const captainSwap = replaceBattleCaptain(battleTeam, battleRegistrations, 'captain', 'sub', {
+  openid: 'sub', nickname: '新队长', mmr: 4500, cardStyle: { animation: 'omnislash' },
+});
+assert.strictEqual(captainSwap.error, undefined);
+assert.strictEqual(captainSwap.team.captain.openid, 'sub');
+assert.strictEqual(captainSwap.team.captain.teamName, '夜魇');
+assert.strictEqual(captainSwap.team.captain.teamIcon, 'wolf');
+assert.strictEqual(captainSwap.team.captain.cardStyle.animation, 'omnislash');
+assert.strictEqual(captainSwap.team.players[0].openid, 'player');
+assert.strictEqual(captainSwap.registrations.find((item) => item.openid === 'captain').role, 'waitlist');
+assert.strictEqual(captainSwap.registrations.find((item) => item.openid === 'captain').teamName, '');
+assert.strictEqual(captainSwap.registrations.find((item) => item.openid === 'captain').teamIcon, '');
+assert.strictEqual(captainSwap.registrations.find((item) => item.openid === 'sub').role, 'captain');
+assert.strictEqual(captainSwap.registrations.find((item) => item.openid === 'sub').teamName, '夜魇');
+assert.strictEqual(captainSwap.registrations.find((item) => item.openid === 'sub').teamIcon, 'wolf');
+assert.strictEqual(captainSwap.registrations.find((item) => item.openid === 'player').role, 'player');
+assert.strictEqual(replaceBattleCaptain(battleTeam, battleRegistrations, 'player', 'sub', {}).error, '该队长不在此队伍');
+assert.strictEqual(replaceBattleCaptain(battleTeam, battleRegistrations, 'captain', 'player', {}).error, '换入用户不在替补池');
 
 console.log('Registration validation tests passed.');

@@ -101,7 +101,7 @@ Page({
         const di = t.draftInfo;
         if (di) {
           if (Array.isArray(di.remainingPlayers)) {
-            di.remainingPlayers = di.remainingPlayers.map(fmtPlayer);
+            di.remainingPlayers = di.remainingPlayers.map((player) => fmtPlayer(player, false));
           }
           if (Array.isArray(di.picks)) {
             di.picks = di.picks.map((pick) =>
