@@ -381,7 +381,7 @@ function buildSingleRankBracket(teams) {
  * 第二轮固定交叉：每组两场的第一轮胜者去打另一场的败者
  *   W(1v2) vs L(3v4)、W(3v4) vs L(1v2)、W(5v6) vs L(7v8)、W(7v8) vs L(5v6)
  * 第二轮输的 4 队直接淘汰，四队并列第 5-8 名；
- * 第三轮同半区半决赛：两组第二轮胜者各自互打；
+ * 第三轮跨半区交叉半决赛：1-4 半区第 1 场胜者打 5-8 半区第 1 场胜者，另两场同理；
  * 第四轮总决赛，另加一场三四名决赛（两个半决赛败者）。
  * 共 12 场：4 + 4 + 2 + 1 + 1。
  *
@@ -460,14 +460,16 @@ function buildPick8Bracket(teams) {
     secondRound.push(m1, m2);
   }
 
-  // 第三轮：同半区半决赛（1-4 队半区、5-8 队半区各自内战）
+  // 第三轮：跨半区交叉半决赛（x vs z、y vs w）
+  // 1-4 半区第 1 场胜者打 5-8 半区第 1 场胜者，1-4 半区第 2 场胜者打 5-8 半区第 2 场胜者；
+  // 同半区的两支队伍最早也要到总决赛才可能相遇，避免半决赛重演首轮对阵。
   const semis = [];
-  for (let g = 0; g < 4; g += 2) {
+  [[0, 2], [1, 3]].forEach(([a, b]) => {
     const m = createMatch('UB3', '半决赛');
-    placeIntoMatch(m, matchSource(secondRound[g].id, 'winner'), 'A');
-    placeIntoMatch(m, matchSource(secondRound[g + 1].id, 'winner'), 'B');
+    placeIntoMatch(m, matchSource(secondRound[a].id, 'winner'), 'A');
+    placeIntoMatch(m, matchSource(secondRound[b].id, 'winner'), 'B');
     semis.push(m);
-  }
+  });
 
   // 第四轮：总决赛 + 三四名决赛
   const gf = createMatch('GF', '总决赛', { isChampionMatch: true });

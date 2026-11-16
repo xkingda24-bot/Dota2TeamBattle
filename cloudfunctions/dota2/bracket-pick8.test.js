@@ -88,11 +88,16 @@ for (let group = 0; group < 4; group += 2) {
   assert.strictEqual(crossB.loserNext, null);
 }
 
-// 第三轮同半区：1、2 场胜者互打；3、4 场胜者互打
+// 第三轮跨半区交叉：x vs z（1、3 场胜者）、y vs w（2、4 场胜者）
 assert.strictEqual(byStage.UB3[0].teamA.matchId, secondRound[0].id);
-assert.strictEqual(byStage.UB3[0].teamB.matchId, secondRound[1].id);
-assert.strictEqual(byStage.UB3[1].teamA.matchId, secondRound[2].id);
+assert.strictEqual(byStage.UB3[0].teamB.matchId, secondRound[2].id);
+assert.strictEqual(byStage.UB3[1].teamA.matchId, secondRound[1].id);
 assert.strictEqual(byStage.UB3[1].teamB.matchId, secondRound[3].id);
+// 两场半决赛都必须跨半区：不能出现同半区（0/1 或 2/3）互打
+byStage.UB3.forEach((semi) => {
+  const half = (id) => secondRound.findIndex((m) => m.id === id) >> 1;
+  assert.notStrictEqual(half(semi.teamA.matchId), half(semi.teamB.matchId), '半决赛必须跨半区');
+});
 
 // 第四轮：总决赛 + 三四名决赛（两个半决赛败者）
 const gf = byStage.GF[0];
@@ -125,4 +130,4 @@ const unfinished = playAll({ skipThirdPlace: true });
 const partial = calculateStandings(unfinished.tournament, unfinished.matches, unfinished.tournament.teams);
 assert.strictEqual(partial.complete, false, '三四名决赛未打完时不能算完整名次');
 
-console.log('Pick8 bracket tests passed for structure, cross pairing, same-half semifinals, tie 5-8 placement and third-place dependency.');
+console.log('Pick8 bracket tests passed for structure, cross pairing, cross-half semifinals, tie 5-8 placement and third-place dependency.');
