@@ -10,6 +10,7 @@ const { getUser } = require('../users');
 const { getAdminsConfig } = require('../permissions');
 const { getRecentTournamentSummaries, getTodayCreateStats, queryHistoryPage } = require('../tournaments');
 const { listSeasonOptions, seasonOfTimestamp } = require('../season-window');
+const { hasTournamentCreateAccess } = require('../create-permission');
 
 module.exports = {
   /* 主页数据：今天的比赛 + 我的身份（历史赛事走 listHistory，收起状态下不再预取） */
@@ -18,15 +19,16 @@ module.exports = {
     const [user, cfg] = await Promise.all([getUser(openid), getAdminsConfig()]);
     const isSuperFlag = openid === cfg.superAdmin;
     const isAdminFlag = isSuperFlag || (Array.isArray(cfg.admins) && cfg.admins.indexOf(openid) >= 0);
+    const canCreate = hasTournamentCreateAccess(user, isAdminFlag);
     // 客户端传入"今天 0 点"的时间戳，避免云函数时区差异
     const todayStart = Number(event.todayStart) || 0;
     const todayFilter = todayStart ? { createdAt: _.gte(todayStart) } : {};
     const todayActive = await getRecentTournamentSummaries(todayFilter, 30, openid, false);
-    const createStats = await getTodayCreateStats(openid, Date.now(), isAdminFlag);
+    const createStats = await getTodayCreateStats(openid, Date.now(), canCreate);
     return ok({
       user,
-      // 仅普通管理员和超级管理员可创建；普通用户不显示创建入口。
-      canCreate: isAdminFlag,
+      // 管理员默认可创建；普通用户需超管单独开通。
+      canCreate,
       isAdmin: isAdminFlag,
       isSuper: isSuperFlag,
       hasSuper: !!cfg.superAdmin,

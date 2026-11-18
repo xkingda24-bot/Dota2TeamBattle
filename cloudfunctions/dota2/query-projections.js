@@ -25,6 +25,7 @@ const ADMIN_USER_LIST_FIELDS = {
   _openid: true,
   openid: true,
   nickname: true,
+  canCreateTournament: true,
   dota2Id: true,
   mmr: true,
   dota2RankVerified: true,

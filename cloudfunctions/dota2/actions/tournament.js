@@ -19,13 +19,14 @@ const {
 const { mutateTournament, buildRegistrationSummary, isTransactionConflict } = require('../tournament-transaction');
 const { chinaDayRange, createQuotaId, effectiveDailyCount, createDailyLimit } = require('../daily-quota');
 const { TEAM_LOGO_PRESETS, TEAM_LOGO_IDS } = require('../team-logos');
+const { hasTournamentCreateAccess } = require('../create-permission');
 const { checkUserText } = require('../content-security');
 
 // scene 取值以官方文档为准：1 资料 / 2 评论 / 3 正文 / 4 昵称
 const SCENE_CONTENT = 3;
 
 module.exports = {
-  /* 创建比赛（普通管理员或超级管理员）：每日最多 20 场，报名需暗号 */
+  /* 创建比赛：管理员默认可创建，普通用户需超管开通；每日最多 20 场。 */
   async createTournament(event) {
     const name = String(event.name || '').trim();
     const time = String(event.time || '').trim();
@@ -42,9 +43,9 @@ module.exports = {
     if (!isFinite(waitLimit) || waitLimit < 0 || waitLimit > 20) return fail('替补数量需在 0-20 之间');
     const openid = getOpenId();
     if (!openid) return fail('无法识别当前用户');
-    const adminFlag = await isAdmin(openid);
-    if (!adminFlag) return fail('只有普通管理员或超级管理员可以创建比赛');
-    const createLimit = createDailyLimit(adminFlag);
+    const [me, adminFlag] = await Promise.all([getUser(openid), isAdmin(openid)]);
+    if (!hasTournamentCreateAccess(me, adminFlag)) return fail('暂未开通创建比赛权限，请联系超级管理员');
+    const createLimit = createDailyLimit(true);
 
     // UGC 内容安全检测：比赛名称会公开展示，暗号对报名者展示
     const nameCheck = await checkUserText(cloud, openid, SCENE_CONTENT, name);
@@ -52,7 +53,6 @@ module.exports = {
     const secretCheck = await checkUserText(cloud, openid, SCENE_CONTENT, secret);
     if (!secretCheck.ok) return fail(secretCheck.message);
 
-    const me = await getUser(openid);
     const now = Date.now();
     const range = chinaDayRange(now);
     const quotaId = createQuotaId(openid, range.dayKey);
@@ -92,7 +92,7 @@ module.exports = {
           .get();
         const existingCount = (existing && existing.data || []).length;
         const used = effectiveDailyCount(quota && quota.count, existingCount);
-        if (used >= createLimit) return { error: '每位管理员每天最多创建 ' + createLimit + ' 场比赛' };
+        if (used >= createLimit) return { error: '每位用户每天最多创建 ' + createLimit + ' 场比赛' };
         const tournament = await transaction.collection('tournaments').add({ data: tournamentData });
         const quotaData = {
           key: 'createQuota',

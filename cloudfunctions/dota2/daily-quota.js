@@ -19,9 +19,9 @@ function effectiveDailyCount(quotaCount, existingTournamentCount) {
 
 const DAILY_CREATE_LIMIT = 20;
 
-// 只有普通管理员和超级管理员可以创建比赛，每日上限统一为 20 场。
-function createDailyLimit(isAdminFlag) {
-  return isAdminFlag === true ? DAILY_CREATE_LIMIT : 0;
+// 管理员及已获授权的普通用户共用每日 20 场创建额度；无权限时为 0。
+function createDailyLimit(canCreateFlag) {
+  return canCreateFlag === true ? DAILY_CREATE_LIMIT : 0;
 }
 
 module.exports = {

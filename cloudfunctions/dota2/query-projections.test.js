@@ -33,6 +33,7 @@ assert.ok(!Object.prototype.hasOwnProperty.call(TOURNAMENT_SUMMARY_FIELDS, 'matc
 assert.ok(!Object.prototype.hasOwnProperty.call(TOURNAMENT_SUMMARY_FIELDS, 'teams'));
 assert.ok(Object.prototype.hasOwnProperty.call(ADMIN_USER_LIST_FIELDS, '_openid'));
 assert.ok(Object.prototype.hasOwnProperty.call(ADMIN_USER_LIST_FIELDS, 'updatedAt'));
+assert.ok(Object.prototype.hasOwnProperty.call(ADMIN_USER_LIST_FIELDS, 'canCreateTournament'));
 assert.ok(!Object.prototype.hasOwnProperty.call(ADMIN_USER_LIST_FIELDS, 'cardStyle'));
 assert.ok(!Object.prototype.hasOwnProperty.call(ADMIN_USER_LIST_FIELDS, 'signature'));
 

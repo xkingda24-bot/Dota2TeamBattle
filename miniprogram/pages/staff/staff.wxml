@@ -136,11 +136,15 @@
             <text class="user-nick">{{item.nickname || '未设置昵称'}}</text>
             <text wx:if="{{item.isSuper}}" class="tag tag-red">最高管理员</text>
             <text wx:elif="{{item.isAdminUser}}" class="tag tag-blue">普通管理员</text>
+            <text wx:elif="{{item.canCreateTournament}}" class="tag tag-green">已开通创建</text>
           </view>
           <view class="admin-user-meta">Dota ID：{{item.dotaIdText}} · {{item.mmrText}}</view>
           <view class="admin-user-meta">段位：{{item.rankText}}</view>
         </view>
-        <view wx:if="{{!item.isSuper}}" class="btn-small {{item.isAdminUser ? 'btn-plain' : ''}} {{adminsSaving ? 'btn-disabled' : ''}}" data-openid="{{item.openid}}" bindtap="onToggleAdmin">{{item.isAdminUser ? '取消管理员' : '设为管理员'}}</view>
+        <view wx:if="{{!item.isSuper}}" class="admin-user-actions">
+          <view wx:if="{{!item.isAdminUser}}" class="btn-small {{item.canCreateTournament ? 'btn-plain' : ''}} {{createPermissionSaving ? 'btn-disabled' : ''}}" data-openid="{{item.openid}}" bindtap="onToggleCreatePermission">{{createPermissionSaving === item.openid ? '保存中…' : (item.canCreateTournament ? '取消创建权限' : '开通创建权限')}}</view>
+          <view class="btn-small {{item.isAdminUser ? 'btn-plain' : ''}} {{adminsSaving ? 'btn-disabled' : ''}}" data-openid="{{item.openid}}" bindtap="onToggleAdmin">{{item.isAdminUser ? '取消管理员' : '设为管理员'}}</view>
+        </view>
       </view>
     </scroll-view>
     <view class="user-page-controls" wx:if="{{userListTotal > 0}}">

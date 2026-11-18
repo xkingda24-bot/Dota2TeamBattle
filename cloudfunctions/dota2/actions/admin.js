@@ -6,6 +6,7 @@ const { ok, fail, getOpenId } = require('../utils');
 const { isSuper, getAdminsConfig } = require('../permissions');
 const { ADMIN_USER_SORT_FIELDS, buildAdminUsers, buildAdminRoster, filterAdminUsers } = require('../admin-users');
 const { ADMIN_USER_LIST_FIELDS } = require('../query-projections');
+const { getUser } = require('../users');
 
 module.exports = {
   /* 超管：分页管理所有用户，排序按 Dota ID / 天梯分 / 用户名 / 已校验段位。 */
@@ -49,6 +50,26 @@ module.exports = {
       sortBy,
       order,
     });
+  },
+
+  /* 超管：为普通用户开通或取消创建比赛权限；管理员不受该字段影响。 */
+  async setUserCreatePermission(event) {
+    const openid = getOpenId();
+    if (!(await isSuper(openid))) return fail('只有最高管理员可以设置创建比赛权限');
+    const targetOpenid = String(event.targetOpenid || '').trim();
+    if (!targetOpenid) return fail('缺少目标用户');
+    const target = await getUser(targetOpenid);
+    if (!target) return fail('该用户还没有个人资料，无法设置权限');
+    const allowed = event.allowed === true;
+    await db.collection('users').doc(target._id).update({
+      data: {
+        canCreateTournament: allowed,
+        createTournamentPermissionBy: openid,
+        createTournamentPermissionAt: Date.now(),
+        updatedAt: Date.now(),
+      },
+    });
+    return ok({ openid: targetOpenid, allowed });
   },
 
   /* 超管：全量设置普通管理员列表（≤ 20 人；去重、过滤空、排除超管自身；幂等）。 */

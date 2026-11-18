@@ -66,6 +66,7 @@ function buildAdminUsers(records, superAdminOpenid, sortBy, order, now) {
     return {
       openid,
       nickname: String(user.nickname || ''),
+      canCreateTournament: user.canCreateTournament === true,
       dota2Id: String(user.dota2Id || ''),
       mmr: Number.isFinite(mmrValue) ? mmrValue : null,
       dota2RankVerified: card.dota2RankVerified,

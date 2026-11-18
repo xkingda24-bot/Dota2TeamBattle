@@ -404,7 +404,7 @@ Page({
 
   goCreate() {
     if (!this.data.canCreate) {
-      wx.showToast({ title: '仅管理员可创建比赛', icon: 'none' });
+      wx.showToast({ title: '请联系超管开通创建权限', icon: 'none' });
       return;
     }
     wx.navigateTo({ url: '/pages/create/create' });

@@ -51,7 +51,7 @@ Page({
       return;
     }
 
-    // 仅普通管理员和超级管理员可以创建，服务端会再次校验权限与每日额度
+    // 管理员默认可创建；普通用户需超管开通，服务端会再次校验权限与每日额度
     this.setData({ checkingAccess: true });
     this.checkCreateAccess();
   },
@@ -113,7 +113,7 @@ Page({
             checkingAccess: false,
             accessCheckFailed: true,
             canCreate: false,
-            accessMessage: '只有普通管理员或超级管理员可以创建比赛',
+            accessMessage: '暂未开通创建比赛权限，请联系超级管理员',
           });
           return;
         }
@@ -181,7 +181,7 @@ Page({
   submit() {
     if (this.data.submitting || this.data.pageLoading || this.data.checkingAccess || this.data.accessCheckFailed) return;
     if (!this.data.editMode && !this.data.canCreate) {
-      wx.showToast({ title: '仅管理员可创建比赛', icon: 'none' });
+      wx.showToast({ title: '未开通创建比赛权限', icon: 'none' });
       return;
     }
     if (!this.data.editMode && this.data.todayCreateRemaining <= 0) {

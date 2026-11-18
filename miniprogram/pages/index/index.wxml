@@ -13,7 +13,7 @@
         <text>创建比赛</text><text class="hero-action-icon">＋</text>
       </view>
       <view wx:if="{{canCreate}}" class="hero-hint">今日还可创建 {{todayCreateRemaining}} / {{todayCreateLimit}} 场比赛</view>
-      <view wx:elif="{{!loading && !loadError}}" class="hero-hint">仅普通管理员和超级管理员可创建比赛</view>
+      <view wx:elif="{{!loading && !loadError}}" class="hero-hint">普通用户可联系超管开通创建比赛权限</view>
     </view>
     <view class="hero-rune" aria-hidden="true">✦</view>
   </view>
@@ -22,7 +22,7 @@
     <view class="setup-mark">!</view>
     <view class="setup-copy">
       <view class="setup-title">尚未初始化最高管理员</view>
-      <view class="setup-desc">仅管理员可创建比赛；初始化后超管可管理全部赛事</view>
+      <view class="setup-desc">管理员默认可创建，普通用户由超管开通权限</view>
     </view>
     <view class="setup-arrow">›</view>
   </view>

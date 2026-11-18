@@ -7,7 +7,8 @@ const { getOpenId } = require('./utils');
 const { MAX_COMMENT_LENGTH, MAX_COMMENTS } = require('./constants');
 const { normalizeCardStyle } = require('./cards');
 const { publicDotaCardFields } = require('./card-profile');
-const { REGISTRATION_PROFILE_FIELDS, getUsersByOpenids } = require('./users');
+const { REGISTRATION_PROFILE_FIELDS, getUser, getUsersByOpenids } = require('./users');
+const { hasTournamentCreateAccess } = require('./create-permission');
 const { getAdminsConfig, isSuper, isAdmin, canManageTournament } = require('./permissions');
 const { calculateStandings } = require('./standings');
 const { resolveBracket } = require('./bracket-resolve');
@@ -454,9 +455,12 @@ async function requireTournamentManager(event, includeDeleted) {
   return { tournament, openid };
 }
 
-async function getTodayCreateStats(openid, now, adminFlag) {
+async function getTodayCreateStats(openid, now, createAccessFlag) {
   if (!openid) return { todayCreateCount: 0, todayCreateRemaining: 0, todayCreateLimit: 0, dailyLimit: 0 };
-  const limit = createDailyLimit(typeof adminFlag === 'boolean' ? adminFlag : await isAdmin(openid));
+  const hasAccess = typeof createAccessFlag === 'boolean'
+    ? createAccessFlag
+    : hasTournamentCreateAccess(await getUser(openid), await isAdmin(openid));
+  const limit = createDailyLimit(hasAccess);
   if (!limit) return { todayCreateCount: 0, todayCreateRemaining: 0, todayCreateLimit: 0, dailyLimit: 0 };
   const range = chinaDayRange(now);
   const quotaId = createQuotaId(openid, range.dayKey);

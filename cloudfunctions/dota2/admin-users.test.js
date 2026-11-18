@@ -6,7 +6,7 @@ const now = Date.UTC(2026, 9, 23, 12, 0, 0);
 const records = [
   { _id: 'owner-old', _openid: 'user-a', nickname: 'Ada旧', dota2Id: '123456789', mmr: 4042, dota2RankTier: 62, dota2RankVerifiedAt: now - 1000, updatedAt: 100 },
   { _id: 'owner-current', _openid: 'user-a', nickname: 'Ada', dota2Id: '123456789', mmr: 5500, dota2RankTier: 62, dota2RankVerifiedAt: now - 1000, dota2LeaderboardRank: 10, updatedAt: 200 },
-  { _id: 'user-b', openid: 'user-b', nickname: '波波', dota2Id: '987654321', mmr: 3000, dota2RankTier: 52, dota2RankVerifiedAt: now - 1000, updatedAt: 200 },
+  { _id: 'user-b', openid: 'user-b', nickname: '波波', dota2Id: '987654321', mmr: 3000, dota2RankTier: 52, dota2RankVerifiedAt: now - 1000, canCreateTournament: true, updatedAt: 200 },
   { _id: 'user-c', _openid: 'user-c', nickname: '陈', mmr: null, updatedAt: 100 },
   { _id: 'user-d', _openid: 'user-d', nickname: '丁', dota2Id: '200000000', mmr: 7000, dota2RankTier: 75, dota2RankVerifiedAt: now - RANK_VERIFICATION_TTL, updatedAt: 100 },
   { _id: 'user-e', _openid: 'user-e', nickname: '', mmr: 5000, updatedAt: 100 },
@@ -18,6 +18,8 @@ assert.strictEqual(users.find((user) => user.openid === 'user-a').nickname, 'Ada
 assert.strictEqual(users.find((user) => user.openid === 'user-a').mmr, 5500);
 assert.strictEqual(users.find((user) => user.openid === 'user-a').isSuper, true);
 assert.strictEqual(Object.prototype.hasOwnProperty.call(users.find((user) => user.openid === 'user-b'), 'isAdmin'), false);
+assert.strictEqual(users.find((user) => user.openid === 'user-b').canCreateTournament, true, '用户列表返回创建比赛授权状态');
+assert.strictEqual(users.find((user) => user.openid === 'user-c').canCreateTournament, false, '旧用户默认未授权');
 assert.strictEqual(users.find((user) => user.openid === 'user-d').dota2RankLabel, '未校验段位');
 assert.deepStrictEqual(users.slice(-1).map((user) => user.openid), ['user-e']);
 

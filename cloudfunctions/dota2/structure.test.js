@@ -17,6 +17,7 @@ const EXPECTED_ACTIONS = [
   'getPlayerProfile',
   'listUsers',
   'setAdmins',
+  'setUserCreatePermission',
   'createTournament',
   'updateConfig',
   'checkSecret',

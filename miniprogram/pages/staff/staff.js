@@ -36,6 +36,7 @@ Page({
     // 普通管理员名册（带昵称），弹窗顶部直接展示，避免逐页找蓝色标签
     adminRoster: [],
     adminsSaving: false,
+    createPermissionSaving: '',
     canInitializeSuperAdmin: false,
     bootstrapOpenid: '',
     // 超管：只读用户列表
@@ -313,6 +314,37 @@ Page({
       admins.push(openid);
     }
     this.commitAdmins(admins);
+  },
+
+  onToggleCreatePermission(e) {
+    if (!this.data.isSuper || this.data.createPermissionSaving || !this.data.userListModal) return;
+    const openid = String(e.currentTarget.dataset.openid || '');
+    const user = (this.data.userList || []).find((item) => item.openid === openid);
+    if (!user) return;
+    const allowed = !user.canCreateTournament;
+    const nickname = user.nickname || '该用户';
+    wx.showModal({
+      title: allowed ? '开通创建比赛权限' : '取消创建比赛权限',
+      content: allowed
+        ? '允许 ' + nickname + ' 创建比赛？获授权后每天最多创建 20 场。'
+        : '取消后 ' + nickname + ' 将不能创建新比赛，已创建的比赛不受影响。',
+      success: (result) => {
+        if (!result.confirm) return;
+        this.setData({ createPermissionSaving: openid });
+        api.call('setUserCreatePermission', { targetOpenid: openid, allowed })
+          .then(() => {
+            const userList = this.data.userList.map((item) => item.openid === openid
+              ? Object.assign({}, item, { canCreateTournament: allowed })
+              : item);
+            this.setData({ userList, createPermissionSaving: '' });
+            wx.showToast({ title: allowed ? '已开通' : '已取消', icon: 'success' });
+          })
+          .catch((error) => {
+            this.setData({ createPermissionSaving: '' });
+            wx.showToast({ title: error.message || '权限设置失败', icon: 'none' });
+          });
+      },
+    });
   },
 
   // 名册里点「×」直接取消，不弹确认框
