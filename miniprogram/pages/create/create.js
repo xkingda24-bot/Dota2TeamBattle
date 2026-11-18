@@ -26,13 +26,13 @@ Page({
     kRange: [1, 2, 3, 4, 5],
     kIndex: 4, // 默认 每组 5 人（与切到系统分组时的推荐值一致）
     waitRange: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
-    waitIndex: 10, // 默认 10 个替补
+    waitIndex: 20, // 默认 20 个替补
     modeRange: ['队长选人', '系统分组'],
     modeIndex: 1,
     mode: 'auto', // 默认系统分组；captain=队长选人 auto=系统分组
     N: 8,
     K: 5,
-    waitLimit: 10,
+    waitLimit: 20,
     submitting: false,
   },
 
