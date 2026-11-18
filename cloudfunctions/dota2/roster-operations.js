@@ -46,7 +46,7 @@ function swapCaptainRoster(tournament, input) {
   };
 }
 
-/** 选人阶段用未选队员或替补替换某队队员。 */
+/** 选人阶段用未选队员或替补替换某队队员；也可用替补换下队长，接任者成为新队长。 */
 function replaceCaptainDraftRoster(tournament, input) {
   const t = tournament || {};
   const params = input || {};
@@ -55,14 +55,56 @@ function replaceCaptainDraftRoster(tournament, input) {
   const inOpenid = String(params.inOpenid || '').trim();
   const picks = (t.draft && Array.isArray(t.draft.picks) ? t.draft.picks : []).map((team) => Array.isArray(team) ? team.slice() : []);
   if (teamIndex >= picks.length) return { error: '队伍索引无效' };
-  const outIndex = picks[teamIndex].indexOf(outOpenid);
-  if (outIndex < 0) return { error: '该队员不在此队伍' };
-  if (picks.some((team) => team.indexOf(inOpenid) >= 0)) return { error: '该队员已被其他队伍选中' };
   const registrations = (t.registrations || []).map((registration) => Object.assign({}, registration));
-  const outRegistration = registrations.find((registration) => registration.openid === outOpenid && registration.role === 'player');
-  const inRegistration = registrations.find((registration) => registration.openid === inOpenid && (registration.role === 'player' || registration.role === 'waitlist'));
+  const outRegistration = registrations.find((registration) => registration.openid === outOpenid &&
+    (registration.role === 'player' || registration.role === 'captain'));
+  const inRegistration = registrations.find((registration) => registration.openid === inOpenid &&
+    (registration.role === 'player' || registration.role === 'waitlist'));
   if (!outRegistration) return { error: '换下队员资料已失效' };
   if (!inRegistration) return { error: '换入队员不在未选队员池或替补池' };
+  if (picks.some((team) => team.indexOf(inOpenid) >= 0)) return { error: '该队员已被其他队伍选中' };
+
+  const captainOrder = (t.captainOrder || []).map((captain) => Object.assign({}, captain));
+  const captain = captainOrder[teamIndex];
+  if (captain && String(captain.openid || '') === outOpenid) {
+    // 队长只能替换：换下后进入替补席，换入者接任队长并继承队名、队标
+    const totalPicks = (Number(t.N) || 0) * (Number(t.K) || 0);
+    const turn = (t.draft && t.draft.turn) || 0;
+    if (totalPicks && turn < totalPicks) return { error: '选人完成后才能替换队长' };
+    // 队长属于队伍核心，只允许用替补席队员替换，避免未被选中的队员直接当队长
+    if (inRegistration.role !== 'waitlist') return { error: '队长只能由替补替换，请选择替补席队员' };
+    const nextCaptain = Object.assign({}, captain, {
+      openid: inRegistration.openid,
+      nickname: inRegistration.nickname,
+      mmr: inRegistration.mmr,
+      roles: inRegistration.roles || [],
+      signature: inRegistration.signature || '',
+      cardStyle: inRegistration.cardStyle,
+      dota2Id: inRegistration.dota2Id || '',
+      dota2MmrVerified: inRegistration.dota2MmrVerified,
+      dota2RankVerified: inRegistration.dota2RankVerified,
+      dota2RankLabel: inRegistration.dota2RankLabel || '',
+      dota2RankTier: inRegistration.dota2RankTier,
+      dota2LeaderboardRank: inRegistration.dota2LeaderboardRank,
+      dota2RankVerifiedAt: inRegistration.dota2RankVerifiedAt || inRegistration.dota2VerifiedAt,
+      teamName: captain.teamName || '',
+      teamIcon: captain.teamIcon || '',
+    });
+    captainOrder[teamIndex] = nextCaptain;
+    outRegistration.role = 'waitlist';
+    outRegistration.teamName = '';
+    outRegistration.teamIcon = '';
+    inRegistration.role = 'captain';
+    inRegistration.teamName = nextCaptain.teamName;
+    inRegistration.teamIcon = nextCaptain.teamIcon;
+    return {
+      data: { captainOrder, registrations },
+      result: { outOpenid, inOpenid, incomingRole: 'captain', replacedCaptain: true },
+    };
+  }
+
+  const outIndex = picks[teamIndex].indexOf(outOpenid);
+  if (outIndex < 0) return { error: '该队员不在此队伍' };
   picks[teamIndex][outIndex] = inOpenid;
   const incomingWasWaitlist = inRegistration.role === 'waitlist';
   if (incomingWasWaitlist) {

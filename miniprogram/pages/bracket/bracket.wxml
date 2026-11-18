@@ -332,7 +332,7 @@
     <!-- 队长模式：选人完成后与系统分组页一致，直接在队伍卡片里交换 / 替换队员 -->
     <view class="card group-edit-card" wx:if="{{rosterEditable && groupedTeams.length}}">
       <view class="card-title">阵容调整</view>
-      <view class="sub">点击队员名片，再点其他队队员即可交换；点队员右侧「替换」可用未选队员或替补换人。队长不参与交换，已有比分后不可调整。</view>
+      <view class="sub">点击队员名片，再点其他队队员即可交换；点队员右侧「替换」可用未选队员或替补换人，队长也可被替补替换。已有比分后不可调整。</view>
       <view wx:if="{{rosterSaving}}" class="group-save-status">正在保存阵容…</view>
       <view wx:if="{{groupSelection.openid}}" class="group-selection-hint">已选择：{{groupSelection.nickname}}　请点击其他队的队员完成交换 <text bindtap="clearGroupSelection">取消</text></view>
       <view class="flow-team group-edit-team" wx:for="{{groupedTeams}}" wx:key="teamIndex">
@@ -355,7 +355,6 @@
               <player-card player="{{member}}" card-style="{{member.cardStyle}}" />
             </view>
             <view
-              wx:if="{{!member.isCaptain}}"
               class="group-edit-replace"
               data-team-index="{{item.teamIndex}}"
               data-openid="{{member.openid}}"

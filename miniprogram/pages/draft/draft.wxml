@@ -30,7 +30,7 @@
 
     <!-- 队伍名单 -->
     <view class="section">队伍名单</view>
-    <view wx:if="{{rosterEditable}}" class="sub roster-edit-tip">点击队员名片，再点其他队队员即可交换；点队员右侧「替换」可用未选队员或替补换人。队长不参与交换。</view>
+    <view wx:if="{{rosterEditable}}" class="sub roster-edit-tip">点击队员名片，再点其他队队员即可交换；点队员右侧「替换」可用未选队员或替补换人，队长也可被替补替换（原队长进入替补席）。</view>
     <view wx:if="{{rosterSaving}}" class="sub roster-edit-tip">正在保存阵容…</view>
     <view wx:if="{{rosterSelection.openid}}" class="roster-selection-hint">已选择：{{rosterSelection.nickname}}　请点击其他队的队员完成交换 <text bindtap="clearRosterSelection">取消</text></view>
     <view class="team-grid">
@@ -52,6 +52,7 @@
               >
                 <player-card player="{{item.captain}}" card-style="{{item.captain.cardStyle}}" />
               </view>
+              <view class="roster-member-replace" data-team-index="{{item.teamIndex}}" data-openid="{{item.captain.openid}}" catchtap="onOpenSubstitution">替换</view>
             </view>
             <view class="roster-member-row" wx:for="{{item.players}}" wx:key="openid" wx:for-item="p">
               <view
@@ -173,13 +174,13 @@
   </view>
 </view>
 
-<!-- 选人完成后替换队员：选未选队员或替补换下该队员 -->
+<!-- 选人完成后替换队员：选未选队员或替补换下该队员；队长只能被替补替换 -->
 <view class="mask" wx:if="{{substitution.show}}">
   <view class="panel">
-    <view class="card-title">替换 {{substitution.outNickname}}</view>
+    <view class="card-title">替换 {{substitution.outIsCaptain ? '队长 ' : ''}}{{substitution.outNickname}}</view>
     <view class="sub">选择换上队员；若换上替补，换下队员会进入替补席。</view>
     <scroll-view class="substitute-scroll" scroll-y>
-      <view wx:if="{{!substitution.candidates.length}}" class="empty">暂无可换上队员（未选队员与替补席都已为空）</view>
+      <view wx:if="{{!substitution.candidates.length}}" class="empty">{{substitution.outIsCaptain ? '替补席为空，暂无可替换队长的队员' : '暂无可换上队员（未选队员与替补席都已为空）'}}</view>
       <view
         class="substitute-row"
         wx:for="{{substitution.candidates}}"

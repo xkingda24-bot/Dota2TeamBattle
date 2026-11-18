@@ -778,25 +778,39 @@ Page({
         const incomingPlayers = captainDraft
           ? ((t.draftInfo && t.draftInfo.remainingPlayers) || []).concat((t.registrations || []).filter((registration) => registration.role === 'waitlist'))
           : (t.registrations || []).filter((registration) => registration.role === 'waitlist');
+        // 队长只能被替补替换，单独的候选集用于队长行的「替换」
+        const captainIncomingPlayers = (t.registrations || []).filter((registration) => registration.role === 'waitlist');
         const sourceTeams = captainDraft && t.draftInfo
           ? t.draftInfo.picks
           : (t.teams || []);
         const replacementTeams = canReplacePlayers ? sourceTeams.map((team, teamIndex) => {
           const captain = team.captain && typeof team.captain === 'object' ? team.captain : regMap[team.captain] || {};
           const outPlayers = (team.players || []).map((member) => typeof member === 'object' ? member : regMap[member] || { openid: member, nickname: '队员' });
-          if ((t.mode === 'auto' || t.status === 'battle') && captain.openid) outPlayers.unshift(captain);
+          const labeledPlayers = outPlayers.filter((member) => member && member.openid).map((member) => Object.assign({}, member, {
+            label: replacementLabel(member),
+            isCaptain: false,
+          }));
+          if (captain.openid) {
+            labeledPlayers.unshift(Object.assign({}, captain, {
+              label: replacementLabel(captain),
+              isCaptain: true,
+            }));
+          }
           return {
             teamIndex,
             teamName: captain.teamName || captain.nickname + '战队',
-            outPlayers: outPlayers.filter((member) => member && member.openid).map((member) => Object.assign({}, member, {
-              label: replacementLabel(member),
-            })),
+            outPlayers: labeledPlayers,
             inPlayers: incomingPlayers.map((member) => Object.assign({}, member, {
               label: replacementLabel(member) + (member.role === 'waitlist' ? '（替补）' : ''),
             })),
+            captainInPlayers: captainIncomingPlayers.map((member) => Object.assign({}, member, {
+              label: replacementLabel(member) + '（替补）',
+            })),
             incomingLabel: captainDraft ? '未选队员池；若换上替补，换下队员进入替补席' : '替补池',
+            captainIncomingLabel: '替补席',
           };
         }).filter((team) => team.outPlayers.length && team.inPlayers.length) : [];
+        // 队长只能由替补替换：替补席为空时也要展示队长行，交给后端给出明确提示
         // 队长模式不在这里生成交换面板数据：分组页直接复用内联交换与替换交互
         // 我是本队组长/队长（auto：天梯分最高；captain：选人开始后的队长）→ 可设置战队名；编辑中不被轮询覆盖
         let myTeam = null;
@@ -1610,6 +1624,12 @@ Page({
     });
   },
 
+  replacementIncomingPlayers(entry, outIndex) {
+    const selected = entry && entry.outPlayers ? entry.outPlayers[outIndex] : null;
+    if (selected && selected.isCaptain) return (entry.captainInPlayers || []);
+    return (entry && entry.inPlayers) || [];
+  },
+
   onOpenReplacement(e) {
     if (!this.data.canManage || this.data.readonly || this.data.replacementSaving) return;
     const dataset = e.currentTarget.dataset || {};
@@ -1623,12 +1643,24 @@ Page({
     const selectedOpenid = String(e.currentTarget.dataset.openid || '');
     const selectedIndex = selectedOpenid ? entry.outPlayers.findIndex((player) => player.openid === selectedOpenid) : 0;
     if (selectedIndex < 0) return;
-    if (!entry.inPlayers.length) {
-      wx.showToast({ title: '暂无可换上队员（未选队员或替补席为空）', icon: 'none' });
+    const inPlayers = this.replacementIncomingPlayers(entry, selectedIndex);
+    if (!inPlayers.length) {
+      const captain = selectedOpenid && entry.outPlayers[selectedIndex] && entry.outPlayers[selectedIndex].isCaptain;
+      wx.showToast({ title: captain ? '替补席为空，暂无可替换队长的队员' : '暂无可换上队员（未选队员或替补席为空）', icon: 'none' });
       return;
     }
     this.setData({
-      replacementPanel: Object.assign({}, entry, { show: true, outIndex: selectedIndex, inIndex: 0 }),
+      replacementPanel: Object.assign({}, entry, {
+        show: true,
+        outIndex: selectedIndex,
+        inIndex: 0,
+        allInPlayers: entry.inPlayers.slice(),
+        baseIncomingLabel: entry.incomingLabel,
+        inPlayers: inPlayers.slice(),
+        incomingLabel: entry.outPlayers[selectedIndex] && entry.outPlayers[selectedIndex].isCaptain
+          ? entry.captainIncomingLabel || '替补席'
+          : entry.incomingLabel,
+      }),
     });
   },
 
@@ -1648,6 +1680,20 @@ Page({
     const panel = this.data.replacementPanel;
     const players = field === 'outIndex' ? panel.outPlayers : panel.inPlayers;
     if (!players || !players[index]) return;
+    if (field === 'outIndex') {
+      const selected = players[index];
+      const nextInPlayers = selected && selected.isCaptain ? (panel.captainInPlayers || []) : (panel.allInPlayers || []);
+      this.setData({
+        'replacementPanel.outIndex': index,
+        'replacementPanel.inPlayers': nextInPlayers.slice(),
+        'replacementPanel.inIndex': 0,
+        'replacementPanel.incomingLabel': selected && selected.isCaptain
+          ? (panel.captainIncomingLabel || '替补席')
+          : (panel.baseIncomingLabel || panel.incomingLabel || ''),
+        'replacementPanel.selecting': '',
+      });
+      return;
+    }
     this.setData({
       ['replacementPanel.' + field]: index,
       'replacementPanel.selecting': '',
@@ -1673,9 +1719,12 @@ Page({
       wx.showToast({ title: '请选择换下和换上的队员', icon: 'none' });
       return;
     }
+    const isCaptainOut = !!outPlayer.isCaptain;
     wx.showModal({
-      title: '确认替换队员',
-      content: '将 ' + outPlayer.label + ' 换为 ' + inPlayer.label + '，确定继续？',
+      title: isCaptainOut ? '确认替换队长' : '确认替换队员',
+      content: isCaptainOut
+        ? '用 ' + inPlayer.label + ' 接任队长，原队长 ' + outPlayer.label + ' 进入替补席，确定继续？'
+        : '将 ' + outPlayer.label + ' 换为 ' + inPlayer.label + '，确定继续？',
       success: (result) => {
         if (!result.confirm) return;
         this.setData({ replacementSaving: true });
@@ -1685,7 +1734,7 @@ Page({
           outOpenid: outPlayer.openid,
           inOpenid: inPlayer.openid,
         }).then(() => {
-          wx.showToast({ title: '队员已替换', icon: 'success' });
+          wx.showToast({ title: isCaptainOut ? '队长已替换' : '队员已替换', icon: 'success' });
           this.setData({ replacementSaving: false, 'replacementPanel.show': false });
           this.load();
         }).catch((err) => {
