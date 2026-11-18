@@ -194,7 +194,6 @@
         bindtap="onPickSubstitute"
       >
         <player-card player="{{item}}" card-style="{{item.cardStyle}}" />
-        <text wx:if="{{item.role === 'waitlist'}}" class="tag tag-blue substitute-tag">替补</text>
       </view>
     </scroll-view>
     <view class="btn btn-plain" bindtap="onCloseSubstitution">取消</view>
