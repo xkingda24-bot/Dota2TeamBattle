@@ -501,7 +501,7 @@
     </view>
   </view>
 
-  <!-- 队长模式阵容调整：点「替换」直接给出换上队员列表 -->
+  <!-- 替换队员：点「替换」直接给出换上队员列表，换下者即被点击的队员（系统分组与队长模式一致） -->
   <view class="mask" wx:if="{{rosterReplacement.show}}">
     <view class="panel">
       <view class="card-title">替换{{rosterReplacement.outIsCaptain ? '队长 ' : ''}}{{rosterReplacement.outNickname}}</view>
@@ -518,53 +518,6 @@
         </view>
       </scroll-view>
       <view class="btn btn-plain" bindtap="onCloseRosterReplacement">取消</view>
-    </view>
-  </view>
-
-  <!-- 比赛管理者替换队员 -->
-  <view class="mask" wx:if="{{replacementPanel.show}}">
-    <view class="panel">
-      <view class="card-title">替换队员</view>
-      <view class="sub">{{replacementPanel.teamName}} · 换下队员会进入{{replacementPanel.incomingLabel}}。</view>
-      <view class="field">
-        <view class="label">换下</view>
-        <view class="replacement-choice">
-          <player-card player="{{replacementPanel.outPlayers[replacementPanel.outIndex]}}" card-style="{{replacementPanel.outPlayers[replacementPanel.outIndex].cardStyle}}" />
-          <view wx:if="{{t.mode !== 'auto'}}" class="btn-small btn-plain replacement-change" bindtap="onOpenReplacementOptions" data-field="outIndex">选择其他队员</view>
-        </view>
-      </view>
-      <view class="field">
-        <view class="label">换上</view>
-        <view class="replacement-choice">
-          <player-card player="{{replacementPanel.inPlayers[replacementPanel.inIndex]}}" card-style="{{replacementPanel.inPlayers[replacementPanel.inIndex].cardStyle}}" />
-          <view class="btn-small btn-plain replacement-change" bindtap="onOpenReplacementOptions" data-field="inIndex">选择其他队员</view>
-        </view>
-      </view>
-      <view class="row">
-        <view class="btn btn-plain panel-btn" bindtap="onCloseReplacement">取消</view>
-        <view class="spacer"></view>
-        <view class="btn panel-btn {{replacementSaving ? 'btn-disabled' : ''}}" bindtap="onConfirmReplacement">{{replacementSaving ? '保存中…' : '确认替换'}}</view>
-      </view>
-    </view>
-    <view class="replacement-options-mask" wx:if="{{replacementPanel.selecting}}" catchtap="onCloseReplacementOptions">
-      <view class="replacement-options-panel" catchtap="noop">
-        <view class="panel-title">{{replacementPanel.selecting === 'outIndex' ? '选择换下队员' : '选择换上队员'}}</view>
-        <scroll-view scroll-y class="replacement-options-list">
-          <view
-            wx:for="{{replacementPanel.selecting === 'outIndex' ? replacementPanel.outPlayers : replacementPanel.inPlayers}}"
-            wx:key="openid"
-            class="replacement-option"
-            data-field="{{replacementPanel.selecting}}"
-            data-index="{{index}}"
-            bindtap="onSelectReplacementPlayer"
-          >
-            <player-card player="{{item}}" card-style="{{item.cardStyle}}" />
-          </view>
-        </scroll-view>
-        <view class="panel-btns">
-          <view class="panel-btn btn-plain" bindtap="onCloseReplacementOptions">取消</view>
-        </view>
-      </view>
     </view>
   </view>
 

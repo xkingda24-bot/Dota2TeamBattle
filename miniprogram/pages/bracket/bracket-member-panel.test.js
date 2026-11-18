@@ -34,12 +34,12 @@ require('./bracket.js');
 delete global.Page;
 
 function createPage(overrides) {
-  return {
-    data: Object.assign(JSON.parse(JSON.stringify(pageDefinition.data)), overrides || {}),
-    setData(patch) {
-      Object.keys(patch).forEach((key) => { this.data[key] = patch[key]; });
-    },
+  const page = Object.assign({}, pageDefinition);
+  page.data = Object.assign(JSON.parse(JSON.stringify(pageDefinition.data)), overrides || {});
+  page.setData = function setData(patch) {
+    Object.keys(patch).forEach((key) => { this.data[key] = patch[key]; });
   };
+  return page;
 }
 
 const captain = { openid: 'captain', nickname: '原队长', isCaptain: true };
@@ -56,6 +56,7 @@ const replacementTeam = {
   teamName: '夜魇',
   outPlayers: [captain, player],
   inPlayers: [substitute],
+  captainInPlayers: [substitute],
 };
 
 const managerPage = createPage({
@@ -73,11 +74,12 @@ assert.strictEqual(managerPage.data.memberPanel.members[1].canReplace, true);
 assert(managerPage.data.memberPanel.hint.includes('点击「替换」'));
 
 pageDefinition.onMemberPanelReplace.call(managerPage, { currentTarget: { dataset: { openid: 'captain' } } });
-assert.strictEqual(managerPage.data.memberPanel.show, false);
-assert.strictEqual(managerPage.data.replacementPanel.show, true);
-assert.strictEqual(managerPage.data.replacementPanel.teamIndex, 1);
-assert.strictEqual(managerPage.data.replacementPanel.outPlayers[managerPage.data.replacementPanel.outIndex].openid, 'captain');
-assert.strictEqual(managerPage.data.replacementPanel.selecting, 'inIndex');
+assert.strictEqual(managerPage.data.memberPanel.show, false, '替换后先收起人员详情');
+assert.strictEqual(managerPage.data.rosterReplacement.show, true, '应直接弹出换上队员列表');
+assert.strictEqual(managerPage.data.rosterReplacement.teamIndex, 1);
+assert.strictEqual(managerPage.data.rosterReplacement.outOpenid, 'captain', '换下者应为被点击的队员');
+assert.strictEqual(managerPage.data.rosterReplacement.outIsCaptain, true);
+assert.deepStrictEqual(managerPage.data.rosterReplacement.inPlayers.map((item) => item.openid), ['sub'], '队长只能由替补接任');
 
 const scoredPage = createPage({
   canManage: true,
