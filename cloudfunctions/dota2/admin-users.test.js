@@ -1,6 +1,6 @@
 const assert = require('assert');
 const { RANK_VERIFICATION_TTL } = require('./card-profile');
-const { buildAdminUsers, sortAdminUsers, buildAdminRoster, filterAdminUsers, normalizeAdminUserKeyword } = require('./admin-users');
+const { buildAdminUsers, sortAdminUsers, buildAdminRoster, buildCreatePermissionRoster, filterAdminUsers, normalizeAdminUserKeyword } = require('./admin-users');
 
 const now = Date.UTC(2026, 9, 23, 12, 0, 0);
 const records = [
@@ -57,6 +57,16 @@ assert.strictEqual(buildAdminRoster(['no-such-user'], users, 'user-a')[0].nickna
 assert.strictEqual(buildAdminRoster(['user-a'], users, 'user-a')[0].isSuper, true, '超管出现在名册时会被标记');
 assert.deepStrictEqual(buildAdminRoster([], users, 'user-a'), [], '没有管理员时返回空名册');
 assert.deepStrictEqual(buildAdminRoster(null, users, 'user-a'), [], '非数组入参返回空名册');
+assert.deepStrictEqual(
+  buildCreatePermissionRoster(users, [], 'user-a').map((item) => item.nickname),
+  ['波波'],
+  '创建权限名册集中列出全部已授权普通用户'
+);
+assert.deepStrictEqual(
+  buildCreatePermissionRoster(users, ['user-b'], 'user-a'),
+  [],
+  '管理员默认可创建，不在普通用户授权名册重复展示'
+);
 
 // 用户搜索：用户名模糊匹配（忽略大小写），Dota ID 支持片段，空关键词返回全部。
 assert.deepStrictEqual(filterAdminUsers(users, 'ada').map((user) => user.openid), ['user-a']);

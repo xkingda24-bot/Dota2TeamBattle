@@ -159,7 +159,7 @@
   color: #e8c27c;
 }
 .admin-user-scroll {
-  height: 55vh;
+  height: 48vh;
   min-height: 300rpx;
 }
 .admin-user-row {
@@ -216,9 +216,12 @@
 
 /* 普通管理员名册：弹窗顶部一行看清当前有哪些管理员，不用翻页找蓝色标签 */
 .admin-roster { margin: 10rpx 0 2rpx; }
+.create-permission-roster { margin-top: 18rpx; }
+.admin-roster-tip { margin-top: 6rpx; color: #8b939f; font-size: 20rpx; }
 .admin-roster-head { color: rgba(223, 208, 177, .86); font-size: 22rpx; font-weight: 600; }
 .admin-roster-empty { margin-top: 8rpx; color: #8b939f; font-size: 22rpx; }
 .admin-roster-chips { display: flex; flex-wrap: wrap; gap: 10rpx; margin-top: 10rpx; }
+.create-permission-chips { max-height: 160rpx; }
 .admin-roster-chip { display: flex; align-items: center; gap: 10rpx; padding: 4rpx 8rpx 4rpx 16rpx; border-radius: 999rpx; border: 1rpx solid rgba(152, 177, 195, .5); background: rgba(152, 177, 195, .12); color: #cbd7e2; font-size: 22rpx; }
 .admin-roster-name { max-width: 260rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* 名册里的小「×」：点一下取消该管理员（带二次确认） */

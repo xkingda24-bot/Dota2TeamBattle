@@ -103,6 +103,15 @@ function buildAdminRoster(adminOpenids, users, superAdminOpenid) {
   return roster;
 }
 
+/* 创建权限名册只列获授权的普通用户；管理员与超管默认可创建，不重复列入。 */
+function buildCreatePermissionRoster(users, adminOpenids, superAdmin) {
+  const admins = new Set(adminOpenids || []);
+  const openids = (users || [])
+    .filter((user) => user && user.canCreateTournament === true && user.openid !== superAdmin && !admins.has(user.openid))
+    .map((user) => user.openid);
+  return buildAdminRoster(openids, users, superAdmin);
+}
+
 module.exports = {
   ADMIN_USER_SORT_FIELDS,
   sortAdminUsers,
@@ -110,4 +119,5 @@ module.exports = {
   filterAdminUsers,
   buildAdminUsers,
   buildAdminRoster,
+  buildCreatePermissionRoster,
 };

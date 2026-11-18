@@ -4,7 +4,7 @@
 const { db } = require('../db');
 const { ok, fail, getOpenId } = require('../utils');
 const { isSuper, getAdminsConfig } = require('../permissions');
-const { ADMIN_USER_SORT_FIELDS, buildAdminUsers, buildAdminRoster, filterAdminUsers } = require('../admin-users');
+const { ADMIN_USER_SORT_FIELDS, buildAdminUsers, buildAdminRoster, buildCreatePermissionRoster, filterAdminUsers } = require('../admin-users');
 const { ADMIN_USER_LIST_FIELDS } = require('../query-projections');
 const { getUser } = require('../users');
 
@@ -42,6 +42,8 @@ module.exports = {
       admins: Array.isArray(cfg.admins) ? cfg.admins : [],
       // 管理员名册（openid → 昵称）随列表一并返回，超管不用翻页就能看清当前有哪些普通管理员
       adminRoster: buildAdminRoster(cfg.admins, sortedUsers, cfg.superAdmin),
+      // 创建权限名册独立于搜索和分页，始终展示所有已获授权的普通用户。
+      createPermissionRoster: buildCreatePermissionRoster(sortedUsers, cfg.admins, cfg.superAdmin),
       page,
       pageSize,
       total: filteredUsers.length,

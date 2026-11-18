@@ -99,6 +99,21 @@
         </view>
       </view>
     </view>
+    <view class="admin-roster create-permission-roster">
+      <view class="admin-roster-head">创建权限名册 · {{createPermissionRoster.length}} 人</view>
+      <view class="admin-roster-tip">已获授权的普通用户；管理员默认可创建，不重复列入。</view>
+      <view wx:if="{{createPermissionRoster.length === 0}}" class="admin-roster-empty">暂未授权普通用户，可在下方列表中开通</view>
+      <scroll-view wx:else class="admin-roster-chips create-permission-chips" scroll-y>
+        <view wx:for="{{createPermissionRoster}}" wx:key="openid" class="admin-roster-chip">
+          <text class="admin-roster-name">{{item.nickname}}</text>
+          <view
+            class="admin-roster-remove {{createPermissionSaving ? 'admin-roster-remove-disabled' : ''}}"
+            data-openid="{{item.openid}}"
+            catchtap="onRemoveRosterCreatePermission"
+          >×</view>
+        </view>
+      </scroll-view>
+    </view>
     <view class="user-search-row">
       <input
         class="input user-search-input"

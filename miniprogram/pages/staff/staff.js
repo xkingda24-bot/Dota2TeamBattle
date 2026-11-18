@@ -35,6 +35,7 @@ Page({
     adminOpenids: [],
     // 普通管理员名册（带昵称），弹窗顶部直接展示，避免逐页找蓝色标签
     adminRoster: [],
+    createPermissionRoster: [],
     adminsSaving: false,
     createPermissionSaving: '',
     canInitializeSuperAdmin: false,
@@ -211,6 +212,7 @@ Page({
         this.setData({
           userList: users,
           adminRoster: roster,
+          createPermissionRoster: Array.isArray(d.createPermissionRoster) ? d.createPermissionRoster : [],
           userListPage: Number(d.page) || page,
           userListPageSize: Number(d.pageSize) || this.data.userListPageSize,
           userListTotal: total,
@@ -316,12 +318,9 @@ Page({
     this.commitAdmins(admins);
   },
 
-  onToggleCreatePermission(e) {
-    if (!this.data.isSuper || this.data.createPermissionSaving || !this.data.userListModal) return;
-    const openid = String(e.currentTarget.dataset.openid || '');
-    const user = (this.data.userList || []).find((item) => item.openid === openid);
-    if (!user) return;
-    const allowed = !user.canCreateTournament;
+  updateCreatePermission(user, allowed) {
+    if (!this.data.isSuper || this.data.createPermissionSaving || !this.data.userListModal || !user) return;
+    const openid = user.openid;
     const nickname = user.nickname || '该用户';
     wx.showModal({
       title: allowed ? '开通创建比赛权限' : '取消创建比赛权限',
@@ -333,11 +332,10 @@ Page({
         this.setData({ createPermissionSaving: openid });
         api.call('setUserCreatePermission', { targetOpenid: openid, allowed })
           .then(() => {
-            const userList = this.data.userList.map((item) => item.openid === openid
-              ? Object.assign({}, item, { canCreateTournament: allowed })
-              : item);
-            this.setData({ userList, createPermissionSaving: '' });
+            this.setData({ createPermissionSaving: '' });
             wx.showToast({ title: allowed ? '已开通' : '已取消', icon: 'success' });
+            // 同时刷新当前页和完整授权名册，搜索结果不会影响名册统计。
+            this.loadUserList({ page: this.data.userListPage });
           })
           .catch((error) => {
             this.setData({ createPermissionSaving: '' });
@@ -345,6 +343,18 @@ Page({
           });
       },
     });
+  },
+
+  onToggleCreatePermission(e) {
+    const openid = String(e.currentTarget.dataset.openid || '');
+    const user = (this.data.userList || []).find((item) => item.openid === openid);
+    if (user) this.updateCreatePermission(user, !user.canCreateTournament);
+  },
+
+  onRemoveRosterCreatePermission(e) {
+    const openid = String(e.currentTarget.dataset.openid || '');
+    const user = (this.data.createPermissionRoster || []).find((item) => item.openid === openid);
+    if (user) this.updateCreatePermission(user, false);
   },
 
   // 名册里点「×」直接取消，不弹确认框
