@@ -158,6 +158,11 @@ Page({
   onMode(e) {
     const i = Number(e.detail.value);
     const patch = { modeIndex: i, mode: i === 1 ? 'auto' : 'captain' };
+    // 队长选人默认每位队长可选 4 名队员（K=4）
+    if (i === 0 && this.data.K > 4) {
+      patch.K = 4;
+      patch.kIndex = 3;
+    }
     // 切到系统分组时默认每组 5 人（K=5）
     if (i === 1 && this.data.K < 5) {
       patch.K = 5;
