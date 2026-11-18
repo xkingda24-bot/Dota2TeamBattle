@@ -36,6 +36,10 @@ Page({
     waitlistRemoving: '',
     waitlistJoining: false,
     waitlistPanelVisible: false,
+    rosterEditable: false,
+    rosterSaving: false,
+    rosterSelection: { teamIndex: -1, openid: '', nickname: '' },
+    substitution: { show: false, teamIndex: -1, outOpenid: '', outNickname: '', candidates: [] },
   },
 
   onLoad(options) {
@@ -121,7 +125,17 @@ Page({
           .map((registration) => fmtPlayer(Object.assign({}, registration, {
             cardStyle: registration.cardStyle || cardStyles[registration.openid] || null,
           })));
-        this.setData({ t, waitlistPlayers, canManage: !!t.canManage && !this.data.readonly, loading: false, loadError: '', refreshError: false }, () => {
+        this.setData({
+          t,
+          waitlistPlayers,
+          canManage: !!t.canManage && !this.data.readonly,
+          // 选人完成后可原地交换 / 替换队员（与系统分组页交互一致），无需跳转其他页面
+          rosterEditable: !!(t.canManage && !this.data.readonly && t.status === 'draft' &&
+            t.draftInfo && t.draftInfo.done),
+          loading: false,
+          loadError: '',
+          refreshError: false,
+        }, () => {
           this.redirectToBattle(t);
         });
         this.computeDraft();
@@ -398,9 +412,114 @@ Page({
       });
   },
 
-  onOpenStageManagement() {
-    if (!this.id || this.data.readonly || !this.data.canManage) return;
-    wx.navigateTo({ url: '/pages/bracket/bracket?id=' + this.id });
+  /* ---------- 选人完成后：队伍名单内直接交换 / 替换（与系统分组页交互一致） ---------- */
+
+  onTapRosterMember(e) {
+    if (!this.data.rosterEditable || !this.data.canManage || this.data.readonly || this.data.rosterSaving) return;
+    const teamIndex = Number(e.currentTarget.dataset.teamIndex);
+    const openid = String(e.currentTarget.dataset.openid || '');
+    if (!openid) return;
+    const isCaptain = e.currentTarget.dataset.isCaptain === true || e.currentTarget.dataset.isCaptain === 'true';
+    if (isCaptain) {
+      wx.showToast({ title: '队长不参与交换', icon: 'none' });
+      return;
+    }
+    const selection = this.data.rosterSelection;
+    if (selection.openid && selection.teamIndex !== teamIndex) {
+      this.swapRosterMembers(selection.teamIndex, selection.openid, teamIndex, openid);
+      return;
+    }
+    if (selection.openid === openid) {
+      this.clearRosterSelection();
+      return;
+    }
+    if (selection.openid) {
+      wx.showToast({ title: '请选择其他队的队员完成交换', icon: 'none' });
+      return;
+    }
+    const team = ((this.data.t && this.data.t.draftInfo && this.data.t.draftInfo.picks) || [])
+      .find((pick) => pick.teamIndex === teamIndex);
+    const member = team && (team.players || []).find((player) => player.openid === openid);
+    const nickname = member ? member.nickname : '队员';
+    this.setData({ rosterSelection: { teamIndex, openid, nickname } });
+    wx.showToast({ title: '已选择 ' + nickname + '，再点其他队队员交换', icon: 'none' });
+  },
+
+  clearRosterSelection() {
+    this.setData({ rosterSelection: { teamIndex: -1, openid: '', nickname: '' } });
+  },
+
+  swapRosterMembers(teamAIndex, openidA, teamBIndex, openidB) {
+    const t = this.data.t;
+    if (!t || this.data.rosterSaving) return;
+    this.setData({ rosterSaving: true });
+    api.call('swapPlayers', { id: t.id, teamAIndex, openidA, teamBIndex, openidB })
+      .then(() => {
+        wx.showToast({ title: '队员已交换', icon: 'success' });
+        this.setData({ rosterSaving: false, rosterSelection: { teamIndex: -1, openid: '', nickname: '' } });
+        this.load(true);
+      })
+      .catch((error) => {
+        this.setData({ rosterSaving: false });
+        wx.showToast({ title: error.message || '交换队员失败', icon: 'none' });
+        this.load(true);
+      });
+  },
+
+  onOpenSubstitution(e) {
+    if (!this.data.rosterEditable || !this.data.canManage || this.data.readonly || this.data.rosterSaving) return;
+    const teamIndex = Number(e.currentTarget.dataset.teamIndex);
+    const outOpenid = String(e.currentTarget.dataset.openid || '');
+    if (!Number.isInteger(teamIndex) || !outOpenid) return;
+    const di = (this.data.t && this.data.t.draftInfo) || {};
+    const candidates = ((di.remainingPlayers || []).map((player) => Object.assign({}, player, { role: 'player' })))
+      .concat((this.data.waitlistPlayers || []).map((player) => Object.assign({}, player, { role: 'waitlist' })));
+    const team = (di.picks || []).find((pick) => pick.teamIndex === teamIndex);
+    const member = team && (team.players || []).find((player) => player.openid === outOpenid);
+    this.setData({
+      rosterSelection: { teamIndex: -1, openid: '', nickname: '' },
+      substitution: {
+        show: true,
+        teamIndex,
+        outOpenid,
+        outNickname: member ? member.nickname : '队员',
+        candidates: candidates.filter((player) => player && player.openid && player.openid !== outOpenid),
+      },
+    });
+  },
+
+  onCloseSubstitution() {
+    if (this.data.rosterSaving) return;
+    this.setData({ substitution: { show: false, teamIndex: -1, outOpenid: '', outNickname: '', candidates: [] } });
+  },
+
+  onPickSubstitute(e) {
+    const t = this.data.t;
+    const panel = this.data.substitution;
+    const inOpenid = String(e.currentTarget.dataset.openid || '');
+    if (!t || !panel.show || !inOpenid || this.data.rosterSaving) return;
+    wx.showModal({
+      title: '确认替换队员',
+      content: '用该队员换下 ' + panel.outNickname + '？',
+      success: (result) => {
+        if (!result.confirm) return;
+        this.setData({ rosterSaving: true });
+        api.call('replacePlayer', { id: t.id, teamIndex: panel.teamIndex, outOpenid: panel.outOpenid, inOpenid })
+          .then(() => {
+            wx.showToast({ title: '队员已替换', icon: 'success' });
+            this.setData({
+              rosterSaving: false,
+              substitution: { show: false, teamIndex: -1, outOpenid: '', outNickname: '', candidates: [] },
+            });
+            this.load(true);
+          })
+          .catch((error) => {
+            this.setData({ rosterSaving: false });
+            wx.showToast({ title: error.message || '替换队员失败', icon: 'none' });
+            this.load(true);
+          });
+      },
+    });
   },
 
   onDelete() {

@@ -97,3 +97,34 @@
 .waitlist-close { margin-top: 20rpx; }
 .waitlist-cancel { border-color: rgba(209,84,63,.45); color: #ff9e91; }
 .waitlist-join { margin-top: 20rpx; }
+
+/* 选人完成后：队伍名单内直接交换 / 替换（与系统分组页一致） */
+.roster-edit-tip { margin: -6rpx 0 12rpx; }
+.roster-selection-hint {
+  margin-bottom: 14rpx;
+  padding: 12rpx 16rpx;
+  border: 1rpx solid rgba(224,181,111,.45);
+  border-radius: 10rpx;
+  background: rgba(224,181,111,.1);
+  color: #f0d6a4;
+  font-size: 23rpx;
+  line-height: 1.6;
+}
+.roster-selection-hint text { margin-left: 12rpx; color: #8bd1a0; }
+.roster-member-row { display: flex; align-items: center; gap: 14rpx; }
+.roster-member-select { flex: 1; min-width: 0; padding: 4rpx; border: 1rpx solid transparent; border-radius: 10rpx; box-sizing: border-box; }
+.roster-member-selected { border-color: rgba(224,181,111,.7); background: rgba(224,181,111,.12); }
+.roster-member-replace {
+  flex: none;
+  padding: 8rpx 16rpx;
+  border: 1rpx solid rgba(224,181,111,.4);
+  border-radius: 999rpx;
+  color: #e8c27c;
+  font-size: 22rpx;
+  letter-spacing: 1rpx;
+}
+.substitute-scroll { min-height: 0; max-height: 56vh; margin-top: 8rpx; }
+.substitute-row { display: flex; align-items: center; gap: 12rpx; padding: 10rpx 0; border-bottom: 1rpx solid rgba(224,181,111,.12); }
+.substitute-row:last-child { border-bottom: 0; }
+.substitute-row .player-card { flex: 1; min-width: 0; }
+.substitute-tag { flex: none; }
