@@ -18,6 +18,27 @@ function fmtPlayer(r, isCaptain) {
   });
 }
 
+// 队内平均分与各队平均分极差，与系统分组页口径一致（无效天梯分按 0 计入分母）
+function teamAverageMmr(members) {
+  const list = Array.isArray(members) ? members : [];
+  if (!list.length) return 0;
+  const total = list.reduce((sum, member) => {
+    const mmr = Number(member && member.mmr);
+    return sum + (Number.isFinite(mmr) ? mmr : 0);
+  }, 0);
+  return Math.round(total / list.length);
+}
+
+function teamAverageStats(teams) {
+  const averages = (Array.isArray(teams) ? teams : [])
+    .map((team) => Number(team && team.avgMmr))
+    .filter((value) => Number.isFinite(value));
+  if (!averages.length) return { max: 0, min: 0, diff: 0 };
+  const max = Math.max.apply(null, averages);
+  const min = Math.min.apply(null, averages);
+  return { max, min, diff: max - min };
+}
+
 Page({
   data: {
     loading: true,
@@ -30,6 +51,7 @@ Page({
     orderChips: [],
     canPick: false,
     pickStateText: '',
+    teamAverageStats: { max: 0, min: 0, diff: 0 },
     bracketTypeVisible: false,
     bracketTypeSaving: false,
     waitlistPlayers: [],
@@ -108,14 +130,19 @@ Page({
             di.remainingPlayers = di.remainingPlayers.map((player) => fmtPlayer(player, false));
           }
           if (Array.isArray(di.picks)) {
-            di.picks = di.picks.map((pick) =>
-              Object.assign({}, pick, {
-                captain: pick.captain ? fmtPlayer(pick.captain, true) : null,
-                players: (pick.players || []).map((player) => fmtPlayer(player, false)),
-              })
-            );
+            di.picks = di.picks.map((pick) => {
+              const captain = pick.captain ? fmtPlayer(pick.captain, true) : null;
+              const players = (pick.players || []).map((player) => fmtPlayer(player, false));
+              const members = (captain ? [captain] : []).concat(players);
+              return Object.assign({}, pick, {
+                captain,
+                players,
+                avgMmr: teamAverageMmr(members),
+              });
+            });
           }
         }
+        const teamAverages = teamAverageStats(t.draftInfo ? t.draftInfo.picks : []);
         this._lastTournamentVersion = tournamentPolling.versionToken(t);
         this._lastFullSyncAt = Date.now();
         // 选人页替补席：分组阶段仍可继续收替补，管理者可把人移出替补席
@@ -128,6 +155,7 @@ Page({
         this.setData({
           t,
           waitlistPlayers,
+          teamAverageStats: teamAverages,
           canManage: !!t.canManage && !this.data.readonly,
           // 选人完成后可原地交换 / 替换队员（与系统分组页交互一致），无需跳转其他页面
           rosterEditable: !!(t.canManage && !this.data.readonly && t.status === 'draft' &&

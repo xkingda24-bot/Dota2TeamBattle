@@ -30,6 +30,7 @@
 
     <!-- 队伍名单 -->
     <view class="section">队伍名单</view>
+    <view wx:if="{{rosterEditable}}" class="group-average-summary">平均分最高 {{teamAverageStats.max}} · 最低 {{teamAverageStats.min}} · 相差 {{teamAverageStats.diff}} 分</view>
     <view wx:if="{{rosterEditable}}" class="sub roster-edit-tip">点击队员名片，再点其他队队员即可交换；点队员右侧「替换」可用未选队员或替补换人，队长也可被替补替换（原队长进入替补席）。</view>
     <view wx:if="{{rosterSaving}}" class="sub roster-edit-tip">正在保存阵容…</view>
     <view wx:if="{{rosterSelection.openid}}" class="roster-selection-hint">已选择：{{rosterSelection.nickname}}　请点击其他队的队员完成交换 <text bindtap="clearRosterSelection">取消</text></view>
@@ -38,6 +39,7 @@
         <view class="team-head">
           <view class="team-name">{{item.captain && item.captain.teamName ? item.captain.teamName : '队长' + (item.teamIndex + 1)}}</view>
           <view class="spacer"></view>
+          <view wx:if="{{rosterEditable}}" class="team-average">平均分 {{item.avgMmr}}</view>
           <view class="tag tag-gray">{{item.players.length}}/{{t.K}}</view>
         </view>
         <view class="team-players" wx:if="{{item.captain || item.players.length}}">
