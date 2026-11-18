@@ -329,19 +329,19 @@
       </view>
     </view>
 
-    <!-- 选人/分组阶段管理 -->
-    <view class="card" wx:if="{{canManage && !readonly && t.status === 'draft' && t.mode !== 'auto'}}">
-      <view class="card-title">赛前管理</view>
-      <view class="sub">队伍信息有误时可替换队员；退回报名会清除队伍和选人进度，但保留报名名单。</view>
-      <view class="replacement-list" wx:if="{{replacementTeams.length}}">
-        <view class="replacement-row" wx:for="{{replacementTeams}}" wx:key="teamIndex">
+    <!-- 队长模式：选人/对战阶段阵容管理 -->
+    <view class="card" wx:if="{{canManage && !readonly && t.mode !== 'auto' && (t.status === 'draft' || t.status === 'battle') && swapTeams.length}}">
+      <view class="card-title">阵容管理</view>
+      <view class="sub">可将两队队员互换，或用未选队员/替补替换阵容；已有比分后不可调整。</view>
+      <view class="replacement-list">
+        <view class="replacement-row" wx:for="{{swapTeams}}" wx:key="teamIndex">
           <view class="replacement-team">{{item.teamName}}</view>
           <view class="spacer"></view>
-          <view class="btn-small btn-plain" data-index="{{index}}" bindtap="onOpenReplacement">替换队员</view>
+          <view wx:if="{{item.replacementIndex >= 0}}" class="btn-small btn-plain replacement-manage-btn" data-team-index="{{item.teamIndex}}" bindtap="onOpenReplacement">替换队员</view>
+          <view class="btn-small btn-plain replacement-manage-btn {{swapTeams.length < 2 || swapSaving ? 'btn-disabled' : ''}}" data-team-index="{{item.teamIndex}}" bindtap="onOpenSwap">交换队员</view>
         </view>
       </view>
-      <view class="sub" wx:else>暂无可替换队员；需要该队已有队员，并且仍有未选队员或候补。</view>
-      <view class="btn" data-stage="registration" bindtap="onRollbackStage">退回报名阶段</view>
+      <view wx:if="{{t.status === 'draft'}}" class="btn" data-stage="registration" bindtap="onRollbackStage">退回报名阶段</view>
     </view>
 
     <view wx:if="{{stageView === 'battle' && t.matches.length === 0}}" class="empty">赛程还未生成（需先完成选人）</view>
@@ -517,6 +517,37 @@
         <view class="panel-btns">
           <view class="panel-btn btn-plain" bindtap="onCloseReplacementOptions">取消</view>
         </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 比赛管理者交换两队普通队员 -->
+  <view class="mask" wx:if="{{swapPanel.show}}">
+    <view class="panel">
+      <view class="card-title">交换队员</view>
+      <view class="sub">两名队员互换队伍，队长和报名角色不变。</view>
+      <view class="field">
+        <view class="label">A 队队员</view>
+        <picker mode="selector" range="{{swapPanel.outPlayers}}" range-key="label" value="{{swapPanel.outIndex}}" data-field="outIndex" bindchange="onSwapPicker">
+          <view class="swap-picker">{{swapPanel.outPlayers[swapPanel.outIndex].label}}</view>
+        </picker>
+      </view>
+      <view class="field">
+        <view class="label">B 队</view>
+        <picker mode="selector" range="{{swapPanel.teamBOptions}}" range-key="teamName" value="{{swapPanel.teamBOptionIndex}}" data-field="teamBOptionIndex" bindchange="onSwapPicker">
+          <view class="swap-picker">{{swapPanel.teamBOptions[swapPanel.teamBOptionIndex].teamName}}</view>
+        </picker>
+      </view>
+      <view class="field">
+        <view class="label">B 队队员</view>
+        <picker mode="selector" range="{{swapPanel.inPlayers}}" range-key="label" value="{{swapPanel.inIndex}}" data-field="inIndex" bindchange="onSwapPicker">
+          <view class="swap-picker">{{swapPanel.inPlayers[swapPanel.inIndex].label}}</view>
+        </picker>
+      </view>
+      <view class="row">
+        <view class="btn btn-plain panel-btn" bindtap="onCloseSwap">取消</view>
+        <view class="spacer"></view>
+        <view class="btn panel-btn {{swapSaving ? 'btn-disabled' : ''}}" bindtap="onConfirmSwap">{{swapSaving ? '保存中…' : '确认交换'}}</view>
       </view>
     </view>
   </view>

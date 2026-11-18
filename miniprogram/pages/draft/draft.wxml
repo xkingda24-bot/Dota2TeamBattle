@@ -73,9 +73,9 @@
     <!-- 比赛管理者 -->
     <view class="card" wx:if="{{canManage && !readonly}}">
       <view class="card-title">比赛管理操作</view>
-      <view class="sub">可代当前轮次队长选人（直接点击可选队员名片）；选人完成后生成对阵进入对战阶段</view>
+      <view class="sub">可代当前轮次队长选人；选人完成后可交换队员、用未选队员或替补替换阵容，再生成对阵。</view>
       <view class="btn" wx:if="{{t.draftInfo.done}}" bindtap="onStartBracket">生成对阵并进入对战</view>
-      <view class="btn btn-plain" bindtap="onOpenStageManagement">退回分组</view>
+      <view class="btn btn-plain" bindtap="onOpenStageManagement">{{t.draftInfo.done ? '交换 / 替换队员' : '阵容与落位管理'}}</view>
       <view class="btn btn-plain" bindtap="onResetDraft">重置选人（按天梯分重新排序）</view>
       <view wx:if="{{canDelete && !readonly}}" class="btn btn-danger" bindtap="onDelete">删除比赛</view>
     </view>

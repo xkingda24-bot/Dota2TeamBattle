@@ -11,6 +11,7 @@ const { replaceAutoGroupMember } = require('../grouping');
 const { replaceBattleCaptain, syncRegistrationProfiles } = require('../registration');
 const { syncTournamentRegistrations } = require('../users');
 const { sortCaptainsByMmr } = require('../draft-order');
+const { swapCaptainRoster, replaceCaptainDraftRoster } = require('../roster-operations');
 
 module.exports = {
   /* 开始选人（比赛创建者或最高管理员）：同步最新资料，天梯分低的队长先选，初始化蛇形轮次 */
@@ -157,6 +158,14 @@ module.exports = {
     return ok(true);
   },
 
+  /* 比赛创建者或管理员在选人或对战阶段交换两队普通队员。 */
+  async swapPlayers(event) {
+    const managed = await requireTournamentManager(event, false);
+    if (managed.error) return fail(managed.error);
+    const result = await mutateTournament(db, event.id, (t) => swapCaptainRoster(t, event));
+    return result.error ? fail(result.error) : ok(result.result);
+  },
+
   /* 比赛创建者或管理员在选人或对战阶段替换队员。 */
   async replacePlayer(event) {
     const managed = await requireTournamentManager(event, false);
@@ -173,22 +182,7 @@ module.exports = {
       if ((t.matches || []).some((match) => match.status === 'done')) return { error: '已有比赛记录比分，不能再替换队员' };
 
       const captainDraft = t.status === 'draft' && t.mode !== 'auto';
-      if (captainDraft) {
-        const picks = (t.draft && Array.isArray(t.draft.picks) ? t.draft.picks : []).map((team) => Array.isArray(team) ? team.slice() : []);
-        if (teamIndex >= picks.length) return { error: '队伍索引无效' };
-        const outIndex = picks[teamIndex].indexOf(outOpenid);
-        if (outIndex < 0) return { error: '该队员不在此队伍' };
-        if (picks.some((team) => team.indexOf(inOpenid) >= 0)) return { error: '该队员已被其他队伍选中' };
-        const registrations = t.registrations || [];
-        if (!registrations.some((registration) => registration.openid === inOpenid && registration.role === 'player')) {
-          return { error: '换入队员不在未选队员池' };
-        }
-        picks[teamIndex][outIndex] = inOpenid;
-        return {
-          data: { draft: Object.assign({}, t.draft, { picks }) },
-          result: { outOpenid, inOpenid },
-        };
-      }
+      if (captainDraft) return replaceCaptainDraftRoster(t, { teamIndex, outOpenid, inOpenid });
 
       const teams = (t.teams || []).map((team) => Object.assign({}, team, { players: (team.players || []).slice() }));
       if (teamIndex >= teams.length) return { error: '队伍索引无效' };

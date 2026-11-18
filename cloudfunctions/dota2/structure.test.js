@@ -38,6 +38,7 @@ const EXPECTED_ACTIONS = [
   'resetMatchResult',
   'rollbackStage',
   'replacePlayer',
+  'swapPlayers',
   'finishTournament',
   'setStandingsOrder',
   'deleteTournament',

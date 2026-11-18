@@ -144,6 +144,9 @@ Page({
     bracketTypeVisible: false,
     bracketTypeSaving: false,
     replacementPanel: { show: false, selecting: '', teamIndex: -1, teamName: '', outPlayers: [], inPlayers: [], outIndex: 0, inIndex: 0, incomingLabel: '' },
+    swapTeams: [],
+    swapPanel: { show: false, teamAIndex: -1, teamBIndex: -1, outPlayers: [], inPlayers: [], outIndex: 0, inIndex: 0, teamBOptions: [], teamBOptionIndex: 0 },
+    swapSaving: false,
     waitlistPlayers: [],
     waitlistRemoving: '',
     waitlistJoining: false,
@@ -774,7 +777,7 @@ Page({
         );
         const captainDraft = t.status === 'draft' && t.mode !== 'auto';
         const incomingPlayers = captainDraft
-          ? ((t.draftInfo && t.draftInfo.remainingPlayers) || [])
+          ? ((t.draftInfo && t.draftInfo.remainingPlayers) || []).concat((t.registrations || []).filter((registration) => registration.role === 'waitlist'))
           : (t.registrations || []).filter((registration) => registration.role === 'waitlist');
         const sourceTeams = captainDraft && t.draftInfo
           ? t.draftInfo.picks
@@ -790,11 +793,23 @@ Page({
               label: replacementLabel(member),
             })),
             inPlayers: incomingPlayers.map((member) => Object.assign({}, member, {
-              label: replacementLabel(member),
+              label: replacementLabel(member) + (member.role === 'waitlist' ? '（替补）' : ''),
             })),
-            incomingLabel: captainDraft ? '未选队员' : '替补池',
+            incomingLabel: captainDraft ? '未选队员池；若换上替补，换下队员进入替补席' : '替补池',
           };
         }).filter((team) => team.outPlayers.length && team.inPlayers.length) : [];
+        const swapTeams = canReplacePlayers && t.mode !== 'auto' ? sourceTeams.map((team, teamIndex) => {
+          const captain = team.captain && typeof team.captain === 'object' ? team.captain : regMap[team.captain] || {};
+          const players = (team.players || []).map((member) => typeof member === 'object' ? member : regMap[member] || { openid: member, nickname: '队员' });
+          return {
+            teamIndex,
+            teamName: captain.teamName || captain.nickname + '战队',
+            players: players.filter((member) => member && member.openid).map((member) => Object.assign({}, member, {
+              label: replacementLabel(member),
+            })),
+            replacementIndex: replacementTeams.findIndex((entry) => entry.teamIndex === teamIndex),
+          };
+        }).filter((team) => team.players.length) : [];
         // 我是本队组长/队长（auto：天梯分最高；captain：选人开始后的队长）→ 可设置战队名；编辑中不被轮询覆盖
         let myTeam = null;
         if (t.teams && t.myOpenid) {
@@ -845,6 +860,7 @@ Page({
           teamNames,
           myTeam,
           replacementTeams,
+          swapTeams,
           waitlistPlayers,
           groupedTeams,
           groupAverageStats: groupAverages,
@@ -1545,9 +1561,101 @@ Page({
 
   /* ---------- 结束 / 归档 / 删除（比赛管理者） ---------- */
 
+  onOpenSwap(e) {
+    if (!this.data.canManage || this.data.readonly || this.data.swapSaving) return;
+    const teamAIndex = Number(e.currentTarget.dataset.teamIndex);
+    const teamA = (this.data.swapTeams || []).find((team) => team.teamIndex === teamAIndex);
+    if (!teamA) return;
+    const teamBOptions = this.data.swapTeams.filter((team) => team.teamIndex !== teamAIndex && team.players.length);
+    if (!teamBOptions.length) {
+      wx.showToast({ title: '没有其他队伍的队员可交换', icon: 'none' });
+      return;
+    }
+    const teamB = teamBOptions[0];
+    this.setData({
+      swapPanel: {
+        show: true,
+        teamAIndex,
+        teamBIndex: teamB.teamIndex,
+        outPlayers: teamA.players,
+        inPlayers: teamB.players,
+        outIndex: 0,
+        inIndex: 0,
+        teamBOptions,
+        teamBOptionIndex: 0,
+      },
+    });
+  },
+
+  onSwapPicker(e) {
+    const field = e.currentTarget.dataset.field;
+    const index = Number(e.detail.value);
+    const panel = this.data.swapPanel;
+    if (field === 'outIndex' && panel.outPlayers[index]) {
+      this.setData({ 'swapPanel.outIndex': index });
+      return;
+    }
+    if (field === 'inIndex' && panel.inPlayers[index]) {
+      this.setData({ 'swapPanel.inIndex': index });
+      return;
+    }
+    if (field === 'teamBOptionIndex' && panel.teamBOptions[index]) {
+      const teamB = panel.teamBOptions[index];
+      this.setData({
+        'swapPanel.teamBOptionIndex': index,
+        'swapPanel.teamBIndex': teamB.teamIndex,
+        'swapPanel.inPlayers': teamB.players,
+        'swapPanel.inIndex': 0,
+      });
+    }
+  },
+
+  onCloseSwap() {
+    if (this.data.swapSaving) return;
+    this.setData({ 'swapPanel.show': false });
+  },
+
+  onConfirmSwap() {
+    const t = this.data.t;
+    const panel = this.data.swapPanel;
+    if (!t || !panel.show || this.data.swapSaving || !this.data.canManage || this.data.readonly) return;
+    const outPlayer = panel.outPlayers[panel.outIndex];
+    const inPlayer = panel.inPlayers[panel.inIndex];
+    if (!outPlayer || !inPlayer || panel.teamAIndex === panel.teamBIndex) {
+      wx.showToast({ title: '请选择不同队伍的两名队员', icon: 'none' });
+      return;
+    }
+    wx.showModal({
+      title: '确认交换队员',
+      content: '将 ' + outPlayer.label + ' 与 ' + inPlayer.label + ' 互换队伍，确定继续？',
+      success: (result) => {
+        if (!result.confirm) return;
+        this.setData({ swapSaving: true });
+        api.call('swapPlayers', {
+          id: t.id,
+          teamAIndex: panel.teamAIndex,
+          openidA: outPlayer.openid,
+          teamBIndex: panel.teamBIndex,
+          openidB: inPlayer.openid,
+        }).then(() => {
+          wx.showToast({ title: '队员已交换', icon: 'success' });
+          this.setData({ swapSaving: false, 'swapPanel.show': false });
+          this.load();
+        }).catch((err) => {
+          this.setData({ swapSaving: false });
+          wx.showToast({ title: err.message || '交换失败', icon: 'none' });
+          this.load(true);
+        });
+      },
+    });
+  },
+
   onOpenReplacement(e) {
     if (!this.data.canManage || this.data.readonly || this.data.replacementSaving) return;
-    const entry = this.data.replacementTeams[Number(e.currentTarget.dataset.index)];
+    const dataset = e.currentTarget.dataset || {};
+    const entry = dataset.teamIndex !== undefined
+      ? this.data.replacementTeams.find((team) => team.teamIndex === Number(dataset.teamIndex))
+      : this.data.replacementTeams[Number(dataset.index)];
     if (!entry) return;
     const selectedOpenid = String(e.currentTarget.dataset.openid || '');
     const selectedIndex = selectedOpenid ? entry.outPlayers.findIndex((player) => player.openid === selectedOpenid) : 0;

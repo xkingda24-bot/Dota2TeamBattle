@@ -517,6 +517,8 @@
 .replacement-list { margin-top: 12rpx; }
 .replacement-row { display:flex; align-items:center; min-height:72rpx; padding:8rpx 0; border-top:1rpx solid rgba(224,181,111,.1); }
 .replacement-team { flex:1; min-width:0; color:#e8e4da; font-size:26rpx; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.replacement-manage-btn { flex-shrink:0; margin-left:12rpx; }
+.swap-picker { padding:18rpx 20rpx; border:1rpx solid rgba(224,181,111,.2); border-radius:10rpx; background:#1a2130; color:#e8e4da; font-size:26rpx; }
 .rollback-actions { flex-wrap:wrap; margin:12rpx -8rpx 0 0; }
 .rollback-btn { margin:8rpx 8rpx 0 0; }
 .replacement-choice { display:flex; flex-direction:column; gap:10rpx; }
