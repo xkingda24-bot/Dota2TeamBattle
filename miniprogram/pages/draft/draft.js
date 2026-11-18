@@ -52,6 +52,8 @@ Page({
     canPick: false,
     pickStateText: '',
     teamAverageStats: { max: 0, min: 0, diff: 0 },
+    rosterTeams: [],
+    rosterOrderSaving: false,
     bracketTypeVisible: false,
     bracketTypeSaving: false,
     waitlistPlayers: [],
@@ -142,7 +144,15 @@ Page({
             });
           }
         }
-        const teamAverages = teamAverageStats(t.draftInfo ? t.draftInfo.picks : []);
+        // 队伍顺序按落位表展示：管理员选完人后可像系统分组页一样直接上下调序
+        const pickList = (t.draftInfo && Array.isArray(t.draftInfo.picks)) ? t.draftInfo.picks : [];
+        const seeding = t.seeding;
+        const validSeeding = Array.isArray(seeding) && seeding.length === pickList.length &&
+          seeding.every((teamIndex) => Number.isInteger(teamIndex) && teamIndex >= 0 && teamIndex < pickList.length) &&
+          new Set(seeding).size === pickList.length;
+        const seedOrder = validSeeding ? seeding : pickList.map((_, index) => index);
+        const rosterTeams = seedOrder.map((teamIndex, slot) => Object.assign({}, pickList[teamIndex], { slot })).filter(Boolean);
+        const teamAverages = teamAverageStats(rosterTeams);
         this._lastTournamentVersion = tournamentPolling.versionToken(t);
         this._lastFullSyncAt = Date.now();
         // 选人页替补席：分组阶段仍可继续收替补，管理者可把人移出替补席
@@ -155,6 +165,7 @@ Page({
         this.setData({
           t,
           waitlistPlayers,
+          rosterTeams,
           teamAverageStats: teamAverages,
           canManage: !!t.canManage && !this.data.readonly,
           // 选人完成后可原地交换 / 替换队员（与系统分组页交互一致），无需跳转其他页面
@@ -475,6 +486,37 @@ Page({
 
   clearRosterSelection() {
     this.setData({ rosterSelection: { teamIndex: -1, openid: '', nickname: '' } });
+  },
+
+  /* 队长模式：选人完成后调整队伍落位（与系统分组页的上移 / 下移一致） */
+  onMoveRosterTeam(e) {
+    const t = this.data.t;
+    if (!t || !this.data.rosterEditable || !this.data.canManage || this.data.readonly ||
+      this.data.rosterSaving || this.data.rosterOrderSaving || t.status !== 'draft') return;
+    const slot = Number(e.currentTarget.dataset.slot);
+    const dir = Number(e.currentTarget.dataset.dir);
+    const list = (this.data.rosterTeams || []).slice();
+    const target = slot + dir;
+    if (!Number.isInteger(slot) || !Number.isInteger(target) || slot < 0 || target < 0 || target >= list.length) return;
+    const moved = list[slot];
+    list[slot] = list[target];
+    list[target] = moved;
+    list.forEach((team, index) => { team.slot = index; });
+    const seeding = list.map((team) => team.teamIndex);
+    this.setData({
+      rosterTeams: list,
+      rosterOrderSaving: true,
+      rosterSelection: { teamIndex: -1, openid: '', nickname: '' },
+    });
+    api.call('setSeeding', { id: t.id, seeding })
+      .then(() => {
+        this.setData({ rosterOrderSaving: false });
+      })
+      .catch((error) => {
+        this.setData({ rosterOrderSaving: false });
+        wx.showToast({ title: error.message || '调整队伍顺序失败', icon: 'none' });
+        this.load(true);
+      });
   },
 
   swapRosterMembers(teamAIndex, openidA, teamBIndex, openidB) {

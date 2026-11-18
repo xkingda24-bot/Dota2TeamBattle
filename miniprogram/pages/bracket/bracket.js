@@ -254,7 +254,9 @@ Page({
 
   onGroupMove(e) {
     const t = this.data.t;
-    if (!t || t.mode !== 'auto' || t.status !== 'draft' || !this.data.canManage || this.data.readonly || this.data.groupSaving || this.data.groupOrderSaving) return;
+    // 系统分组：分组完成即可调序；队长模式：选人完成后同样可调
+    const canReorder = !!t && (t.mode === 'auto' || !!(t.draftInfo && t.draftInfo.done));
+    if (!canReorder || t.status !== 'draft' || !this.data.canManage || this.data.readonly || this.data.groupSaving || this.data.groupOrderSaving) return;
     const slot = Number(e.currentTarget.dataset.slot);
     const dir = Number(e.currentTarget.dataset.dir);
     const seedSlots = this.data.seedSlots.slice();

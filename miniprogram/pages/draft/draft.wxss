@@ -57,6 +57,10 @@
   font-weight: 600;
   color: #e8c27c;
   margin-right: 8rpx;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .team-players {
   display: flex;
@@ -114,6 +118,22 @@
 /* 平均分与极差：与系统分组页同一套数值口径和样式 */
 .group-average-summary { margin: -4rpx 0 10rpx; color: #9bdef8; font-size: 23rpx; line-height: 1.5; }
 .team-average { flex: none; margin-right: 12rpx; color: #9bdef8; font-size: 23rpx; font-weight: 600; white-space: nowrap; }
+/* 队伍顺序上下箭头：与系统分组页的落位按钮一致 */
+.group-order-tools { display: flex; flex: none; gap: 8rpx; margin-right: 12rpx; }
+.group-order-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 58rpx;
+  height: 48rpx;
+  border: 1rpx solid rgba(101,193,238,.42);
+  border-radius: 8rpx;
+  color: #83d8ff;
+  background: rgba(49,133,182,.14);
+  font-size: 28rpx;
+  line-height: 1;
+}
+.group-order-disabled { opacity: .35; }
 .roster-member-row { display: flex; align-items: stretch; gap: 10rpx; }
 .roster-member-select { flex: 1; min-width: 0; padding: 2rpx; border: 1rpx solid transparent; border-radius: 12rpx; box-sizing: border-box; }
 .roster-member-select .player-card { width: 100%; }

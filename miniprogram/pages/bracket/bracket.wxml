@@ -343,6 +343,10 @@
             <view class="flow-team-name">{{item.name}}</view>
           </view>
           <view class="flow-team-average">平均分 {{item.avgMmr}}</view>
+          <view wx:if="{{t.status === 'draft'}}" class="group-order-tools">
+            <view class="group-order-btn {{item.slot === 0 || groupOrderSaving ? 'group-order-disabled' : ''}}" data-slot="{{item.slot}}" data-dir="-1" catchtap="onGroupMove">↑</view>
+            <view class="group-order-btn {{item.slot === groupedTeams.length - 1 || groupOrderSaving ? 'group-order-disabled' : ''}}" data-slot="{{item.slot}}" data-dir="1" catchtap="onGroupMove">↓</view>
+          </view>
         </view>
         <view class="flow-team-members">
           <view wx:for="{{item.members}}" wx:key="openid" wx:for-item="member" class="group-edit-member-row">

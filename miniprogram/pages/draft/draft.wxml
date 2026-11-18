@@ -35,11 +35,15 @@
     <view wx:if="{{rosterSaving}}" class="sub roster-edit-tip">正在保存阵容…</view>
     <view wx:if="{{rosterSelection.openid}}" class="roster-selection-hint">已选择：{{rosterSelection.nickname}}　请点击其他队的队员完成交换 <text bindtap="clearRosterSelection">取消</text></view>
     <view class="team-grid">
-      <view class="team-card" wx:for="{{t.draftInfo.picks}}" wx:key="teamIndex">
+      <view class="team-card" wx:for="{{rosterTeams}}" wx:key="teamIndex">
         <view class="team-head">
           <view class="team-name">{{item.captain && item.captain.teamName ? item.captain.teamName : '队长' + (item.teamIndex + 1)}}</view>
           <view class="spacer"></view>
           <view wx:if="{{rosterEditable}}" class="team-average">平均分 {{item.avgMmr}}</view>
+          <view wx:if="{{rosterEditable && t.status === 'draft'}}" class="group-order-tools">
+            <view class="group-order-btn {{item.slot === 0 || rosterOrderSaving ? 'group-order-disabled' : ''}}" data-slot="{{item.slot}}" data-dir="-1" catchtap="onMoveRosterTeam">↑</view>
+            <view class="group-order-btn {{item.slot === rosterTeams.length - 1 || rosterOrderSaving ? 'group-order-disabled' : ''}}" data-slot="{{item.slot}}" data-dir="1" catchtap="onMoveRosterTeam">↓</view>
+          </view>
           <view class="tag tag-gray">{{item.players.length}}/{{t.K}}</view>
         </view>
         <view class="team-players" wx:if="{{item.captain || item.players.length}}">
