@@ -193,7 +193,7 @@
         data-openid="{{item.openid}}"
         bindtap="onPickSubstitute"
       >
-        <player-card player="{{item}}" card-style="{{item.cardStyle}}" />
+        <player-card class="substitute-card" player="{{item}}" card-style="{{item.cardStyle}}" />
       </view>
     </scroll-view>
     <view class="btn btn-plain" bindtap="onCloseSubstitution">取消</view>

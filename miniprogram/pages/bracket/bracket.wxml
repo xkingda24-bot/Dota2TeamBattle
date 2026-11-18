@@ -514,7 +514,7 @@
           data-openid="{{item.openid}}"
           bindtap="onPickRosterReplacement"
         >
-          <player-card player="{{item}}" card-style="{{item.cardStyle}}" />
+          <player-card class="roster-card" player="{{item}}" card-style="{{item.cardStyle}}" />
         </view>
       </scroll-view>
       <view class="btn btn-plain" bindtap="onCloseRosterReplacement">取消</view>
