@@ -1,6 +1,6 @@
 const assert = require('assert');
 const { RANK_VERIFICATION_TTL } = require('./card-profile');
-const { buildAdminUsers, sortAdminUsers, buildAdminRoster } = require('./admin-users');
+const { buildAdminUsers, sortAdminUsers, buildAdminRoster, filterAdminUsers, normalizeAdminUserKeyword } = require('./admin-users');
 
 const now = Date.UTC(2026, 9, 23, 12, 0, 0);
 const records = [
@@ -56,4 +56,13 @@ assert.strictEqual(buildAdminRoster(['user-a'], users, 'user-a')[0].isSuper, tru
 assert.deepStrictEqual(buildAdminRoster([], users, 'user-a'), [], '没有管理员时返回空名册');
 assert.deepStrictEqual(buildAdminRoster(null, users, 'user-a'), [], '非数组入参返回空名册');
 
-console.log('Verified admin user listing tests passed.');
+// 用户搜索：用户名模糊匹配（忽略大小写），Dota ID 支持片段，空关键词返回全部。
+assert.deepStrictEqual(filterAdminUsers(users, 'ada').map((user) => user.openid), ['user-a']);
+assert.deepStrictEqual(filterAdminUsers(users, '654321').map((user) => user.openid), ['user-b']);
+assert.deepStrictEqual(filterAdminUsers(users, '  波  ').map((user) => user.openid), ['user-b']);
+assert.strictEqual(filterAdminUsers(users, '').length, users.length);
+assert.deepStrictEqual(filterAdminUsers(users, '不存在'), []);
+assert.strictEqual(normalizeAdminUserKeyword('  AbC  '), 'abc');
+assert.strictEqual(normalizeAdminUserKeyword('x'.repeat(40)).length, 30, '搜索词最多保留 30 字');
+
+console.log('Verified admin user listing and search tests passed.');

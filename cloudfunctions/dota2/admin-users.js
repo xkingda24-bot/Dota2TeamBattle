@@ -33,6 +33,21 @@ function sortAdminUsers(users, sortBy, order) {
   });
 }
 
+function normalizeAdminUserKeyword(keyword) {
+  return String(keyword || '').trim().slice(0, 30).toLowerCase();
+}
+
+function filterAdminUsers(users, keyword) {
+  const source = Array.isArray(users) ? users : [];
+  const normalized = normalizeAdminUserKeyword(keyword);
+  if (!normalized) return source.slice();
+  return source.filter((user) => {
+    const nickname = String(user && user.nickname || '').toLowerCase();
+    const dota2Id = String(user && user.dota2Id || '').toLowerCase();
+    return nickname.indexOf(normalized) >= 0 || dota2Id.indexOf(normalized) >= 0;
+  });
+}
+
 function buildAdminUsers(records, superAdminOpenid, sortBy, order, now) {
   const source = (records || []).filter(Boolean);
   const openids = Array.from(new Set(source.reduce((ids, record) => {
@@ -87,4 +102,11 @@ function buildAdminRoster(adminOpenids, users, superAdminOpenid) {
   return roster;
 }
 
-module.exports = { ADMIN_USER_SORT_FIELDS, sortAdminUsers, buildAdminUsers, buildAdminRoster };
+module.exports = {
+  ADMIN_USER_SORT_FIELDS,
+  sortAdminUsers,
+  normalizeAdminUserKeyword,
+  filterAdminUsers,
+  buildAdminUsers,
+  buildAdminRoster,
+};

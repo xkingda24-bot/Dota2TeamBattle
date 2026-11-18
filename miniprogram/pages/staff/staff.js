@@ -49,6 +49,7 @@ Page({
     userListPageCount: 1,
     userListSortBy: 'nickname',
     userListOrder: 'asc',
+    userListKeyword: '',
     // 资料编辑弹窗
     profileModal: false,
     pf: {
@@ -172,25 +173,32 @@ Page({
       userListPageCount: 1,
       userListSortBy: 'nickname',
       userListOrder: 'asc',
+      userListKeyword: '',
     });
     this.loadUserList({ page: 1, sortBy: 'nickname', order: 'asc' });
   },
 
   loadUserList(options) {
     const opts = options || {};
-    if (!this.data.isSuper || this.data.listLoading) return;
+    if (!this.data.isSuper) return Promise.resolve();
     const page = Math.max(1, Number(opts.page || this.data.userListPage) || 1);
     const sortBy = opts.sortBy || this.data.userListSortBy;
     const order = opts.order || this.data.userListOrder;
-    this.setData({ listLoading: true, userListError: '' });
+    const keyword = opts.keyword !== undefined ? String(opts.keyword || '') : this.data.userListKeyword;
+    // 搜索可能在前一次请求未结束时继续触发，只让最后一次请求更新列表。
+    const requestId = (this._userListRequestId || 0) + 1;
+    this._userListRequestId = requestId;
+    this.setData({ listLoading: true, userListError: '', userListKeyword: keyword });
     return api
       .call('listUsers', {
         page,
         pageSize: this.data.userListPageSize,
         sortBy,
         order,
+        keyword,
       })
       .then((d) => {
+        if (requestId !== this._userListRequestId) return;
         const users = (d.users || []).map((user) => Object.assign({}, user, {
           mmrText: user.mmr === null || user.mmr === undefined || user.mmr === '' ? '未填写天梯分' : '天梯 ' + user.mmr,
           dotaIdText: user.dota2Id || '未填写 ID',
@@ -208,16 +216,41 @@ Page({
           userListPageCount: Math.max(1, Math.ceil(total / (Number(d.pageSize) || this.data.userListPageSize))),
           userListSortBy: d.sortBy || sortBy,
           userListOrder: d.order || order,
+          userListKeyword: d.keyword === undefined ? keyword : d.keyword,
           listLoading: false,
         });
       })
       .catch((e) => {
+        if (requestId !== this._userListRequestId) return;
         this.setData({ listLoading: false, userListError: e.message || '用户列表加载失败，请重试' });
       });
   },
 
   onRetryUserList() {
     this.loadUserList();
+  },
+
+  runUserSearch(value) {
+    if (this._userSearchTimer) clearTimeout(this._userSearchTimer);
+    this._userSearchTimer = null;
+    const keyword = String(value || '');
+    this.setData({ userListKeyword: keyword, userListPage: 1 });
+    this.loadUserList({ page: 1, keyword });
+  },
+
+  onUserSearchInput(e) {
+    const keyword = String(e.detail.value || '');
+    this.setData({ userListKeyword: keyword });
+    if (this._userSearchTimer) clearTimeout(this._userSearchTimer);
+    this._userSearchTimer = setTimeout(() => this.runUserSearch(keyword), 400);
+  },
+
+  onUserSearchConfirm(e) {
+    this.runUserSearch(e.detail.value === undefined ? this.data.userListKeyword : e.detail.value);
+  },
+
+  onClearUserSearch() {
+    this.runUserSearch('');
   },
 
   onChangeUserSort(e) {
@@ -241,7 +274,10 @@ Page({
   },
 
   onCloseUserList() {
-    this.setData({ userListModal: false });
+    if (this._userSearchTimer) clearTimeout(this._userSearchTimer);
+    this._userSearchTimer = null;
+    this._userListRequestId = (this._userListRequestId || 0) + 1;
+    this.setData({ userListModal: false, listLoading: false });
   },
 
   /* ---------- 超管：设置 / 取消普通管理员（全量提交，≤ 20 人） ---------- */

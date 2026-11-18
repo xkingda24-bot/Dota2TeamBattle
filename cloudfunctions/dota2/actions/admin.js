@@ -4,7 +4,7 @@
 const { db } = require('../db');
 const { ok, fail, getOpenId } = require('../utils');
 const { isSuper, getAdminsConfig } = require('../permissions');
-const { ADMIN_USER_SORT_FIELDS, buildAdminUsers, buildAdminRoster } = require('../admin-users');
+const { ADMIN_USER_SORT_FIELDS, buildAdminUsers, buildAdminRoster, filterAdminUsers } = require('../admin-users');
 const { ADMIN_USER_LIST_FIELDS } = require('../query-projections');
 
 module.exports = {
@@ -17,6 +17,7 @@ module.exports = {
     const pageSize = Math.min(50, Math.max(1, Math.floor(Number(event.pageSize) || 20)));
     const sortBy = ADMIN_USER_SORT_FIELDS.indexOf(event.sortBy) >= 0 ? event.sortBy : 'nickname';
     const order = event.order === 'desc' ? 'desc' : 'asc';
+    const keyword = String(event.keyword || '').trim().slice(0, 30);
     const records = [];
     let offset = 0;
     while (true) {
@@ -32,8 +33,9 @@ module.exports = {
       if (batch.length < 100) break;
     }
     const sortedUsers = buildAdminUsers(records, cfg.superAdmin, sortBy, order);
+    const filteredUsers = filterAdminUsers(sortedUsers, keyword);
     const start = (page - 1) * pageSize;
-    const users = sortedUsers.slice(start, start + pageSize);
+    const users = filteredUsers.slice(start, start + pageSize);
     return ok({
       users,
       admins: Array.isArray(cfg.admins) ? cfg.admins : [],
@@ -41,8 +43,9 @@ module.exports = {
       adminRoster: buildAdminRoster(cfg.admins, sortedUsers, cfg.superAdmin),
       page,
       pageSize,
-      total: sortedUsers.length,
-      hasMore: start + users.length < sortedUsers.length,
+      total: filteredUsers.length,
+      hasMore: start + users.length < filteredUsers.length,
+      keyword,
       sortBy,
       order,
     });

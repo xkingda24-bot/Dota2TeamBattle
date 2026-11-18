@@ -73,7 +73,7 @@
   <!-- 超管：只读用户列表 -->
   <view class="card" wx:if="{{isSuper}}">
     <view class="card-title">用户列表查看</view>
-    <view class="sub">分页查看全部用户，可按 Dota ID、天梯分、用户名或段位排序。</view>
+    <view class="sub">分页查看全部用户，支持搜索用户名或 Dota ID，可按天梯分、段位等排序。</view>
     <view class="btn" bindtap="onOpenUserList">查看用户列表</view>
   </view>
   </block>
@@ -99,6 +99,19 @@
         </view>
       </view>
     </view>
+    <view class="user-search-row">
+      <input
+        class="input user-search-input"
+        value="{{userListKeyword}}"
+        maxlength="30"
+        confirm-type="search"
+        placeholder="搜索用户名或 Dota ID"
+        placeholder-class="ph"
+        bindinput="onUserSearchInput"
+        bindconfirm="onUserSearchConfirm"
+      />
+      <view wx:if="{{userListKeyword}}" class="user-search-clear" bindtap="onClearUserSearch">清空</view>
+    </view>
     <view class="sort-label">排序（点击切换升序 / 降序）</view>
     <view class="user-sort-options">
       <view class="user-sort-option {{userListSortBy === 'dota2Id' ? 'user-sort-active' : ''}}" data-sort="dota2Id" bindtap="onChangeUserSort">Dota ID{{userListSortBy === 'dota2Id' ? (userListOrder === 'asc' ? ' ↑' : ' ↓') : ''}}</view>
@@ -111,7 +124,7 @@
       <view>{{userListError}}</view>
       <view class="btn-small btn-plain" bindtap="onRetryUserList">重试</view>
     </view>
-    <view wx:elif="{{userList.length === 0}}" class="empty">暂无用户记录</view>
+    <view wx:elif="{{userList.length === 0}}" class="empty">{{userListKeyword ? '没有找到匹配的用户' : '暂无用户记录'}}</view>
     <scroll-view wx:else class="admin-user-scroll" scroll-y>
       <view
         class="admin-user-row"
