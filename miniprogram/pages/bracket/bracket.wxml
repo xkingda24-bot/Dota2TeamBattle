@@ -111,7 +111,6 @@
           </view>
           <view class="tn-actions" wx:if="{{nd.stage === 'UB1'}}">
             <view wx:if="{{nd.canEditA}}" class="tn-btn tn-btn-config" data-openid="{{nd.teamACaptain.openid}}" data-name="{{nd.teamACaptain.teamName || ''}}" data-icon="{{nd.teamACaptain.teamIcon || ''}}" data-title="{{nd.displayA}}" catchtap="openTeamConfig">设置队名和队标</view>
-            <view class="tn-btn tn-btn-members" data-mid="{{nd.id}}" data-side="A" catchtap="showMembers">人员详情</view>
           </view>
           <view class="tree-node-team tree-node-team-clickable {{nd.status === 'done' && nd.winner === nd.teamBInfo.openid ? 'win' : ''}}" data-mid="{{nd.id}}" data-side="B" bindtap="showMembers">
             <text wx:if="{{nd.teamBInfo.teamIconEmoji}}" class="team-logo-mark tree-team-logo">{{nd.teamBInfo.teamIconEmoji}}</text>
@@ -120,7 +119,6 @@
           </view>
           <view class="tn-actions" wx:if="{{nd.stage === 'UB1'}}">
             <view wx:if="{{nd.canEditB}}" class="tn-btn tn-btn-config" data-openid="{{nd.teamBCaptain.openid}}" data-name="{{nd.teamBCaptain.teamName || ''}}" data-icon="{{nd.teamBCaptain.teamIcon || ''}}" data-title="{{nd.displayB}}" catchtap="openTeamConfig">设置队名和队标</view>
-            <view class="tn-btn tn-btn-members" data-mid="{{nd.id}}" data-side="B" catchtap="showMembers">人员详情</view>
           </view>
           <view class="tree-node-admin" wx:if="{{nd.showAdmin && nd.status !== 'done'}}">
             <picker mode="selector" range="{{nd.boRange}}" value="{{nd.boIndex}}" bindchange="onBoChange" data-id="{{nd.id}}">
