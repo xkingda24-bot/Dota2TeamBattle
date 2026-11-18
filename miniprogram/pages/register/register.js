@@ -577,7 +577,7 @@ Page({
     if (!t || this.data.readonly || !this.data.canManage) return;
     wx.showModal({
       title: '开始选人',
-      content: '将随机排序 ' + t.N + ' 位队长并按蛇形顺序选人，确定开始？',
+      content: '将按天梯分从低到高排序 ' + t.N + ' 位队长（未填写天梯分的排最后），并按蛇形顺序选人，确定开始？',
       success: (res) => {
         if (res.confirm) {
           api

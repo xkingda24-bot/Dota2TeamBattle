@@ -141,7 +141,7 @@
       <view class="btn btn-plain {{testFillSubmitting ? 'btn-disabled' : ''}}" wx:if="{{t.status === 'registration' && t.isSuper}}" bindtap="onFillTestData">{{testFillSubmitting ? '正在补全…' : '用测试数据补全报名'}}</view>
       <view class="btn btn-plain" wx:if="{{t.status === 'registration'}}" bindtap="onEditConfig">修改比赛配置</view>
       <view class="btn {{grouping ? 'btn-disabled' : ''}}" wx:if="{{t.status === 'registration' && t.mode === 'auto'}}" aria-disabled="{{grouping}}" bindtap="onAutoGroup">{{grouping ? '正在分组…' : '进行系统分组'}}</view>
-      <view class="btn" wx:if="{{t.status === 'registration' && t.mode !== 'auto'}}" bindtap="onStartDraft">开始选人（随机排序队长）</view>
+      <view class="btn" wx:if="{{t.status === 'registration' && t.mode !== 'auto'}}" bindtap="onStartDraft">开始选人（天梯分低的队长先选）</view>
       <view class="btn btn-danger" wx:if="{{t.status === 'registration' && canDelete}}" bindtap="onDelete">删除比赛</view>
       <view class="btn btn-plain" wx:if="{{t.status !== 'registration'}}">当前阶段：{{t.status === 'draft' ? (t.mode === 'auto' ? '分组完成，等待生成对阵' : '选人中') : t.status === 'battle' ? '对战中' : '已结束'}}</view>
     </view>
