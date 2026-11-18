@@ -5,7 +5,7 @@
 const { cloud, db, _ } = require('../db');
 const { ok, fail, getOpenId, updateTournamentDoc } = require('../utils');
 const { MAX_N, MAX_K } = require('../constants');
-const { isSuper, canDeleteTournament } = require('../permissions');
+const { isAdmin, canDeleteTournament } = require('../permissions');
 const { getUser } = require('../users');
 const {
   getTournamentById,
@@ -25,7 +25,7 @@ const { checkUserText } = require('../content-security');
 const SCENE_CONTENT = 3;
 
 module.exports = {
-  /* 创建比赛（所有用户）：每日最多两场，报名需暗号 */
+  /* 创建比赛（普通管理员或超级管理员）：每日最多 20 场，报名需暗号 */
   async createTournament(event) {
     const name = String(event.name || '').trim();
     const time = String(event.time || '').trim();
@@ -42,6 +42,9 @@ module.exports = {
     if (!isFinite(waitLimit) || waitLimit < 0 || waitLimit > 20) return fail('替补数量需在 0-20 之间');
     const openid = getOpenId();
     if (!openid) return fail('无法识别当前用户');
+    const adminFlag = await isAdmin(openid);
+    if (!adminFlag) return fail('只有普通管理员或超级管理员可以创建比赛');
+    const createLimit = createDailyLimit(adminFlag);
 
     // UGC 内容安全检测：比赛名称会公开展示，暗号对报名者展示
     const nameCheck = await checkUserText(cloud, openid, SCENE_CONTENT, name);
@@ -50,7 +53,6 @@ module.exports = {
     if (!secretCheck.ok) return fail(secretCheck.message);
 
     const me = await getUser(openid);
-    const createLimit = createDailyLimit(await isSuper(openid));
     const now = Date.now();
     const range = chinaDayRange(now);
     const quotaId = createQuotaId(openid, range.dayKey);
@@ -90,7 +92,7 @@ module.exports = {
           .get();
         const existingCount = (existing && existing.data || []).length;
         const used = effectiveDailyCount(quota && quota.count, existingCount);
-        if (used >= createLimit) return { error: '每位用户每天最多创建 ' + createLimit + ' 场比赛' };
+        if (used >= createLimit) return { error: '每位管理员每天最多创建 ' + createLimit + ' 场比赛' };
         const tournament = await transaction.collection('tournaments').add({ data: tournamentData });
         const quotaData = {
           key: 'createQuota',

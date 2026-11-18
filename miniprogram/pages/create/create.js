@@ -14,8 +14,9 @@ Page({
     accessCheckFailed: false,
     accessMessage: '',
     isSuper: false,
-    todayCreateRemaining: 5,
-    todayCreateLimit: 5,
+    canCreate: false,
+    todayCreateRemaining: 0,
+    todayCreateLimit: 20,
     name: '',
     secret: '',
     date: '',
@@ -50,7 +51,7 @@ Page({
       return;
     }
 
-    // 所有用户都可以创建，服务端会校验每日额度
+    // 仅普通管理员和超级管理员可以创建，服务端会再次校验权限与每日额度
     this.setData({ checkingAccess: true });
     this.checkCreateAccess();
   },
@@ -107,13 +108,23 @@ Page({
     return api
       .call('home', { todayStart })
       .then((d) => {
+        if (!d.canCreate) {
+          this.setData({
+            checkingAccess: false,
+            accessCheckFailed: true,
+            canCreate: false,
+            accessMessage: '只有普通管理员或超级管理员可以创建比赛',
+          });
+          return;
+        }
         this.setData({
           checkingAccess: false,
           accessCheckFailed: false,
           accessMessage: '',
           isSuper: !!d.isSuper,
-          todayCreateRemaining: d.todayCreateRemaining == null ? 5 : Number(d.todayCreateRemaining),
-          todayCreateLimit: Number(d.todayCreateLimit || d.dailyLimit) || 5,
+          canCreate: true,
+          todayCreateRemaining: d.todayCreateRemaining == null ? 0 : Number(d.todayCreateRemaining),
+          todayCreateLimit: Number(d.todayCreateLimit || d.dailyLimit) || 20,
         });
       })
       .catch((e) => {
@@ -169,6 +180,10 @@ Page({
 
   submit() {
     if (this.data.submitting || this.data.pageLoading || this.data.checkingAccess || this.data.accessCheckFailed) return;
+    if (!this.data.editMode && !this.data.canCreate) {
+      wx.showToast({ title: '仅管理员可创建比赛', icon: 'none' });
+      return;
+    }
     if (!this.data.editMode && this.data.todayCreateRemaining <= 0) {
       wx.showToast({ title: '今天创建比赛的次数已用完', icon: 'none' });
       return;

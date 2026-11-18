@@ -12,9 +12,10 @@ Page({
     user: null,
     isSuper: false,
     hasSuper: false,
+    canCreate: false,
     todayCreateCount: 0,
-    todayCreateRemaining: 5,
-    todayCreateLimit: 5,
+    todayCreateRemaining: 0,
+    todayCreateLimit: 20,
     today: [],
     older: [],
     // 积分入口常驻主页；服务不可用时仍显示状态，避免功能被静默隐藏。
@@ -140,9 +141,10 @@ Page({
           user: d.user,
           isSuper: !!d.isSuper,
           hasSuper: !!d.hasSuper,
+          canCreate: !!d.canCreate,
           todayCreateCount: Number(d.todayCreateCount) || 0,
-          todayCreateRemaining: d.todayCreateRemaining == null ? 5 : Number(d.todayCreateRemaining),
-          todayCreateLimit: Number(d.todayCreateLimit || d.dailyLimit) || 5,
+          todayCreateRemaining: d.todayCreateRemaining == null ? 0 : Number(d.todayCreateRemaining),
+          todayCreateLimit: Number(d.todayCreateLimit || d.dailyLimit) || 20,
           today,
           // 首页不再预取历史；已展开时顺手刷新，收起时等下次展开再拉
           historyLoaded: this.data.historyExpanded ? this.data.historyLoaded : false,
@@ -401,6 +403,10 @@ Page({
   },
 
   goCreate() {
+    if (!this.data.canCreate) {
+      wx.showToast({ title: '仅管理员可创建比赛', icon: 'none' });
+      return;
+    }
     wx.navigateTo({ url: '/pages/create/create' });
   },
 

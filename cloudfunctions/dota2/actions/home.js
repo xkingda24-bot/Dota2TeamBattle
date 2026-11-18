@@ -17,15 +17,17 @@ module.exports = {
     const openid = getOpenId();
     const [user, cfg] = await Promise.all([getUser(openid), getAdminsConfig()]);
     const isSuperFlag = openid === cfg.superAdmin;
+    const isAdminFlag = isSuperFlag || (Array.isArray(cfg.admins) && cfg.admins.indexOf(openid) >= 0);
     // 客户端传入"今天 0 点"的时间戳，避免云函数时区差异
     const todayStart = Number(event.todayStart) || 0;
     const todayFilter = todayStart ? { createdAt: _.gte(todayStart) } : {};
     const todayActive = await getRecentTournamentSummaries(todayFilter, 30, openid, false);
-    const createStats = await getTodayCreateStats(openid, Date.now(), isSuperFlag);
+    const createStats = await getTodayCreateStats(openid, Date.now(), isAdminFlag);
     return ok({
       user,
-      // 创建入口对所有已登录用户开放；赛事操作权限由每场摘要的 canManage 控制。
-      canCreate: !!openid,
+      // 仅普通管理员和超级管理员可创建；普通用户不显示创建入口。
+      canCreate: isAdminFlag,
+      isAdmin: isAdminFlag,
       isSuper: isSuperFlag,
       hasSuper: !!cfg.superAdmin,
       ...createStats,

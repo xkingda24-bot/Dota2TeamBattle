@@ -9,10 +9,11 @@
       <view class="hero-kicker">COMMUNITY LEAGUE</view>
       <view class="hero-title">今晚，组队开战</view>
       <view class="hero-subtitle">和熟悉的队友，一起打出属于你们的精彩。</view>
-      <view class="hero-action" bindtap="goCreate" hover-class="hero-action-pressed">
+      <view wx:if="{{canCreate}}" class="hero-action" bindtap="goCreate" hover-class="hero-action-pressed">
         <text>创建比赛</text><text class="hero-action-icon">＋</text>
       </view>
-      <view class="hero-hint">今日还可创建 {{todayCreateRemaining}} / {{todayCreateLimit}} 场比赛</view>
+      <view wx:if="{{canCreate}}" class="hero-hint">今日还可创建 {{todayCreateRemaining}} / {{todayCreateLimit}} 场比赛</view>
+      <view wx:elif="{{!loading && !loadError}}" class="hero-hint">仅普通管理员和超级管理员可创建比赛</view>
     </view>
     <view class="hero-rune" aria-hidden="true">✦</view>
   </view>
@@ -21,7 +22,7 @@
     <view class="setup-mark">!</view>
     <view class="setup-copy">
       <view class="setup-title">尚未初始化最高管理员</view>
-    <view class="setup-desc">所有用户都可创建比赛；初始化后超管可管理全部赛事</view>
+      <view class="setup-desc">仅管理员可创建比赛；初始化后超管可管理全部赛事</view>
     </view>
     <view class="setup-arrow">›</view>
   </view>

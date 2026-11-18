@@ -17,12 +17,11 @@ function effectiveDailyCount(quotaCount, existingTournamentCount) {
   return Math.max(Number(quotaCount) || 0, Number(existingTournamentCount) || 0);
 }
 
-const DAILY_CREATE_LIMIT = 5;
-const SUPER_DAILY_CREATE_LIMIT = 200;
+const DAILY_CREATE_LIMIT = 20;
 
-// 每日创建上限：最高管理员 200 场，其余用户 5 场
-function createDailyLimit(isSuperFlag) {
-  return isSuperFlag === true ? SUPER_DAILY_CREATE_LIMIT : DAILY_CREATE_LIMIT;
+// 只有普通管理员和超级管理员可以创建比赛，每日上限统一为 20 场。
+function createDailyLimit(isAdminFlag) {
+  return isAdminFlag === true ? DAILY_CREATE_LIMIT : 0;
 }
 
 module.exports = {
@@ -31,6 +30,5 @@ module.exports = {
   createQuotaId,
   effectiveDailyCount,
   DAILY_CREATE_LIMIT,
-  SUPER_DAILY_CREATE_LIMIT,
   createDailyLimit,
 };

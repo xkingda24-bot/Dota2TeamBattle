@@ -14,8 +14,8 @@ assert.notStrictEqual(createQuotaId('openid-a', before.dayKey), createQuotaId('o
 assert.notStrictEqual(createQuotaId('openid-a', before.dayKey), createQuotaId('openid-a', after.dayKey));
 assert.strictEqual(effectiveDailyCount(2, 0), 2, 'permanent deletions do not return already consumed quota');
 assert.strictEqual(effectiveDailyCount(1, 2), 2, 'existing same-day matches are counted during migration');
-assert.strictEqual(createDailyLimit(true), 200, 'super admin can create 200 tournaments per day');
-assert.strictEqual(createDailyLimit(false), 5, 'regular users keep the 5 per day limit');
-assert.strictEqual(createDailyLimit(undefined), 5, 'missing flag falls back to the regular limit');
+assert.strictEqual(createDailyLimit(true), 20, 'ordinary and super admins share the 20 per day limit');
+assert.strictEqual(createDailyLimit(false), 0, 'regular users cannot create tournaments');
+assert.strictEqual(createDailyLimit(undefined), 0, 'missing admin flag denies creation');
 
 console.log('Daily tournament quota tests passed.');
