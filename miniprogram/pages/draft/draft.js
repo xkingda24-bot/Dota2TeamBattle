@@ -349,7 +349,7 @@ Page({
     if (!t || this.data.readonly || !this.data.canManage) return;
     wx.showModal({
       title: '重置选人',
-      content: '将按天梯分从低到高重新排序队长（未填写天梯分的排最后）并清空所有已选队员，确定重置？',
+      content: '将按最新天梯分从低到高重新排序队长（未填写天梯分的排最后）并清空所有已选队员，确定重置？',
       success: (res) => {
         if (res.confirm) {
           api

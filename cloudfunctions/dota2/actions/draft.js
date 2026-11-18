@@ -8,17 +8,19 @@ const { canManageTournament } = require('../permissions');
 const { getTournamentById, requireTournamentManager } = require('../tournaments');
 const { mutateTournament } = require('../tournament-transaction');
 const { replaceAutoGroupMember } = require('../grouping');
-const { replaceBattleCaptain } = require('../registration');
+const { replaceBattleCaptain, syncRegistrationProfiles } = require('../registration');
+const { syncTournamentRegistrations } = require('../users');
 const { sortCaptainsByMmr } = require('../draft-order');
 
 module.exports = {
-  /* 开始选人（比赛创建者或最高管理员）：天梯分低的队长先选，初始化蛇形轮次 */
+  /* 开始选人（比赛创建者或最高管理员）：同步最新资料，天梯分低的队长先选，初始化蛇形轮次 */
   async startDraft(event) {
     const managed = await requireTournamentManager(event);
     if (managed.error) return fail(managed.error);
+    const latestProfiles = await syncTournamentRegistrations(managed.tournament);
     const result = await mutateTournament(db, event.id, (t) => {
       if (t.status !== 'registration') return { error: '当前不在报名阶段' };
-      const registrations = Array.isArray(t.registrations) ? t.registrations : [];
+      const registrations = syncRegistrationProfiles(t.registrations, latestProfiles.profiles).registrations;
       const captains = registrations.filter((r) => r.role === 'captain');
       const players = registrations.filter((r) => r.role === 'player');
       if (captains.length < t.N) return { error: '队长尚未报满（' + captains.length + '/' + t.N + '）' };
@@ -35,6 +37,7 @@ module.exports = {
       }));
       return {
         data: {
+          registrations,
           status: 'draft',
           captainOrder,
           draft: _.set({ turn: 0, picks: captainOrder.map(() => []) }),
@@ -92,13 +95,15 @@ module.exports = {
     return ok({ picked: playerOpenid, teamIndex: capIdx, done });
   },
 
-  /* 重置选人（比赛创建者或最高管理员）：按天梯分重新排序并清空已选 */
+  /* 重置选人（比赛创建者或最高管理员）：同步最新资料，按天梯分重新排序并清空已选 */
   async resetDraft(event) {
     const managed = await requireTournamentManager(event, false);
     if (managed.error) return fail(managed.error);
     const t = managed.tournament;
     if (t.status !== 'draft') return fail('当前不在选人阶段');
-    const captains = (t.registrations || []).filter((r) => r.role === 'captain');
+    const latestProfiles = await syncTournamentRegistrations(t);
+    const registrations = syncRegistrationProfiles(t.registrations, latestProfiles.profiles).registrations;
+    const captains = registrations.filter((r) => r.role === 'captain');
     const captainOrder = sortCaptainsByMmr(captains).map((c) => ({
       openid: c.openid,
       nickname: c.nickname,
@@ -111,6 +116,7 @@ module.exports = {
     }));
     await updateTournamentDoc(t._id, {
       data: {
+        registrations,
         captainOrder,
         draft: _.set({ turn: 0, picks: captainOrder.map(() => []) }),
       },
