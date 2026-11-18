@@ -1269,7 +1269,7 @@ Page({
     const lbStages = [...new Set(lbMatches.map((m) => m.stage))].sort((a, b) => stageRank(a) - stageRank(b));
     const gfMatch = matches.find((m) => m.stage === 'GF') || null;
     const COLS = Math.max(ubStages.length, lbStages.length);
-    const NODE_W = 340;
+    const NODE_W = 310;
     const NODE_H = 230;
     const GAP = 70;
     const ZONE_GAP = 150;
