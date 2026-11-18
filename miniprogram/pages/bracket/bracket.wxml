@@ -501,6 +501,26 @@
     </view>
   </view>
 
+  <!-- 队长模式阵容调整：点「替换」直接给出换上队员列表 -->
+  <view class="mask" wx:if="{{rosterReplacement.show}}">
+    <view class="panel">
+      <view class="card-title">替换{{rosterReplacement.outIsCaptain ? '队长 ' : ''}}{{rosterReplacement.outNickname}}</view>
+      <view class="sub">{{rosterReplacement.teamName}} · 选择换上队员；若换上替补，换下队员会进入替补席。</view>
+      <scroll-view scroll-y class="roster-replacement-list">
+        <view
+          wx:for="{{rosterReplacement.inPlayers}}"
+          wx:key="openid"
+          class="replacement-option"
+          data-openid="{{item.openid}}"
+          bindtap="onPickRosterReplacement"
+        >
+          <player-card player="{{item}}" card-style="{{item.cardStyle}}" />
+        </view>
+      </scroll-view>
+      <view class="btn btn-plain" bindtap="onCloseRosterReplacement">取消</view>
+    </view>
+  </view>
+
   <!-- 比赛管理者替换队员 -->
   <view class="mask" wx:if="{{replacementPanel.show}}">
     <view class="panel">

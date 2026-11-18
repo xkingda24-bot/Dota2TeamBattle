@@ -144,6 +144,7 @@ Page({
     bracketTypeVisible: false,
     bracketTypeSaving: false,
     replacementPanel: { show: false, selecting: '', teamIndex: -1, teamName: '', outPlayers: [], inPlayers: [], outIndex: 0, inIndex: 0, incomingLabel: '' },
+    rosterReplacement: { show: false, teamIndex: -1, teamName: '', outOpenid: '', outNickname: '', outIsCaptain: false, inPlayers: [] },
     rosterSaving: false,
     rosterEditable: false,
     waitlistPlayers: [],
@@ -1626,14 +1627,9 @@ Page({
     });
   },
 
-  replacementIncomingPlayers(entry, outIndex) {
-    const selected = entry && entry.outPlayers ? entry.outPlayers[outIndex] : null;
-    if (selected && selected.isCaptain) return (entry.captainInPlayers || []);
-    return (entry && entry.inPlayers) || [];
-  },
-
+  /* 队长模式阵容调整：点「替换」直接给出换上队员列表，换下者即被点击的队员 */
   onOpenReplacement(e) {
-    if (!this.data.canManage || this.data.readonly || this.data.replacementSaving) return;
+    if (!this.data.canManage || this.data.readonly || this.data.rosterSaving) return;
     const dataset = e.currentTarget.dataset || {};
     const entry = dataset.teamIndex !== undefined
       ? this.data.replacementTeams.find((team) => team.teamIndex === Number(dataset.teamIndex))
@@ -1642,27 +1638,70 @@ Page({
       wx.showToast({ title: '该队暂无可替换队员', icon: 'none' });
       return;
     }
-    const selectedOpenid = String(e.currentTarget.dataset.openid || '');
+    const selectedOpenid = String(dataset.openid || '');
     const selectedIndex = selectedOpenid ? entry.outPlayers.findIndex((player) => player.openid === selectedOpenid) : 0;
-    if (selectedIndex < 0) return;
-    const inPlayers = this.replacementIncomingPlayers(entry, selectedIndex);
+    if (selectedIndex < 0) {
+      wx.showToast({ title: '这名队员不在当前阵容里，请刷新后重试', icon: 'none' });
+      return;
+    }
+    const outPlayer = entry.outPlayers[selectedIndex];
+    const inPlayers = outPlayer && outPlayer.isCaptain ? (entry.captainInPlayers || []) : (entry.inPlayers || []);
     if (!inPlayers.length) {
-      const captain = selectedOpenid && entry.outPlayers[selectedIndex] && entry.outPlayers[selectedIndex].isCaptain;
-      wx.showToast({ title: captain ? '替补席为空，暂无可替换队长的队员' : '暂无可换上队员（未选队员或替补席为空）', icon: 'none' });
+      wx.showToast({ title: outPlayer && outPlayer.isCaptain ? '替补席为空，暂无可替换队长的队员' : '暂无可换上队员（未选队员或替补席为空）', icon: 'none' });
       return;
     }
     this.setData({
-      replacementPanel: Object.assign({}, entry, {
+      groupSelection: { teamIndex: -1, openid: '', nickname: '' },
+      rosterReplacement: {
         show: true,
-        outIndex: selectedIndex,
-        inIndex: 0,
-        allInPlayers: entry.inPlayers.slice(),
-        baseIncomingLabel: entry.incomingLabel,
-        inPlayers: inPlayers.slice(),
-        incomingLabel: entry.outPlayers[selectedIndex] && entry.outPlayers[selectedIndex].isCaptain
-          ? entry.captainIncomingLabel || '替补席'
-          : entry.incomingLabel,
-      }),
+        teamIndex: entry.teamIndex,
+        teamName: entry.teamName,
+        outOpenid: outPlayer.openid,
+        outNickname: outPlayer.label || outPlayer.nickname || '队员',
+        outIsCaptain: !!outPlayer.isCaptain,
+        inPlayers,
+      },
+    });
+  },
+
+  onCloseRosterReplacement() {
+    if (this.data.rosterSaving) return;
+    this.setData({ rosterReplacement: { show: false, teamIndex: -1, teamName: '', outOpenid: '', outNickname: '', outIsCaptain: false, inPlayers: [] } });
+  },
+
+  onPickRosterReplacement(e) {
+    const t = this.data.t;
+    const panel = this.data.rosterReplacement;
+    const inOpenid = String(e.currentTarget.dataset.openid || '');
+    if (!t || !panel.show || !inOpenid || this.data.rosterSaving) return;
+    const inPlayer = (panel.inPlayers || []).find((player) => player.openid === inOpenid) || {};
+    const inNickname = inPlayer.nickname || '该队员';
+    wx.showModal({
+      title: panel.outIsCaptain ? '确认替换队长' : '确认替换队员',
+      content: panel.outIsCaptain
+        ? '用 ' + inNickname + ' 接任队长，原队长 ' + panel.outNickname + ' 进入替补席，确定继续？'
+        : '用 ' + inNickname + ' 换下 ' + panel.outNickname + '，换下队员会进入替补席，确定继续？',
+      success: (result) => {
+        if (!result.confirm) return;
+        this.setData({ rosterSaving: true });
+        api.call('replacePlayer', {
+          id: t.id,
+          teamIndex: panel.teamIndex,
+          outOpenid: panel.outOpenid,
+          inOpenid,
+        }).then(() => {
+          wx.showToast({ title: panel.outIsCaptain ? '队长已替换' : '队员已替换', icon: 'success' });
+          this.setData({
+            rosterSaving: false,
+            rosterReplacement: { show: false, teamIndex: -1, teamName: '', outOpenid: '', outNickname: '', outIsCaptain: false, inPlayers: [] },
+          });
+          this.load();
+        }).catch((error) => {
+          this.setData({ rosterSaving: false });
+          wx.showToast({ title: error.message || '替换队员失败', icon: 'none' });
+          this.load(true);
+        });
+      },
     });
   },
 
@@ -1684,14 +1723,13 @@ Page({
     if (!players || !players[index]) return;
     if (field === 'outIndex') {
       const selected = players[index];
-      const nextInPlayers = selected && selected.isCaptain ? (panel.captainInPlayers || []) : (panel.allInPlayers || []);
+      const nextInPlayers = selected && selected.isCaptain
+        ? (panel.captainInPlayers || [])
+        : (panel.allInPlayers || panel.inPlayers || []);
       this.setData({
         'replacementPanel.outIndex': index,
-        'replacementPanel.inPlayers': nextInPlayers.slice(),
+        'replacementPanel.inPlayers': (nextInPlayers || []).slice(),
         'replacementPanel.inIndex': 0,
-        'replacementPanel.incomingLabel': selected && selected.isCaptain
-          ? (panel.captainIncomingLabel || '替补席')
-          : (panel.baseIncomingLabel || panel.incomingLabel || ''),
         'replacementPanel.selecting': '',
       });
       return;

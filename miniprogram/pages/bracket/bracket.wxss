@@ -528,6 +528,8 @@
 .replacement-options-list { min-height:0; height:62vh; max-height:62vh; }
 .replacement-option { margin-top:12rpx; }
 .replacement-option:first-child { margin-top:0; }
+/* 队长模式替换列表：直接列出可换上队员 */
+.roster-replacement-list { min-height:0; height:56vh; max-height:56vh; margin-top:8rpx; }
 
 /* 分组页替补席（分组阶段仍可收替补，管理者可移出） */
 .waitlist-card { border-color: rgba(224,181,111,.28); }
