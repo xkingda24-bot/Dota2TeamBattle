@@ -329,8 +329,8 @@
       </view>
     </view>
 
-    <!-- 队长模式：选人完成后与系统分组页一致，直接在队伍卡片里交换 / 替换队员 -->
-    <view class="card group-edit-card" wx:if="{{rosterEditable && groupedTeams.length}}">
+    <!-- 队长模式：选人完成后与系统分组页一致，直接在队伍卡片里交换 / 替换队员（赛程生成后不再展示，改用人员详情） -->
+    <view class="card group-edit-card" wx:if="{{rosterEditable && groupedTeams.length && t.status !== 'battle'}}">
       <view class="card-title">阵容调整</view>
       <view class="group-average-summary">平均分最高 {{groupAverageStats.max}} · 最低 {{groupAverageStats.min}} · 相差 {{groupAverageStats.diff}} 分</view>
       <view class="sub">点击队员名片，再点其他队队员即可交换；点队员右侧「替换」可用未选队员或替补换人，队长也可被替补替换。已有比分后不可调整。</view>
