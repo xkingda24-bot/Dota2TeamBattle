@@ -8,6 +8,7 @@ const api = require('../../utils/api');
 const tournamentEntry = require('../../utils/tournament-entry');
 const { getTodayBoundary } = require('../../utils/date-time');
 const { itemId, mergeHistoryPage } = require('../../utils/history-merge');
+const { settleUntilDone } = require('../../utils/season-settle');
 
 const PAGE_SIZE = 20;
 const SEARCH_DEBOUNCE = 450;
@@ -48,6 +49,7 @@ Page({
     seasons: [],
     currentSeasonId: '',
     deleteBusyId: '',
+    settleBusyId: '',
     // 报名阶段进赛事的暗号弹窗
     secretModal: false,
     secretTargetId: '',
@@ -239,6 +241,47 @@ Page({
   onCloseSecret() {
     if (this.data.secretChecking) return;
     this.setData({ secretModal: false, secretInput: '', secretTargetId: '', secretTargetName: '' });
+  },
+
+  /* ---------- 未结算比赛：创建者 / 超管手动续跑积分结算 ---------- */
+
+  resumeSettlement(e) {
+    if (this.data.settleBusyId) return;
+    const item = this.data.items[Number(e.currentTarget.dataset.index)];
+    if (!item || !item.canDelete || item.settled) return;
+    const id = itemId(item);
+    if (!id) {
+      wx.showToast({ title: '赛事编号缺失，请刷新后重试', icon: 'none' });
+      return;
+    }
+    wx.showModal({
+      title: '继续结算积分',
+      content: '将为「' + item.name + '」补算剩余赛季积分，已算过的不会重复加分，确定？',
+      confirmText: '继续结算',
+      success: (res) => {
+        if (!res.confirm) return;
+        this.setData({ settleBusyId: id });
+        settleUntilDone(id, {
+          onProgress: (progress) => wx.showToast({
+            title: '积分结算中 ' + (Number(progress.appliedEntries) || 0) + '/' + (Number(progress.participantCount) || 0),
+            icon: 'none',
+            duration: 2000,
+          }),
+        })
+          .then(() => {
+            wx.showToast({ title: '积分已结算', icon: 'success' });
+            // 只更新这一场的结算标识，不打断当前分页位置
+            const items = this.data.items.map((entry) => (
+              itemId(entry) === id ? Object.assign({}, entry, { settled: true, settlementStatus: 'settled' }) : entry
+            ));
+            this.setData({ items });
+          })
+          .catch((err) => {
+            wx.showToast({ title: err.message || '补算失败，请稍后重试', icon: 'none', duration: 2500 });
+          })
+          .finally(() => this.setData({ settleBusyId: '' }));
+      },
+    });
   },
 
   /* ---------- 管理员删除 ---------- */

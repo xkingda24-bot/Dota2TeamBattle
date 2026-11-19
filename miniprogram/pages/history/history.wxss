@@ -123,6 +123,23 @@ page {
   background: rgba(224, 163, 106, 0.08);
   font-size: 19rpx;
 }
+.item-actions { display: flex; flex-direction: column; gap: 10rpx; flex: none; }
+.item-settle {
+  flex: none;
+  width: 132rpx;
+  min-width: 132rpx;
+  max-width: 132rpx;
+  min-height: 54rpx;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  border: 1rpx solid rgba(224, 181, 111, 0.38);
+  border-radius: 8rpx;
+  color: #dcc38d;
+  background: rgba(224, 181, 111, 0.1);
+  font-size: 21rpx;
+  font-weight: 600;
+}
 .item-delete {
   flex: none;
   width: 108rpx;

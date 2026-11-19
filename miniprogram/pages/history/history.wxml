@@ -60,13 +60,22 @@
         </view>
         <view wx:if="{{item.champion}}" class="item-meta item-champion">冠军：{{item.champion.name}}</view>
       </view>
-      <button
-        wx:if="{{item.canDelete}}"
-        class="item-delete"
-        data-index="{{index}}"
-        catch:tap="deleteItem"
-        hover-class="btn-pressed"
-      >{{deleteBusyId === item.id ? '处理中…' : '删除'}}</button>
+      <view class="item-actions">
+        <button
+          wx:if="{{!item.settled && item.canDelete}}"
+          class="item-settle"
+          data-index="{{index}}"
+          catch:tap="resumeSettlement"
+          hover-class="btn-pressed"
+        >{{settleBusyId === item.id ? '结算中…' : '继续结算'}}</button>
+        <button
+          wx:if="{{item.canDelete}}"
+          class="item-delete"
+          data-index="{{index}}"
+          catch:tap="deleteItem"
+          hover-class="btn-pressed"
+        >{{deleteBusyId === item.id ? '处理中…' : '删除'}}</button>
+      </view>
     </view>
   </view>
 
