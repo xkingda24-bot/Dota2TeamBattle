@@ -10,11 +10,11 @@ const { mutateTournament } = require('../tournament-transaction');
 const { replaceAutoGroupMember } = require('../grouping');
 const { replaceBattleCaptain, syncRegistrationProfiles } = require('../registration');
 const { syncTournamentRegistrations } = require('../users');
-const { sortCaptainsByMmr } = require('../draft-order');
+const { orderCaptains } = require('../draft-order');
 const { swapCaptainRoster, replaceCaptainDraftRoster } = require('../roster-operations');
 
 module.exports = {
-  /* 开始选人（比赛创建者或最高管理员）：同步最新资料，天梯分低的队长先选，初始化蛇形轮次 */
+  /* 开始选人（比赛创建者或最高管理员）：同步最新资料，按所选模式排序队长（天梯分低先选 / 随机），初始化蛇形轮次 */
   async startDraft(event) {
     const managed = await requireTournamentManager(event);
     if (managed.error) return fail(managed.error);
@@ -26,7 +26,7 @@ module.exports = {
       const players = registrations.filter((r) => r.role === 'player');
       if (captains.length < t.N) return { error: '队长尚未报满（' + captains.length + '/' + t.N + '）' };
       if (players.length < t.N * t.K) return { error: '队员尚未报满（' + players.length + '/' + t.N * t.K + '）' };
-      const captainOrder = sortCaptainsByMmr(captains).map((c) => ({
+      const captainOrder = orderCaptains(captains, event.orderMode).map((c) => ({
         openid: c.openid,
         nickname: c.nickname,
         teamName: c.teamName || '',
@@ -96,7 +96,7 @@ module.exports = {
     return ok({ picked: playerOpenid, teamIndex: capIdx, done });
   },
 
-  /* 重置选人（比赛创建者或最高管理员）：同步最新资料，按天梯分重新排序并清空已选 */
+  /* 重置选人（比赛创建者或最高管理员）：同步最新资料，按所选模式重新排序并清空已选 */
   async resetDraft(event) {
     const managed = await requireTournamentManager(event, false);
     if (managed.error) return fail(managed.error);
@@ -105,7 +105,7 @@ module.exports = {
     const latestProfiles = await syncTournamentRegistrations(t);
     const registrations = syncRegistrationProfiles(t.registrations, latestProfiles.profiles).registrations;
     const captains = registrations.filter((r) => r.role === 'captain');
-    const captainOrder = sortCaptainsByMmr(captains).map((c) => ({
+    const captainOrder = orderCaptains(captains, event.orderMode).map((c) => ({
       openid: c.openid,
       nickname: c.nickname,
       teamName: c.teamName || '',

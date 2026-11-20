@@ -586,21 +586,29 @@ Page({
   onStartDraft() {
     const t = this.data.t;
     if (!t || this.data.readonly || !this.data.canManage) return;
-    wx.showModal({
-      title: '开始选人',
-      content: '将按最新天梯分从低到高排序 ' + t.N + ' 位队长（未填写天梯分的排最后），并按蛇形顺序选人，确定开始？',
+    // 开始选人前先选队长排序模式：天梯分低先选（默认）或随机打乱
+    wx.showActionSheet({
+      itemList: ['天梯分低的队长先选', '随机打乱队长顺序'],
       success: (res) => {
-        if (res.confirm) {
-          api
-            .call('startDraft', { id: t.id })
-            .then(() => {
-              wx.showToast({ title: '选人已开始', icon: 'success' });
-              this.stopPoll();
-              // 立即切换到选人页，无需退出重进
-              setTimeout(() => wx.redirectTo({ url: '/pages/draft/draft?id=' + t.id }), 600);
-            })
-            .catch((err) => wx.showToast({ title: err.message, icon: 'none' }));
-        }
+        if (res.tapIndex !== 0 && res.tapIndex !== 1) return;
+        const orderMode = res.tapIndex === 1 ? 'random' : 'mmr';
+        const modeText = orderMode === 'random' ? '随机打乱队长顺序' : '按最新天梯分从低到高排序（未填写天梯分的排最后）';
+        wx.showModal({
+          title: '开始选人',
+          content: '将' + modeText + ' ' + t.N + ' 位队长，并按蛇形顺序选人，确定开始？',
+          success: (confirmRes) => {
+            if (!confirmRes.confirm) return;
+            api
+              .call('startDraft', { id: t.id, orderMode })
+              .then(() => {
+                wx.showToast({ title: '选人已开始', icon: 'success' });
+                this.stopPoll();
+                // 立即切换到选人页，无需退出重进
+                setTimeout(() => wx.redirectTo({ url: '/pages/draft/draft?id=' + t.id }), 600);
+              })
+              .catch((err) => wx.showToast({ title: err.message, icon: 'none' }));
+          },
+        });
       },
     });
   },

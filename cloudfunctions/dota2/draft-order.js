@@ -1,5 +1,7 @@
 /**
- * 队长选人顺序：有效天梯分从低到高；同分保持报名顺序；未填写/无效天梯分排最后。
+ * 队长选人顺序：
+ * - mmr（默认）：有效天梯分从低到高；同分保持报名顺序；未填写/无效天梯分排最后。
+ * - random：随机打乱队长顺序（开始/重置选人时由比赛创建者或管理员选择）。
  */
 function validMmr(captain) {
   const value = captain && captain.mmr;
@@ -20,4 +22,19 @@ function sortCaptainsByMmr(captains) {
     .map((item) => item.captain);
 }
 
-module.exports = { sortCaptainsByMmr };
+function shuffleCaptains(captains) {
+  const list = (Array.isArray(captains) ? captains : []).slice();
+  for (let i = list.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const temp = list[i];
+    list[i] = list[j];
+    list[j] = temp;
+  }
+  return list;
+}
+
+function orderCaptains(captains, mode) {
+  return mode === 'random' ? shuffleCaptains(captains) : sortCaptainsByMmr(captains);
+}
+
+module.exports = { sortCaptainsByMmr, orderCaptains };
