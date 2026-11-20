@@ -219,6 +219,13 @@ const vacancy = Object.assign({}, moveBase, {
 moved = moveRegistrationRole(vacancy, 'p1', 'captain');
 assert.strictEqual(moved.error, undefined);
 assert.strictEqual(moved.registrations.find((r) => r.openid === 'p1').role, 'captain');
+// 替补同样可升任队长（队长名额有空缺时）
+const waitlistToCaptain = Object.assign({}, vacancy, {
+  registrations: vacancy.registrations.concat([{ openid: 'w1', role: 'waitlist' }]),
+});
+moved = moveRegistrationRole(waitlistToCaptain, 'w1', 'captain');
+assert.strictEqual(moved.error, undefined);
+assert.strictEqual(moved.registrations.find((r) => r.openid === 'w1').role, 'captain');
 // 替补名额满时不能移动到替补
 const fullWait = Object.assign({}, vacancy, { waitLimit: 0 });
 assert.strictEqual(moveRegistrationRole(fullWait, 'c2', 'waitlist').error, '本场比赛未设置替补');
