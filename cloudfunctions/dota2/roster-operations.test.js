@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { swapCaptainRoster, replaceCaptainDraftRoster } = require('./roster-operations');
+const { swapCaptainRoster, replaceCaptainDraftRoster, syncCaptainDraftFromTeams } = require('./roster-operations');
 
 const draft = {
   mode: 'captain',
@@ -86,4 +86,45 @@ const captainBeforeDone = replaceCaptainDraftRoster(Object.assign({}, captainBas
 assert(captainBeforeDone.error, '选人未完成时不能替换队长');
 assert(replaceCaptainDraftRoster(captainBase, { teamIndex: 0, outOpenid: 'cap-a', inOpenid: 'a1' }).error, '已被选中的队员不能换入队长位');
 
-console.log('Captain roster swap and replacement tests passed.');
+// 对战替换后退回选人：teams 是当前阵容的唯一权威，不能用旧 draft.picks 恢复 A
+const battleAfterSub = {
+  mode: 'captain',
+  status: 'battle',
+  N: 2,
+  K: 1,
+  draft: { turn: 2, picks: [['a1'], ['b1']] },
+  captainOrder: [{ openid: 'cap-a', nickname: '队长甲' }, { openid: 'cap-b', nickname: '队长乙' }],
+  teams: [
+    { captain: { openid: 'cap-a', nickname: '队长甲' }, players: [{ openid: 'sub', nickname: '替补B' }] },
+    { captain: { openid: 'cap-b', nickname: '队长乙' }, players: [{ openid: 'b1', nickname: '队员B1' }] },
+  ],
+};
+const syncedAfterSub = syncCaptainDraftFromTeams(battleAfterSub);
+assert.deepStrictEqual(syncedAfterSub.draft.picks, [['sub'], ['b1']], '替补B应留在队伍中，正式队员A不能复活');
+assert.strictEqual(syncedAfterSub.draft.turn, 2, '退回不能重置已完成的选人轮次');
+assert.deepStrictEqual(battleAfterSub.draft.picks, [['a1'], ['b1']], '重建草稿不能修改原赛事对象');
+
+// 对战阶段跨队交换后，退回选人也要保留交换结果
+const battleAfterSwap = Object.assign({}, battleAfterSub, {
+  teams: [
+    { captain: { openid: 'cap-a' }, players: [{ openid: 'b1' }] },
+    { captain: { openid: 'cap-b' }, players: [{ openid: 'sub' }] },
+  ],
+});
+assert.deepStrictEqual(syncCaptainDraftFromTeams(battleAfterSwap).draft.picks, [['b1'], ['sub']]);
+
+// 队长被替补替换后，退回选人时 captainOrder 也必须同步，不能恢复原队长
+const battleAfterCaptainSub = Object.assign({}, battleAfterSub, {
+  teams: [
+    { captain: { openid: 'sub', nickname: '新队长', teamName: '甲队', teamIcon: 'icon-a' }, players: [{ openid: 'a1' }] },
+    battleAfterSub.teams[1],
+  ],
+});
+const syncedCaptain = syncCaptainDraftFromTeams(battleAfterCaptainSub);
+assert.strictEqual(syncedCaptain.captainOrder[0].openid, 'sub');
+assert.strictEqual(syncedCaptain.captainOrder[0].teamName, '甲队');
+assert.strictEqual(syncedCaptain.captainOrder[0].teamIcon, 'icon-a');
+assert.deepStrictEqual(syncCaptainDraftFromTeams({ mode: 'auto', teams: battleAfterSub.teams }), {}, '系统分组模式不重建队长草稿');
+assert.deepStrictEqual(syncCaptainDraftFromTeams({ mode: 'captain', teams: [] }), {}, '没有对战阵容时保持原有退回逻辑');
+
+console.log('Captain roster swap, replacement and rollback synchronization tests passed.');

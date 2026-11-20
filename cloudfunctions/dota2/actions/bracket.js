@@ -10,6 +10,7 @@ const {
   normalizeBracketType,
 } = require('../tournaments');
 const { calculateStandings } = require('../standings');
+const { syncCaptainDraftFromTeams } = require('../roster-operations');
 const {
   buildBracket,
   buildSingleElimination,
@@ -263,7 +264,11 @@ module.exports = {
         champion: _.set(null),
         archivedAt: null,
       });
-      if (t.mode !== 'auto') data.teams = _.set(null);
+      if (t.mode !== 'auto') {
+        // 对战中的交换 / 替换以 teams 为准；退回前同步选人草稿，避免旧阵容复活。
+        Object.assign(data, syncCaptainDraftFromTeams(t));
+        data.teams = _.set(null);
+      }
     }
     await updateTournamentDoc(t._id, { data });
     return ok({ status: target });

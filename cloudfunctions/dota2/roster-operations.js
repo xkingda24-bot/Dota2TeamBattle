@@ -117,4 +117,29 @@ function replaceCaptainDraftRoster(tournament, input) {
   };
 }
 
-module.exports = { swapCaptainRoster, replaceCaptainDraftRoster };
+/**
+ * 对战退回选人时，以当前 teams 为权威阵容重建队长选人草稿。
+ * 对战阶段的交换、替补替换和队长替换只改 teams；若继续沿用旧 draft.picks，
+ * 换下者会重新出现在队伍中，换上者则会同时落入未选队员池。
+ */
+function syncCaptainDraftFromTeams(tournament) {
+  const t = tournament || {};
+  if (t.mode === 'auto' || !Array.isArray(t.teams) || !t.teams.length) return {};
+  const registrations = Array.isArray(t.registrations) ? t.registrations : [];
+  const oldCaptainOrder = Array.isArray(t.captainOrder) ? t.captainOrder : [];
+  const captainOrder = t.teams.map((team, index) => {
+    const captain = team && team.captain;
+    if (captain && typeof captain === 'object') return Object.assign({}, captain);
+    const openid = memberOpenid(captain);
+    const oldCaptain = oldCaptainOrder[index];
+    const registration = registrations.find((item) => item && item.openid === openid);
+    return Object.assign({}, oldCaptain && memberOpenid(oldCaptain) === openid ? oldCaptain : {}, registration || {}, { openid });
+  });
+  const picks = t.teams.map((team) => ((team && team.players) || []).map(memberOpenid).filter(Boolean));
+  const oldDraft = t.draft && typeof t.draft === 'object' ? t.draft : {};
+  const fallbackTurn = (Number(t.N) || 0) * (Number(t.K) || 0);
+  const turn = Number.isInteger(oldDraft.turn) ? oldDraft.turn : fallbackTurn;
+  return { captainOrder, draft: Object.assign({}, oldDraft, { turn, picks }) };
+}
+
+module.exports = { swapCaptainRoster, replaceCaptainDraftRoster, syncCaptainDraftFromTeams };
