@@ -425,6 +425,26 @@ Page({
     });
   },
 
+  onRollbackRegistration() {
+    const t = this.data.t;
+    if (!t || this.data.readonly || !this.data.canManage) return;
+    wx.showModal({
+      title: '退回报名阶段',
+      content: '将清除选人、分组、落位和赛程数据，报名名单与队长队名保留。确定继续？',
+      confirmText: '确认退回',
+      success: (result) => {
+        if (!result.confirm) return;
+        api.call('rollbackStage', { id: t.id, stage: 'registration' })
+          .then(() => {
+            wx.showToast({ title: '已退回报名阶段', icon: 'success' });
+            this.stopPoll();
+            setTimeout(() => wx.redirectTo({ url: '/pages/register/register?id=' + t.id }), 500);
+          })
+          .catch((err) => wx.showToast({ title: err.message || '阶段回退失败', icon: 'none' }));
+      },
+    });
+  },
+
   onStartBracket() {
     const t = this.data.t;
     if (!t || this.data.readonly || !this.data.canManage || !t.draftInfo || this.data.bracketTypeSaving) return;
