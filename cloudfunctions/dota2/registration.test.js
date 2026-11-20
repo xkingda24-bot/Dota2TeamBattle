@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { buildRegistration, replaceBattleCaptain, syncRegistrationProfiles, skipRegistrationSecret } = require('./registration');
+const { buildRegistration, replaceBattleCaptain, syncRegistrationProfiles, skipRegistrationSecret, moveRegistrationRole } = require('./registration');
 
 const member = { nickname: '队员甲', mmr: 4200, roles: [1, 3], signature: '冲分' };
 const base = {
@@ -183,5 +183,65 @@ assert.strictEqual(captainSwap.registrations.find((item) => item.openid === 'sub
 assert.strictEqual(captainSwap.registrations.find((item) => item.openid === 'player').role, 'player');
 assert.strictEqual(replaceBattleCaptain(battleTeam, battleRegistrations, 'player', 'sub', {}).error, '该队长不在此队伍');
 assert.strictEqual(replaceBattleCaptain(battleTeam, battleRegistrations, 'captain', 'player', {}).error, '换入用户不在替补池');
+
+/* 报名阶段角色移动：队长卸任 / 队员升任队长（moveRegistrationRole） */
+const moveBase = {
+  status: 'registration',
+  mode: 'captain',
+  N: 2,
+  K: 2,
+  waitLimit: 1,
+  registrations: [
+    { openid: 'c1', role: 'captain', teamName: '夜魇', teamIcon: 'wolf' },
+    { openid: 'c2', role: 'captain', teamName: '天辉', teamIcon: '' },
+    { openid: 'p1', role: 'player' },
+  ],
+};
+// 队长卸任为队员：队名队标保留，队长名额空出
+let moved = moveRegistrationRole(moveBase, 'c1', 'player');
+assert.strictEqual(moved.error, undefined);
+assert.strictEqual(moved.registrations.find((r) => r.openid === 'c1').role, 'player');
+assert.strictEqual(moved.registrations.find((r) => r.openid === 'c1').teamName, '夜魇');
+assert.strictEqual(moved.registrations.find((r) => r.openid === 'c1').teamIcon, 'wolf');
+// 卸任为替补
+moved = moveRegistrationRole(moveBase, 'c1', 'waitlist');
+assert.strictEqual(moved.error, undefined);
+assert.strictEqual(moved.registrations.find((r) => r.openid === 'c1').role, 'waitlist');
+// 队长名额已满：队员不能直接升任
+assert.strictEqual(moveRegistrationRole(moveBase, 'p1', 'captain').error, '队长名额已满，请先让一名队长卸任为队员或替补');
+// 有一名队长卸任后（队长名额空出），队员可升任队长
+const vacancy = Object.assign({}, moveBase, {
+  registrations: [
+    { openid: 'c2', role: 'captain', teamName: '天辉' },
+    { openid: 'p1', role: 'player' },
+  ],
+});
+moved = moveRegistrationRole(vacancy, 'p1', 'captain');
+assert.strictEqual(moved.error, undefined);
+assert.strictEqual(moved.registrations.find((r) => r.openid === 'p1').role, 'captain');
+// 替补名额满时不能移动到替补
+const fullWait = Object.assign({}, vacancy, { waitLimit: 0 });
+assert.strictEqual(moveRegistrationRole(fullWait, 'c2', 'waitlist').error, '本场比赛未设置替补');
+// 队员名额满时不能移动到队员
+const fullPlayers2 = Object.assign({}, moveBase, {
+  registrations: [
+    { openid: 'c1', role: 'captain' },
+    { openid: 'c2', role: 'captain' },
+    { openid: 'p1', role: 'player' },
+    { openid: 'p2', role: 'player' },
+    { openid: 'p3', role: 'player' },
+    { openid: 'p4', role: 'player' },
+    { openid: 'w1', role: 'waitlist' },
+  ],
+});
+assert.strictEqual(moveRegistrationRole(fullPlayers2, 'w1', 'player').error, '队员名额已满，无法移入');
+// 系统分组模式不允许队长转换
+const autoT = Object.assign({}, vacancy, { mode: 'auto' });
+assert.strictEqual(moveRegistrationRole(autoT, 'c2', 'player').error, '只有队长选人模式的比赛可以调整队长');
+assert.strictEqual(moveRegistrationRole(autoT, 'p1', 'captain').error, '只有队长选人模式的比赛可以调整队长');
+// 非报名阶段拒绝
+assert.strictEqual(moveRegistrationRole(Object.assign({}, vacancy, { status: 'draft' }), 'p1', 'captain').error, '只有报名阶段可以调整名单');
+// 原角色不变
+assert.strictEqual(moveRegistrationRole(vacancy, 'p1', 'player').error, '该用户已在目标名单中');
 
 console.log('Registration validation tests passed.');

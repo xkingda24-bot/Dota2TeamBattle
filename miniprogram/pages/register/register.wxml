@@ -203,8 +203,10 @@
     <view class="panel-sub">{{memberAction.role === 'captain' ? '队长报名' : memberAction.role === 'waitlist' ? '替补报名' : '队员报名'}} · 比赛管理操作</view>
     <view class="divider"></view>
     <view class="panel-btns">
-      <view wx:if="{{memberAction.role === 'player'}}" class="panel-btn btn-plain" hover-class="panel-btn-pressed" data-openid="{{memberAction.openid}}" data-nickname="{{memberAction.nickname}}" data-to="waitlist" bindtap="onMoveReg">移入替补</view>
-      <view wx:if="{{memberAction.role === 'waitlist'}}" class="panel-btn btn-plain" hover-class="panel-btn-pressed" data-openid="{{memberAction.openid}}" data-nickname="{{memberAction.nickname}}" data-to="player" bindtap="onMoveReg">移入队员</view>
+      <view wx:if="{{memberAction.role === 'player' && t.mode === 'captain'}}" class="panel-btn btn-plain" hover-class="panel-btn-pressed" data-openid="{{memberAction.openid}}" data-nickname="{{memberAction.nickname}}" data-to="captain" bindtap="onMoveReg">移动到队长</view>
+      <view wx:if="{{memberAction.role === 'player' || memberAction.role === 'waitlist'}}" class="panel-btn btn-plain" hover-class="panel-btn-pressed" data-openid="{{memberAction.openid}}" data-nickname="{{memberAction.nickname}}" data-to="{{memberAction.role === 'player' ? 'waitlist' : 'player'}}" bindtap="onMoveReg">{{memberAction.role === 'player' ? '移动到替补' : '移动到队员'}}</view>
+      <view wx:if="{{memberAction.role === 'captain' && t.mode === 'captain'}}" class="panel-btn btn-plain" hover-class="panel-btn-pressed" data-openid="{{memberAction.openid}}" data-nickname="{{memberAction.nickname}}" data-to="player" bindtap="onMoveReg">移动到队员</view>
+      <view wx:if="{{memberAction.role === 'captain' && t.mode === 'captain'}}" class="panel-btn btn-plain" hover-class="panel-btn-pressed" data-openid="{{memberAction.openid}}" data-nickname="{{memberAction.nickname}}" data-to="waitlist" bindtap="onMoveReg">移动到替补</view>
       <view class="panel-btn btn-danger" hover-class="panel-btn-pressed" data-openid="{{memberAction.openid}}" data-nickname="{{memberAction.nickname}}" bindtap="onRemoveReg">移除</view>
     </view>
   </view>

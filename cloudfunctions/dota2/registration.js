@@ -154,4 +154,39 @@ function syncRegistrationProfiles(registrations, profiles) {
   return { registrations: synced, changed };
 }
 
-module.exports = { buildRegistration, replaceBattleCaptain, syncRegistrationProfiles, skipRegistrationSecret };
+/* 报名阶段名单调整（纯函数，供 moveRegistration action 与测试共用）：
+   - 队员 <-> 替补 双向移动，受各自名额限制
+   - 队长选人模式：队长可卸任为队员/替补（允许该队暂时缺队长）；队员/替补可升任队长，受 N 个队长名额限制
+   返回 { registrations } 或 { error }。 */
+function moveRegistrationRole(tournament, openid, toRole) {
+  const t = tournament || {};
+  if (t.status !== 'registration') return { error: '只有报名阶段可以调整名单' };
+  const role = ['player', 'waitlist', 'captain'].indexOf(toRole) >= 0 ? toRole : 'waitlist';
+  const registrations = (t.registrations || []).map((r) => Object.assign({}, r));
+  const idx = registrations.findIndex((r) => r.openid === openid);
+  if (idx < 0) return { error: '未找到该报名' };
+  const cur = registrations[idx];
+  if (['player', 'waitlist', 'captain'].indexOf(cur.role) < 0) return { error: '只能调整队长/队员/替补' };
+  // 队长相关转换只在队长选人模式开放；系统分组模式的队长由分组结果决定
+  if (t.mode !== 'captain' && (cur.role === 'captain' || role === 'captain')) {
+    return { error: '只有队长选人模式的比赛可以调整队长' };
+  }
+  if (cur.role === role) return { error: '该用户已在目标名单中' };
+  if (role === 'player') {
+    const players = registrations.filter((r) => r.role === 'player').length;
+    if (players >= t.N * t.K) return { error: '队员名额已满，无法移入' };
+  } else if (role === 'waitlist') {
+    const waitLimit = t.waitLimit || 0;
+    if (waitLimit <= 0) return { error: '本场比赛未设置替补' };
+    const waitlist = registrations.filter((r) => r.role === 'waitlist').length;
+    if (waitlist >= waitLimit) return { error: '替补名额已满' };
+  } else {
+    const captains = registrations.filter((r) => r.role === 'captain').length;
+    if (captains >= t.N) return { error: '队长名额已满，请先让一名队长卸任为队员或替补' };
+  }
+  // 队长卸任时保留 teamName/teamIcon：队员身份不展示，重新升任队长时可沿用
+  registrations[idx] = Object.assign({}, cur, { role });
+  return { registrations };
+}
+
+module.exports = { buildRegistration, replaceBattleCaptain, syncRegistrationProfiles, skipRegistrationSecret, moveRegistrationRole };

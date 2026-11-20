@@ -460,17 +460,28 @@ Page({
     });
   },
 
-  /* 比赛创建者或管理员：队员 <-> 替补 双向移动 */
+  /* 比赛创建者或管理员：队员 <-> 替补 双向移动；队长选人模式支持队长卸任与队员升任队长 */
   onMoveReg(e) {
     const t = this.data.t;
     const openid = e.currentTarget.dataset.openid;
     const nickname = e.currentTarget.dataset.nickname;
     const to = e.currentTarget.dataset.to;
     if (!t || this.data.readonly || !this.data.canManage) return;
-    const actionText = to === 'player' ? '移回队员名单' : '移入替补';
+    const roleText = { player: '队员', waitlist: '替补', captain: '队长' };
+    const actionText = '移动到' + (roleText[to] || '替补');
+    if (to === 'captain') {
+      const captainTotal = Number(t.captainTotal || t.N) || 0;
+      const captainFilled = Number(t.captainFilled) || 0;
+      if (captainTotal > 0 && captainFilled >= captainTotal) {
+        wx.showToast({ title: '队长名额已满，请先让一名队长卸任', icon: 'none' });
+        return;
+      }
+    }
     wx.showModal({
       title: actionText,
-      content: '确定将 ' + nickname + ' ' + actionText + '吗？',
+      content: to === 'captain'
+        ? '确定将 ' + nickname + ' 升任为队长吗？队长可设置本队队名和队标，并参与选人。'
+        : '确定将 ' + nickname + ' ' + actionText + '吗？',
       success: (res) => {
         if (res.confirm) {
           api

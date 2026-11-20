@@ -9,7 +9,7 @@ const { getUser } = require('../users');
 const { registrationDotaFields } = require('../cards');
 const { canManageTournament, isAdmin } = require('../permissions');
 const { getTournamentById, requireTournamentManager } = require('../tournaments');
-const { buildRegistration, skipRegistrationSecret } = require('../registration');
+const { buildRegistration, skipRegistrationSecret, moveRegistrationRole } = require('../registration');
 const { mutateTournament } = require('../tournament-transaction');
 const { TEAM_LOGO_IDS } = require('../team-logos');
 const { checkUserText } = require('../content-security');
@@ -107,30 +107,16 @@ module.exports = {
     return result.error ? fail(result.error) : ok(true);
   },
 
-  /* 比赛创建者或管理员：报名阶段把队员移入替补 / 替补移回队员 */
+  /* 比赛创建者或管理员：报名阶段调整名单
+     - 队员 <-> 替补 双向移动
+     - 队长选人模式：队长可卸任为队员/替补（允许该队暂时缺队长），队员可升任队长（受队长名额限制） */
   async moveRegistration(event) {
     const managed = await requireTournamentManager(event);
     if (managed.error) return fail(managed.error);
-    const toRole = event.toRole === 'player' ? 'player' : 'waitlist';
     const result = await mutateTournament(db, event.id, (t) => {
-      if (t.status !== 'registration') return { error: '只有报名阶段可以调整名单' };
-      const registrations = (t.registrations || []).map((r) => Object.assign({}, r));
-      const idx = registrations.findIndex((r) => r.openid === event.openid);
-      if (idx < 0) return { error: '未找到该报名' };
-      const cur = registrations[idx];
-      if (cur.role !== 'player' && cur.role !== 'waitlist') return { error: '只能调整队员/替补' };
-      if (cur.role === toRole) return { error: '该用户已在目标名单中' };
-      if (toRole === 'player') {
-        const players = registrations.filter((r) => r.role === 'player').length;
-        if (players >= t.N * t.K) return { error: '队员名额已满，无法移入' };
-      } else {
-        const waitLimit = t.waitLimit || 0;
-        if (waitLimit <= 0) return { error: '本场比赛未设置替补' };
-        const waitlist = registrations.filter((r) => r.role === 'waitlist').length;
-        if (waitlist >= waitLimit) return { error: '替补名额已满' };
-      }
-      registrations[idx] = Object.assign({}, cur, { role: toRole });
-      return { data: { registrations }, result: true };
+      const moved = moveRegistrationRole(t, event.openid, event.toRole);
+      if (moved.error) return { error: moved.error };
+      return { data: { registrations: moved.registrations }, result: true };
     });
     return result.error ? fail(result.error) : ok(true);
   },
