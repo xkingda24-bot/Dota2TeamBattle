@@ -1,0 +1,43 @@
+page { background: #0d1017; }
+.blacklist-page { min-height: 100vh; padding: 24rpx 24rpx 60rpx; box-sizing: border-box; }
+.blacklist-intro {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24rpx;
+  padding: 8rpx 4rpx;
+}
+.blacklist-heading { color: #e8c27c; font-size: 32rpx; font-weight: 600; }
+.blacklist-sub { margin-top: 8rpx; color: #8f98a5; font-size: 23rpx; }
+.blacklist-count { color: #e8c27c; font-size: 50rpx; font-weight: 300; line-height: 1; }
+.blacklist-state { padding: 100rpx 20rpx; color: #8f98a5; font-size: 25rpx; text-align: center; }
+.blacklist-error, .blacklist-refresh-error { color: #dba088; }
+.blacklist-empty { margin-top: 80rpx; padding: 60rpx 24rpx; border: 1rpx solid rgba(224, 181, 111, .1); border-radius: 12rpx; text-align: center; }
+.blacklist-empty-title { color: #c7c3b9; font-size: 27rpx; }
+.blacklist-empty-sub { margin-top: 12rpx; color: #77818e; font-size: 23rpx; }
+.blacklist-refresh-error { padding: 16rpx; font-size: 23rpx; text-align: center; }
+.ban-card {
+  margin-bottom: 20rpx;
+  padding: 26rpx;
+  border: 1rpx solid rgba(196, 92, 75, .24);
+  border-radius: 12rpx;
+  background: linear-gradient(180deg, rgba(40, 28, 32, .76), #141922 48%);
+}
+.ban-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18rpx; }
+.ban-person { flex: 1; min-width: 0; }
+.ban-nickname { overflow: hidden; color: #ece6dc; font-size: 31rpx; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.ban-dota-id { margin-top: 7rpx; color: #8993a0; font-size: 22rpx; }
+.ban-status { flex: none; padding: 7rpx 14rpx; border-radius: 8rpx; color: #e69a8d; background: rgba(196, 92, 75, .14); font-size: 21rpx; }
+.ban-status-permanent { color: #ffd0c8; background: rgba(196, 75, 65, .26); }
+.ban-facts { display: flex; gap: 28rpx; margin-top: 24rpx; padding-top: 22rpx; border-top: 1rpx solid rgba(224, 181, 111, .09); }
+.ban-fact { flex: 1; min-width: 0; }
+.ban-fact-label { display: block; color: #7f8996; font-size: 21rpx; }
+.ban-fact-value { display: block; margin-top: 7rpx; color: #d5c6a7; font-size: 24rpx; line-height: 1.45; }
+.ban-remaining { margin-top: 12rpx; color: #c59379; font-size: 22rpx; }
+.ban-reason { margin-top: 22rpx; padding: 18rpx; border-radius: 8rpx; background: rgba(255, 255, 255, .025); }
+.ban-reason-label { color: #8c95a1; font-size: 21rpx; }
+.ban-reason-text { margin-top: 8rpx; color: #d4d1ca; font-size: 25rpx; line-height: 1.6; word-break: break-all; white-space: pre-wrap; }
+.ban-admin-actions { display: flex; justify-content: flex-end; gap: 16rpx; margin-top: 22rpx; }
+.ban-admin-btn { min-width: 144rpx; padding: 10rpx 18rpx; box-sizing: border-box; border: 1rpx solid rgba(224, 181, 111, .28); border-radius: 8rpx; color: #d9c08c; background: #1a2130; font-size: 23rpx; text-align: center; }
+.ban-lift-btn { border-color: rgba(196, 92, 75, .32); color: #dda092; background: rgba(196, 92, 75, .08); }
+.ban-btn-disabled { opacity: .45; }

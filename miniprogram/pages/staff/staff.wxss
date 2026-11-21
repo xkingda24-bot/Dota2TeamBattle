@@ -172,7 +172,9 @@
 .admin-user-heading {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   min-width: 0;
+  row-gap: 6rpx;
 }
 .user-nick {
   min-width: 0;
@@ -192,6 +194,7 @@
 }
 .admin-user-actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: 12rpx;
   margin-top: 14rpx;
@@ -200,6 +203,12 @@
   min-width: 132rpx;
   text-align: center;
 }
+.btn-small.btn-ban {
+  border: 1rpx solid rgba(196, 92, 75, .45);
+  color: #e7a294;
+  background: rgba(196, 92, 75, .1);
+}
+.tag-ban { margin-left: 12rpx; color: #eda293; background: rgba(196, 92, 75, .15); }
 .user-page-controls {
   display: flex;
   align-items: center;

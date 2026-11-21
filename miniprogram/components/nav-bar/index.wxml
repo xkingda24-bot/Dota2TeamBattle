@@ -1,7 +1,13 @@
 <!--components/nav-bar/index.wxml-->
 <view class="nav-wrap" style="padding-top: {{statusBarHeight}}px; height: {{navHeight}}px;">
-  <view class="nav-left" wx:if="{{showHome}}" bindtap="goHome" hover-class="nav-hover">
-    <text class="nav-home-text">主页</text>
+  <view class="nav-left" wx:if="{{showHome}}">
+    <view class="nav-entry" bindtap="goHome" hover-class="nav-hover">
+      <text class="nav-link {{current === 'home' ? 'nav-link-active' : ''}}">主页</text>
+    </view>
+    <text class="nav-divider">|</text>
+    <view class="nav-entry" bindtap="goBlacklist" hover-class="nav-hover">
+      <text class="nav-link {{current === 'blacklist' ? 'nav-link-active' : ''}}">黑名单</text>
+    </view>
   </view>
   <view class="nav-title">{{title}}</view>
   <view class="nav-right" style="margin-right: {{capsuleRight}}px;" bindtap="goStaff" hover-class="nav-hover">

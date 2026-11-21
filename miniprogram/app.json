@@ -1,6 +1,7 @@
 {
   "pages": [
     "pages/index/index",
+    "pages/blacklist/blacklist",
     "pages/create/create",
     "pages/register/register",
     "pages/draft/draft",

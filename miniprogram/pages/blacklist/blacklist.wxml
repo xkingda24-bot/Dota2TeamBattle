@@ -1,0 +1,57 @@
+<nav-bar title="黑名单" current="blacklist" />
+
+<view class="blacklist-page">
+  <view class="blacklist-intro">
+    <view>
+      <view class="blacklist-heading">当前禁赛用户</view>
+      <view class="blacklist-sub">禁赛期间无法报名新比赛，到期自动解除</view>
+    </view>
+    <view class="blacklist-count">{{total}}</view>
+  </view>
+
+  <view wx:if="{{loading && !items.length}}" class="blacklist-state">正在加载黑名单…</view>
+  <view wx:elif="{{error && !items.length}}" class="blacklist-state blacklist-error" bindtap="retry">{{error}}（点此重试）</view>
+  <view wx:elif="{{!items.length}}" class="blacklist-empty">
+    <view class="blacklist-empty-title">当前没有禁赛中的用户</view>
+    <view class="blacklist-empty-sub">所有用户均可正常报名参赛</view>
+  </view>
+
+  <view wx:if="{{error && items.length}}" class="blacklist-refresh-error" bindtap="retry">刷新失败，点此重试</view>
+
+  <view wx:for="{{items}}" wx:key="openid" class="ban-card">
+    <view class="ban-card-head">
+      <view class="ban-person">
+        <view class="ban-nickname">{{item.nickname}}</view>
+        <view class="ban-dota-id">{{item.dotaIdText}}</view>
+      </view>
+      <view class="ban-status {{item.permanent ? 'ban-status-permanent' : ''}}">{{item.statusText}}</view>
+    </view>
+    <view class="ban-facts">
+      <view class="ban-fact">
+        <text class="ban-fact-label">禁赛时长</text>
+        <text class="ban-fact-value">{{item.durationText}}</text>
+      </view>
+      <view class="ban-fact">
+        <text class="ban-fact-label">{{item.permanent ? '解除方式' : '截止时间'}}</text>
+        <text class="ban-fact-value">{{item.endText}}</text>
+      </view>
+    </view>
+    <view wx:if="{{!item.permanent}}" class="ban-remaining">{{item.remainingText}}</view>
+    <view class="ban-reason">
+      <view class="ban-reason-label">禁赛原因</view>
+      <view class="ban-reason-text">{{item.reason}}</view>
+    </view>
+    <view wx:if="{{isSuper}}" class="ban-admin-actions">
+      <view class="ban-admin-btn" data-openid="{{item.openid}}" bindtap="onOpenEditor">调整禁赛</view>
+      <view class="ban-admin-btn ban-lift-btn {{liftingOpenid === item.openid ? 'ban-btn-disabled' : ''}}" data-openid="{{item.openid}}" bindtap="onLiftBan">{{liftingOpenid === item.openid ? '解除中…' : '解除禁赛'}}</view>
+    </view>
+  </view>
+</view>
+
+<ban-editor
+  visible="{{editorVisible}}"
+  target="{{editorTarget}}"
+  saving="{{saving}}"
+  bind:cancel="onCloseEditor"
+  bind:submit="onSubmitBan"
+/>

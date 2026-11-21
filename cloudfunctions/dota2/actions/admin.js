@@ -7,6 +7,7 @@ const { isSuper, getAdminsConfig } = require('../permissions');
 const { ADMIN_USER_SORT_FIELDS, buildAdminUsers, buildAdminRoster, buildCreatePermissionRoster, filterAdminUsers } = require('../admin-users');
 const { ADMIN_USER_LIST_FIELDS } = require('../query-projections');
 const { getUser } = require('../users');
+const { listBlacklistRecords, attachActiveBans } = require('../blacklist');
 
 module.exports = {
   /* 超管：分页管理所有用户，排序按 Dota ID / 天梯分 / 用户名 / 已校验段位。 */
@@ -33,7 +34,8 @@ module.exports = {
       offset += batch.length;
       if (batch.length < 100) break;
     }
-    const sortedUsers = buildAdminUsers(records, cfg.superAdmin, sortBy, order);
+    const blacklistRecords = await listBlacklistRecords(db);
+    const sortedUsers = attachActiveBans(buildAdminUsers(records, cfg.superAdmin, sortBy, order), blacklistRecords, Date.now());
     const filteredUsers = filterAdminUsers(sortedUsers, keyword);
     const start = (page - 1) * pageSize;
     const users = filteredUsers.slice(start, start + pageSize);

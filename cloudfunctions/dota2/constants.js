@@ -2,7 +2,7 @@
  * 全局常量。从原 index.js 拆出（纯搬移）。
  */
 module.exports = {
-  COLLECTIONS: ['users', 'tournaments', 'config'],
+  COLLECTIONS: ['users', 'tournaments', 'config', 'blacklist'],
   BO_LIST: ['BO1', 'BO3', 'BO5'],
   MAX_N: 16,
   MAX_K: 5,

@@ -5,7 +5,7 @@
  * 身份取自微信 openid（wxContext.OPENID），天然免登录；
  * 最高管理员由环境变量指定的账号初始化；赛事权限按 createdBy（创建者）或最高管理员校验。
  *
- * 集合：users / tournaments / config（部署后通过 initializeDatabase 一次性创建）
+ * 集合：users / tournaments / config / blacklist（部署后通过 initializeDatabase 一次性创建）
  *  config 中存：{ key:'admins', superAdmin: openid }；旧 admins 字段仅为历史兼容数据。
  *
  * 2026-11-12 模块化重构：按域拆分至 actions/ 与各支撑模块，本文件只做动作路由。
@@ -18,6 +18,7 @@ const bootstrap = require('./actions/bootstrap');
 const home = require('./actions/home');
 const profile = require('./actions/profile');
 const admin = require('./actions/admin');
+const blacklist = require('./actions/blacklist');
 const tournament = require('./actions/tournament');
 const registration = require('./actions/registration');
 const draft = require('./actions/draft');
@@ -32,6 +33,7 @@ const actions = Object.assign(
   home,
   profile,
   admin,
+  blacklist,
   tournament,
   registration,
   draft,

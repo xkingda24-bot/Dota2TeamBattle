@@ -9,6 +9,10 @@ Component({
       type: Boolean,
       value: true,
     },
+    current: {
+      type: String,
+      value: '',
+    },
   },
 
   data: {
@@ -46,6 +50,10 @@ Component({
     },
     goStaff() {
       wx.navigateTo({ url: '/pages/staff/staff' });
+    },
+    goBlacklist() {
+      if (this.data.current === 'blacklist') return;
+      wx.navigateTo({ url: '/pages/blacklist/blacklist' });
     },
   },
 });

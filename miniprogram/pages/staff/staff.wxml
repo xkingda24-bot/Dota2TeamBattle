@@ -70,7 +70,7 @@
     <view class="sub">（你）可免暗号进入并管理所有比赛；删除/归档仍需比赛创建者或最高管理员。</view>
   </view>
 
-  <!-- 超管：只读用户列表 -->
+  <!-- 超管：用户列表与禁赛管理 -->
   <view class="card" wx:if="{{isSuper}}">
     <view class="card-title">用户列表查看</view>
     <view class="sub">分页查看全部用户，支持搜索用户名或 Dota ID，可按天梯分、段位等排序。</view>
@@ -79,7 +79,7 @@
   </block>
 </view>
 
-<!-- 用户列表查看：分页只读列表 -->
+<!-- 用户列表：分页管理、搜索与禁赛设置 -->
 <view class="mask" wx:if="{{userListModal}}" bindtap="onCloseUserList">
   <view class="panel admin-panel" catchtap="noop">
     <view class="panel-title">用户列表查看</view>
@@ -152,6 +152,7 @@
             <text wx:if="{{item.isSuper}}" class="tag tag-red">最高管理员</text>
             <text wx:elif="{{item.isAdminUser}}" class="tag tag-blue">普通管理员</text>
             <text wx:elif="{{item.canCreateTournament}}" class="tag tag-green">已开通创建</text>
+            <text wx:if="{{item.ban}}" class="tag tag-ban">禁赛中 · {{item.ban.durationText}}</text>
           </view>
           <view class="admin-user-meta">Dota ID：{{item.dotaIdText}} · {{item.mmrText}}</view>
           <view class="admin-user-meta">段位：{{item.rankText}}</view>
@@ -159,6 +160,8 @@
         <view wx:if="{{!item.isSuper}}" class="admin-user-actions">
           <view wx:if="{{!item.isAdminUser}}" class="btn-small {{item.canCreateTournament ? 'btn-plain' : ''}} {{createPermissionSaving ? 'btn-disabled' : ''}}" data-openid="{{item.openid}}" bindtap="onToggleCreatePermission">{{createPermissionSaving === item.openid ? '保存中…' : (item.canCreateTournament ? '取消创建权限' : '开通创建权限')}}</view>
           <view class="btn-small {{item.isAdminUser ? 'btn-plain' : ''}} {{adminsSaving ? 'btn-disabled' : ''}}" data-openid="{{item.openid}}" bindtap="onToggleAdmin">{{item.isAdminUser ? '取消管理员' : '设为管理员'}}</view>
+          <view class="btn-small btn-ban {{banSaving ? 'btn-disabled' : ''}}" data-openid="{{item.openid}}" bindtap="onOpenBanEditor">{{item.ban ? '调整禁赛' : '禁赛'}}</view>
+          <view wx:if="{{item.ban}}" class="btn-small btn-plain {{liftingOpenid === item.openid ? 'btn-disabled' : ''}}" data-openid="{{item.openid}}" bindtap="onLiftUserBan">{{liftingOpenid === item.openid ? '解除中…' : '解除禁赛'}}</view>
         </view>
       </view>
     </scroll-view>
@@ -218,3 +221,11 @@
     </view>
   </view>
 </view>
+
+<ban-editor
+  visible="{{banEditorVisible}}"
+  target="{{banTarget}}"
+  saving="{{banSaving}}"
+  bind:cancel="onCloseBanEditor"
+  bind:submit="onSubmitUserBan"
+/>

@@ -13,6 +13,7 @@ const { buildRegistration, skipRegistrationSecret, moveRegistrationRole } = requ
 const { mutateTournament } = require('../tournament-transaction');
 const { TEAM_LOGO_IDS } = require('../team-logos');
 const { checkUserText } = require('../content-security');
+const { getActiveBlacklistRecord, banNotice } = require('../blacklist');
 
 // scene 取值以官方文档为准：1 资料 / 2 评论 / 3 正文 / 4 昵称
 const SCENE_CONTENT = 3;
@@ -38,6 +39,8 @@ module.exports = {
   /* 报名（需暗号）：队长/队员/替补；队员满时自动进入替补；资料（昵称/天梯分/常玩位置）必填才可报名 */
   async register(event) {
     const openid = getOpenId();
+    const activeBan = await getActiveBlacklistRecord(db, openid);
+    if (activeBan) return fail(banNotice(activeBan));
     const me = await getUser(openid);
     if (!me || !me.nickname) return fail('请先设置昵称');
     if (me.mmr == null) return fail('请先在「我的-编辑资料」填写天梯分后再报名');

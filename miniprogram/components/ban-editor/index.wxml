@@ -1,0 +1,35 @@
+<view wx:if="{{visible}}" class="ban-mask" bindtap="onCancel" catchtouchmove="noop">
+  <view class="ban-panel" catchtap="noop">
+    <view class="ban-title">{{target.ban ? '调整禁赛' : '设置禁赛'}}</view>
+    <view class="ban-user">{{target.nickname || '未设置昵称'}}</view>
+    <view class="ban-dota-id">Dota ID：{{target.dota2Id || '未填写'}}</view>
+
+    <view class="ban-label">禁赛时长 <text>*</text></view>
+    <view class="ban-durations">
+      <view
+        wx:for="{{durations}}"
+        wx:key="value"
+        class="ban-duration {{duration === item.value ? 'ban-duration-active' : ''}}"
+        data-value="{{item.value}}"
+        bindtap="onSelectDuration"
+      >{{item.label}}</view>
+    </view>
+
+    <view class="ban-label">禁赛原因 <text>*</text></view>
+    <textarea
+      class="ban-reason"
+      value="{{reason}}"
+      maxlength="100"
+      placeholder="请输入禁赛原因，将公开展示"
+      placeholder-class="ban-placeholder"
+      bindinput="onReasonInput"
+    />
+    <view class="ban-count">{{reason.length}} / 100</view>
+    <view class="ban-effect">{{effectText}}</view>
+
+    <view class="ban-actions">
+      <view class="ban-btn ban-btn-cancel {{saving ? 'ban-btn-disabled' : ''}}" bindtap="onCancel">取消</view>
+      <view class="ban-btn ban-btn-confirm {{saving ? 'ban-btn-disabled' : ''}}" bindtap="onSubmit">{{saving ? '保存中…' : '确认禁赛'}}</view>
+    </view>
+  </view>
+</view>

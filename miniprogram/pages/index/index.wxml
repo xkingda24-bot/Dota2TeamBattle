@@ -1,5 +1,5 @@
 <!-- 刀塔集结首页 -->
-<nav-bar title="刀塔集结" />
+<nav-bar title="刀塔集结" current="home" />
 
 <view class="home-page">
   <view class="hero">

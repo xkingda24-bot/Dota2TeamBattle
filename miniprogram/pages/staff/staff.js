@@ -38,6 +38,10 @@ Page({
     createPermissionRoster: [],
     adminsSaving: false,
     createPermissionSaving: '',
+    banEditorVisible: false,
+    banTarget: null,
+    banSaving: false,
+    liftingOpenid: '',
     canInitializeSuperAdmin: false,
     bootstrapOpenid: '',
     // 超管：只读用户列表
@@ -280,7 +284,7 @@ Page({
     if (this._userSearchTimer) clearTimeout(this._userSearchTimer);
     this._userSearchTimer = null;
     this._userListRequestId = (this._userListRequestId || 0) + 1;
-    this.setData({ userListModal: false, listLoading: false });
+    this.setData({ userListModal: false, listLoading: false, banEditorVisible: false, banTarget: null });
   },
 
   /* ---------- 超管：设置 / 取消普通管理员（全量提交，≤ 20 人） ---------- */
@@ -364,6 +368,62 @@ Page({
     if (!openid) return;
     const admins = this.data.adminOpenids.filter((id) => id !== openid);
     this.commitAdmins(admins);
+  },
+
+  /* ---------- 超管：设置、调整和解除禁赛 ---------- */
+
+  onOpenBanEditor(e) {
+    if (!this.data.isSuper || this.data.banSaving) return;
+    const openid = String(e.currentTarget.dataset.openid || '');
+    const target = (this.data.userList || []).find((item) => item.openid === openid);
+    if (!target || target.isSuper) return;
+    this.setData({ banEditorVisible: true, banTarget: target });
+  },
+
+  onCloseBanEditor() {
+    if (!this.data.banSaving) this.setData({ banEditorVisible: false, banTarget: null });
+  },
+
+  onSubmitUserBan(e) {
+    if (!this.data.isSuper || this.data.banSaving) return;
+    const detail = e.detail || {};
+    this.setData({ banSaving: true });
+    api.call('setUserBan', detail)
+      .then(() => {
+        this.setData({ banSaving: false, banEditorVisible: false, banTarget: null });
+        wx.showToast({ title: '禁赛已更新', icon: 'success' });
+        this.loadUserList({ page: this.data.userListPage });
+      })
+      .catch((error) => {
+        this.setData({ banSaving: false });
+        wx.showToast({ title: error.message || '禁赛设置失败', icon: 'none' });
+      });
+  },
+
+  onLiftUserBan(e) {
+    if (!this.data.isSuper || this.data.liftingOpenid || this.data.banSaving) return;
+    const openid = String(e.currentTarget.dataset.openid || '');
+    const target = (this.data.userList || []).find((item) => item.openid === openid);
+    if (!target || !target.ban) return;
+    wx.showModal({
+      title: '解除禁赛',
+      content: '解除后 ' + target.nickname + ' 将立即恢复报名参赛资格。确定继续？',
+      confirmText: '确认解除',
+      success: (result) => {
+        if (!result.confirm) return;
+        this.setData({ liftingOpenid: openid });
+        api.call('liftUserBan', { targetOpenid: openid })
+          .then(() => {
+            this.setData({ liftingOpenid: '' });
+            wx.showToast({ title: '已解除禁赛', icon: 'success' });
+            this.loadUserList({ page: this.data.userListPage });
+          })
+          .catch((error) => {
+            this.setData({ liftingOpenid: '' });
+            wx.showToast({ title: error.message || '解除失败', icon: 'none' });
+          });
+      },
+    });
   },
 
   /* ---------- 资料编辑 ---------- */
