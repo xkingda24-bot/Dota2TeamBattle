@@ -1,7 +1,8 @@
 // pages/index/index.js - 主页（创建比赛 + 今天的比赛 + 历史入口）
 const api = require('../../utils/api');
-const { formatDateTime, getTodayBoundary } = require('../../utils/date-time');
-const { normalizeRankTier, dotaRankLabel, leaderboardRank } = require('../../utils/dota-rank');
+const { getTodayBoundary } = require('../../utils/date-time');
+const { normalizeRankTier, estimateMmrFromRankTier } = require('../../utils/dota-rank');
+const { buildDotaLookupView } = require('../../utils/dota-lookup-view');
 const tournamentEntry = require('../../utils/tournament-entry');
 const { settleUntilDone } = require('../../utils/season-settle');
 
@@ -47,6 +48,7 @@ Page({
     pfDota2Id: '',
     pfDotaRankVerified: false,
     pfDotaRankLabel: '未校验段位',
+    pfDotaEstimatedMmr: null,
     pfDotaRankTier: null,
     pfDotaLeaderboardRank: null,
     pfDotaRankVerifiedAt: null,
@@ -164,6 +166,7 @@ Page({
                 pfDota2Id: '',
                 pfDotaRankVerified: false,
                 pfDotaRankLabel: '未校验段位',
+                pfDotaEstimatedMmr: null,
                 pfDotaRankTier: null,
                 pfDotaLeaderboardRank: null,
                 pfDotaRankVerifiedAt: null,
@@ -197,6 +200,13 @@ Page({
     this.setData({ pfMmr: e.detail.value });
   },
 
+  onUseEstimatedMmr() {
+    if (this.data.dotaLookupLoading || this.data.nickSaving) return;
+    const estimatedMmr = Number(this.data.pfDotaEstimatedMmr);
+    if (!Number.isInteger(estimatedMmr) || estimatedMmr < 1) return;
+    this.setData({ pfMmr: String(estimatedMmr) });
+  },
+
   onPfDotaId(e) {
     const value = String(e.detail.value || '').trim();
     const changed = value !== this.data.pfDota2Id;
@@ -206,6 +216,7 @@ Page({
       ...(changed ? {
         pfDotaRankVerified: false,
         pfDotaRankLabel: '未校验段位',
+        pfDotaEstimatedMmr: null,
         pfDotaRankTier: null,
         pfDotaLeaderboardRank: null,
         pfDotaRankVerifiedAt: null,
@@ -224,6 +235,7 @@ Page({
       pfDota2Id: '',
       pfDotaRankVerified: false,
       pfDotaRankLabel: '未校验段位',
+      pfDotaEstimatedMmr: null,
       pfDotaRankTier: null,
       pfDotaLeaderboardRank: null,
       pfDotaRankVerifiedAt: null,
@@ -242,7 +254,7 @@ Page({
     }
     const requestId = (this._rankLookupRequestId || 0) + 1;
     this._rankLookupRequestId = requestId;
-    this.setData({ dotaLookupLoading: true });
+    this.setData({ dotaLookupLoading: true, pfDotaLookup: null, pfDotaRankConfirmed: false });
     api
       .call('lookupDota', { accountId })
       .then((result) => {
@@ -253,28 +265,18 @@ Page({
           wx.showToast({ title: '未查到段位，请先打完一场排位', icon: 'none' });
           return;
         }
-        const rankLabel = dotaRankLabel(rankTier);
-        const rankPosition = leaderboardRank(result, true);
-        const rankResult = Object.assign({}, result, { rankTier, rankLabel, leaderboardRank: rankPosition });
-        wx.showModal({
-          title: '确认段位校验',
-          content: 'Dota ID：' + (result.accountId || accountId) + '\n段位：' + rankLabel,
-          confirmText: '确认使用',
-          success: (modalResult) => {
-            if (!modalResult.confirm || accountId !== String(this.data.pfDota2Id || '').trim()) return;
-            const verifiedAt = Number(result.verifiedAt) || Date.now();
-            this.setData({
-              pfDota2Id: String(result.accountId || accountId),
-              pfDotaRankVerified: true,
-              pfDotaRankLabel: rankLabel,
-              pfDotaRankTier: rankTier,
-              pfDotaLeaderboardRank: rankPosition,
-              pfDotaRankVerifiedAt: verifiedAt,
-              pfDotaRankVerifiedAtText: formatDateTime(verifiedAt),
-              pfDotaRankConfirmed: true,
-              pfDotaLookup: rankResult,
-            });
-          },
+        const rankResult = buildDotaLookupView(result);
+        this.setData({
+          pfDota2Id: String(rankResult.accountId || accountId),
+          pfDotaRankVerified: true,
+          pfDotaRankLabel: rankResult.rankLabel,
+          pfDotaEstimatedMmr: rankResult.estimatedMmr,
+          pfDotaRankTier: rankTier,
+          pfDotaLeaderboardRank: rankResult.leaderboardRank,
+          pfDotaRankVerifiedAt: rankResult.verifiedAt,
+          pfDotaRankVerifiedAtText: rankResult.verifiedAtText,
+          pfDotaRankConfirmed: true,
+          pfDotaLookup: rankResult,
         });
       })
       .catch((err) => {
@@ -361,6 +363,7 @@ Page({
           pfDota2Id: '',
           pfDotaRankVerified: false,
           pfDotaRankLabel: '未校验段位',
+          pfDotaEstimatedMmr: null,
           pfDotaRankTier: null,
           pfDotaLeaderboardRank: null,
           pfDotaRankVerifiedAt: null,
@@ -389,6 +392,7 @@ Page({
       pfDota2Id: '',
       pfDotaRankVerified: false,
       pfDotaRankLabel: '未校验段位',
+      pfDotaEstimatedMmr: null,
       pfDotaRankTier: null,
       pfDotaLeaderboardRank: null,
       pfDotaRankVerifiedAt: null,

@@ -24,12 +24,12 @@ function cleanDotaCache(now) {
   }
 }
 
-function fetchDotaProfile(accountId) {
+function requestDotaJson(path) {
   return new Promise((resolve, reject) => {
     const request = https.get(
       {
         hostname: 'api.opendota.com',
-        path: '/api/players/' + accountId,
+        path,
         headers: { Accept: 'application/json' },
         timeout: 5000,
       },
@@ -49,28 +49,11 @@ function fetchDotaProfile(accountId) {
             reject(new Error('OpenDota 查询失败，请稍后重试'));
             return;
           }
-          let payload;
           try {
-            payload = JSON.parse(body);
+            resolve(JSON.parse(body));
           } catch (e) {
             reject(new Error('OpenDota 返回数据异常'));
-            return;
           }
-          const profile = payload && payload.profile;
-          const rankTier = Number(payload.rank_tier) || 0;
-          const rankLabel = dotaRankLabel(rankTier);
-          const leaderboardValue = payload.leaderboard_rank;
-          const leaderboardRank = Number.isInteger(Number(leaderboardValue)) &&
-            Number(leaderboardValue) >= 1 && Number(leaderboardValue) <= 10000
-            ? Number(leaderboardValue)
-            : null;
-          resolve({
-            accountId,
-            nickname: String(profile && profile.personaname || '').trim() || '未知玩家',
-            rankTier,
-            rankLabel,
-            leaderboardRank,
-          });
         });
         response.on('error', () => reject(new Error('OpenDota 查询失败，请稍后重试')));
       }
@@ -84,6 +67,79 @@ function fetchDotaProfile(accountId) {
           : new Error('OpenDota 查询失败，请稍后重试'));
     });
   });
+}
+
+function roundStat(value) {
+  return Math.round(value * 100) / 100;
+}
+
+function summarizeRecentMatches(matches) {
+  const list = (Array.isArray(matches) ? matches : []).filter((match) =>
+    match && typeof match.radiant_win === 'boolean' && Number.isFinite(Number(match.player_slot))
+  ).slice(0, 20);
+  const stats = { total: list.length, wins: 0, losses: 0, kills: 0, deaths: 0, assists: 0, kda: null };
+  list.forEach((match) => {
+    const isRadiant = Number(match.player_slot) < 128;
+    if (match.radiant_win === isRadiant) stats.wins += 1;
+    else stats.losses += 1;
+    stats.kills += Number(match.kills) || 0;
+    stats.deaths += Number(match.deaths) || 0;
+    stats.assists += Number(match.assists) || 0;
+  });
+  if (stats.total > 0) stats.kda = roundStat((stats.kills + stats.assists) / Math.max(1, stats.deaths));
+  return stats;
+}
+
+function buildCommonHeroes(playerHeroes, heroCatalog) {
+  const names = {};
+  (Array.isArray(heroCatalog) ? heroCatalog : []).forEach((hero) => {
+    if (hero && hero.id !== undefined) names[Number(hero.id)] = String(hero.localized_name || '').trim();
+  });
+  return (Array.isArray(playerHeroes) ? playerHeroes : [])
+    .filter((hero) => hero && Number(hero.games) > 0)
+    .sort((a, b) => Number(b.games) - Number(a.games))
+    .slice(0, 5)
+    .map((hero) => {
+      const heroId = Number(hero.hero_id);
+      const games = Number(hero.games);
+      const wins = Number(hero.win) || 0;
+      return {
+        heroId,
+        name: names[heroId] || '英雄 ' + heroId,
+        games,
+        wins,
+        winRate: roundStat(wins / games * 100),
+      };
+    });
+}
+
+async function fetchDotaProfile(accountId) {
+  const payload = await requestDotaJson('/api/players/' + accountId);
+  const profile = payload && payload.profile;
+  const rankTier = Number(payload.rank_tier) || 0;
+  const rankLabel = dotaRankLabel(rankTier);
+  const leaderboardValue = payload.leaderboard_rank;
+  const leaderboardRank = Number.isInteger(Number(leaderboardValue)) &&
+    Number(leaderboardValue) >= 1 && Number(leaderboardValue) <= 10000
+    ? Number(leaderboardValue)
+    : null;
+
+  // 补充数据失败不影响段位校验；三个接口并行，避免串行增加等待时间。
+  const [recentMatches, playerHeroes, heroCatalog] = await Promise.all([
+    requestDotaJson('/api/players/' + accountId + '/recentMatches').catch(() => []),
+    requestDotaJson('/api/players/' + accountId + '/heroes').catch(() => []),
+    requestDotaJson('/api/heroes').catch(() => []),
+  ]);
+  return {
+    accountId,
+    nickname: String(profile && profile.personaname || '').trim() || '未知玩家',
+    avatarUrl: String(profile && (profile.avatarfull || profile.avatarmedium || profile.avatar) || '').trim(),
+    rankTier,
+    rankLabel,
+    leaderboardRank,
+    recentStats: summarizeRecentMatches(recentMatches),
+    commonHeroes: buildCommonHeroes(playerHeroes, heroCatalog),
+  };
 }
 
 async function getDotaProfile(rawAccountId, openid) {

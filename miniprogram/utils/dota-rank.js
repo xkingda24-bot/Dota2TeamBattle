@@ -1,4 +1,4 @@
-const RANK_VERIFICATION_TTL = 14 * 24 * 60 * 60 * 1000;
+const RANK_VERIFICATION_TTL = 7 * 24 * 60 * 60 * 1000;
 const DOTA_ID_RE = /^\d{5,12}$/;
 
 function normalizeRankTier(value) {
@@ -17,6 +17,18 @@ function dotaRankLabel(rankTier) {
   if (rank === 80) return '冠绝';
   const names = { 1: '先锋', 2: '卫士', 3: '中军', 4: '统帅', 5: '传奇', 6: '万古', 7: '超凡' };
   return names[Math.floor(rank / 10)] + (rank % 10);
+}
+
+// 按社区段位表估算当前星级的起始 MMR；资料表单最低允许 1 分。
+function estimateMmrFromRankTier(rankTier) {
+  const rank = normalizeRankTier(rankTier);
+  if (rank === null) return null;
+  if (rank === 80) return 5620;
+  const major = Math.floor(rank / 10);
+  const stars = rank % 10;
+  const base = (major - 1) * 770;
+  const starMmr = major === 7 ? 200 : 154;
+  return Math.max(1, base + (stars - 1) * starMmr);
 }
 
 function toTimestamp(value) {
@@ -56,6 +68,7 @@ module.exports = {
   RANK_VERIFICATION_TTL,
   normalizeRankTier,
   dotaRankLabel,
+  estimateMmrFromRankTier,
   toTimestamp,
   rankVerifiedAt,
   hasCurrentRankVerification,

@@ -32,7 +32,7 @@ assert.deepStrictEqual(
 assert.strictEqual(dotaRankLabel(0), '未定级');
 assert.strictEqual(dotaRankLabel(16), '未知段位');
 
-assert.strictEqual(RANK_VERIFICATION_TTL, 14 * 24 * 60 * 60 * 1000);
+assert.strictEqual(RANK_VERIFICATION_TTL, 7 * 24 * 60 * 60 * 1000);
 assert.strictEqual(isRankVerified(verifiedPlayer, now), true);
 assert.strictEqual(isRankVerified({
   dota2Id: '123456789',

@@ -42,32 +42,36 @@
   align-items: center;
   gap: 14rpx;
 }
-.dota-rank-row {
-  display: flex;
-  align-items: center;
-  gap: 14rpx;
-}
 .dota-id-input {
   flex: 1;
   min-width: 0;
   width: auto;
-}
-.dota-rank-input {
-  flex: 1;
-  min-width: 0;
-  width: auto;
-  color: #bdc4ce;
 }
 .dota-lookup-btn {
   flex: none;
   min-width: 86rpx;
   text-align: center;
 }
-.dota-help {
-  margin-top: 8rpx;
+.mmr-input-row {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
 }
-.dota-verified-time { margin-top: 8rpx; color: #7bc89b; }
-.dota-expired-time { margin-top: 8rpx; color: #d8b979; }
+.mmr-input {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+}
+.mmr-estimate-btn {
+  flex: none;
+  min-width: 132rpx;
+  box-sizing: border-box;
+  text-align: center;
+  white-space: nowrap;
+}
+.mmr-estimate-btn.btn-disabled {
+  opacity: .45;
+}
 .dota-lookup-result {
   display: flex;
   align-items: center;

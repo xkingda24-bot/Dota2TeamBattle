@@ -7,7 +7,7 @@ const app = JSON.parse(fs.readFileSync(path.join(__dirname, '../../app.json'), '
 assert(app.pages.includes('pages/blacklist/blacklist'));
 const nav = fs.readFileSync(path.join(__dirname, '../../components/nav-bar/index.wxml'), 'utf8');
 assert(nav.includes('bindtap="goBlacklist"'));
-assert(nav.includes('>黑名单</text>'));
+assert(nav.includes('>禁赛名单</text>'));
 const staff = fs.readFileSync(path.join(__dirname, '../staff/staff.wxml'), 'utf8');
 assert(staff.includes('bindtap="onOpenBanEditor"'));
 assert(staff.includes("{{item.ban ? '调整禁赛' : '禁赛'}}"));

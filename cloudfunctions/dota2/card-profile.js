@@ -1,4 +1,4 @@
-const RANK_VERIFICATION_TTL = 14 * 24 * 60 * 60 * 1000;
+const RANK_VERIFICATION_TTL = 7 * 24 * 60 * 60 * 1000;
 const DOTA_ID_RE = /^\d{5,12}$/;
 
 function normalizeRankTier(value) {

@@ -146,8 +146,10 @@
 .dota-id-row { display:flex; align-items:center; gap:12rpx; }
 .dota-id-input { flex:1; min-width:0; }
 .dota-lookup-btn { flex:none; min-width:92rpx; box-sizing:border-box; text-align:center; }
-.dota-help { margin-top:8rpx; line-height:1.5; }
-.dota-verified-time { margin-top:8rpx; color:#7bc89b; }
+.mmr-input-row { display:flex; align-items:center; gap:12rpx; }
+.mmr-input { flex:1; min-width:0; width:auto; }
+.mmr-estimate-btn { flex:none; min-width:132rpx; box-sizing:border-box; text-align:center; white-space:nowrap; }
+.mmr-estimate-btn.btn-disabled { opacity:.45; }
 .dota-lookup-result { display:flex; align-items:center; margin-top:14rpx; padding:14rpx 16rpx; border:1rpx solid rgba(224,181,111,.2); border-radius:8rpx; background:rgba(224,181,111,.06); }
 .dota-lookup-copy { flex:1; min-width:0; }
 .dota-player-name { overflow:hidden; color:#e8e4da; font-size:26rpx; text-overflow:ellipsis; white-space:nowrap; }

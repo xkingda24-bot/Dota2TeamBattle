@@ -15,6 +15,40 @@ const { buildPlayerStats } = require('../player-stats');
 // scene 取值以官方文档为准：1 资料 / 2 评论 / 3 正文 / 4 昵称
 const SCENE_PROFILE = 1;
 
+function buildDotaLookupSnapshot(profile, verifiedAt) {
+  const recent = profile.recentStats || {};
+  return {
+    accountId: String(profile.accountId || ''),
+    nickname: String(profile.nickname || '未知玩家'),
+    avatarUrl: String(profile.avatarUrl || ''),
+    rankTier: Number(profile.rankTier) || 0,
+    leaderboardRank: profile.leaderboardRank == null ? null : Number(profile.leaderboardRank),
+    verifiedAt: Number(verifiedAt) || Date.now(),
+    recentStats: {
+      total: Number(recent.total) || 0,
+      wins: Number(recent.wins) || 0,
+      losses: Number(recent.losses) || 0,
+      kills: Number(recent.kills) || 0,
+      deaths: Number(recent.deaths) || 0,
+      assists: Number(recent.assists) || 0,
+      kda: recent.kda == null ? null : Number(recent.kda),
+    },
+    commonHeroes: (Array.isArray(profile.commonHeroes) ? profile.commonHeroes : []).slice(0, 5).map((hero) => ({
+      heroId: Number(hero.heroId) || 0,
+      name: String(hero.name || '未知英雄'),
+      games: Number(hero.games) || 0,
+      wins: Number(hero.wins) || 0,
+      winRate: Number(hero.winRate) || 0,
+    })),
+  };
+}
+
+function getMatchingLookupSnapshot(user, dota2Id) {
+  const snapshot = user && user.dota2LookupSnapshot;
+  if (!snapshot || !dota2Id || String(user.dota2Id || '') !== dota2Id) return null;
+  return String(snapshot.accountId || '') === dota2Id ? snapshot : null;
+}
+
 // 生涯统计只需要赛程与队伍相关字段，不拉整个文档（感言、暗号等都不需要）
 const PROFILE_TOURNAMENT_FIELDS = {
   _id: true,
@@ -106,10 +140,34 @@ module.exports = {
         return fail('未查到段位，请先打完一场排位');
       }
       const verifiedAt = Date.now();
+      let savedProfile = null;
+      if (event.autoSave === true) {
+        try {
+          const me = await getUser(openid);
+          if (!me) return fail('请先保存基础资料');
+          savedProfile = {
+            dota2Id: profile.accountId,
+            dota2RankVerified: true,
+            dota2RankTier: profile.rankTier,
+            dota2RankLabel: profile.rankLabel,
+            dota2LeaderboardRank: profile.leaderboardRank,
+            dota2RankVerifiedAt: verifiedAt,
+            dota2Nickname: profile.nickname,
+            dota2VerifiedAt: verifiedAt,
+            dota2LookupSnapshot: buildDotaLookupSnapshot(profile, verifiedAt),
+            updatedAt: Date.now(),
+          };
+          await db.collection('users').doc(me._id).update({ data: savedProfile });
+        } catch (e) {
+          return fail('段位校验成功，但自动保存失败，请重试');
+        }
+      }
       return ok(Object.assign({}, profile, {
         verifiedAt,
         rankVerifiedAt: verifiedAt,
         dota2RankVerifiedAt: verifiedAt,
+        autoSaved: !!savedProfile,
+        savedProfile,
       }));
     } catch (e) {
       return fail(e && e.message ? e.message : 'OpenDota 查询失败，请稍后重试');
@@ -215,6 +273,9 @@ module.exports = {
             dota2RankVerifiedAt: null,
             dota2Nickname: '',
           };
+    const savedLookupSnapshot = dotaProfile
+      ? buildDotaLookupSnapshot(dotaProfile, savedRank.dota2RankVerifiedAt)
+      : getMatchingLookupSnapshot(me, dota2Id);
     const data = {
       openid,
       nickname,
@@ -223,8 +284,9 @@ module.exports = {
       signature,
       dota2Id,
       ...savedRank,
+      dota2LookupSnapshot: savedLookupSnapshot,
       // Keep the legacy timestamp field for older clients while the new field
-      // is used for the independent 14-day rank verification window.
+      // is used for the independent 7-day rank verification window.
       dota2VerifiedAt: savedRank.dota2RankVerifiedAt || null,
       cardStyle: normalizeCardStyle(me && me.cardStyle),
       updatedAt: Date.now(),

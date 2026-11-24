@@ -187,19 +187,40 @@
     <input class="input" placeholder="请输入昵称（最多20字）" placeholder-class="ph" maxlength="20" value="{{pf.nickname}}" bindinput="onPfNick" />
 
     <view class="field-label">Dota 2 ID <text class="optional">可选</text></view>
-    <input class="input" type="number" maxlength="12" placeholder="5-12 位数字 ID" placeholder-class="ph" value="{{pf.dota2Id}}" bindinput="onPfDotaId" />
-
-    <view class="field-label">段位</view>
-    <view class="dota-rank-row">
-      <input class="input dota-rank-input" value="{{pf.dota2RankLabel || '未校验段位'}}" disabled="{{true}}" />
+    <view class="dota-id-row">
+      <input class="input dota-id-input" type="number" maxlength="12" placeholder="5-12 位数字 ID" placeholder-class="ph" value="{{pf.dota2Id}}" bindinput="onPfDotaId" />
       <view class="btn-small dota-lookup-btn {{lookingUpDota || saving ? 'btn-disabled' : ''}}" bindtap="onLookupDota">{{lookingUpDota ? '校验中…' : '段位校验'}}</view>
     </view>
-    <view class="sub dota-help">段位校验只读取 OpenDota 资料，不会修改天梯分。</view>
-    <view wx:if="{{pf.dotaRankVerified}}" class="sub dota-verified-time">已校验于{{pf.dotaRankVerifiedAtText}}（14 天有效）</view>
-    <view wx:elif="{{pf.dota2RankVerifiedAt}}" class="sub dota-expired-time">段位校验已过期，可重新校验</view>
+
+    <view wx:if="{{pf.dotaLookup}}" class="dota-result-card">
+      <view class="dota-result-title">校验结果</view>
+      <view wx:if="{{pf.dotaLookup.isExpired}}" class="dota-result-expired">已过期，请重新校验</view>
+      <view class="dota-result-player">
+        <image wx:if="{{pf.dotaLookup.avatarUrl}}" class="dota-result-avatar" src="{{pf.dotaLookup.avatarUrl}}" mode="aspectFill" aria-label="OpenDota 玩家头像" />
+        <view wx:else class="dota-result-avatar dota-result-avatar-empty">DOTA</view>
+        <view class="dota-result-player-copy">
+          <view class="dota-result-nickname">{{pf.dotaLookup.nickname}}</view>
+          <view class="dota-result-account">OpenDota · {{pf.dotaLookup.accountId}}</view>
+        </view>
+      </view>
+      <view class="dota-result-grid">
+        <view class="dota-result-item"><view class="dota-result-label">段位</view><view class="dota-result-value">{{pf.dotaLookup.rankLabel}}</view></view>
+        <view class="dota-result-item"><view class="dota-result-label">预估分</view><view class="dota-result-value">{{pf.dotaLookup.estimatedMmr}} 分</view></view>
+        <view class="dota-result-item"><view class="dota-result-label">最近战绩</view><view class="dota-result-value">{{pf.dotaLookup.recentRecordText}}</view></view>
+        <view class="dota-result-item"><view class="dota-result-label">KDA</view><view class="dota-result-value">{{pf.dotaLookup.recentKdaText}}</view></view>
+      </view>
+      <view class="dota-result-heroes"><view class="dota-result-label">常用英雄</view><view class="dota-result-hero-names">{{pf.dotaLookup.commonHeroesText}}</view></view>
+      <view class="dota-result-times">
+        <view>校验时间：{{pf.dotaLookup.verifiedAtText}}</view>
+        <view>有效期至：{{pf.dotaLookup.validUntilText}}（7 天）</view>
+      </view>
+    </view>
 
     <view class="field-label">天梯分 <text class="req">*</text></view>
-    <input class="input" type="number" placeholder="必填，如 4500" placeholder-class="ph" value="{{pf.mmr}}" bindinput="onPfMmr" />
+    <view class="mmr-input-row">
+      <input class="input mmr-input" type="number" placeholder="必填，如 4500" placeholder-class="ph" value="{{pf.mmr}}" bindinput="onPfMmr" />
+      <view class="btn-small btn-plain mmr-estimate-btn {{pf.dota2EstimatedMmr === null || lookingUpDota || saving ? 'btn-disabled' : ''}}" bindtap="onUseEstimatedMmr">使用预估分</view>
+    </view>
 
     <view class="field-label">常玩位置（必填，可多选）<text class="req">*</text></view>
     <view class="role-btns">

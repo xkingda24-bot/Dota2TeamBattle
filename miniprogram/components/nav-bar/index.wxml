@@ -6,7 +6,7 @@
     </view>
     <text class="nav-divider">|</text>
     <view class="nav-entry" bindtap="goBlacklist" hover-class="nav-hover">
-      <text class="nav-link {{current === 'blacklist' ? 'nav-link-active' : ''}}">黑名单</text>
+      <text class="nav-link {{current === 'blacklist' ? 'nav-link-active' : ''}}">禁赛名单</text>
     </view>
   </view>
   <view class="nav-title">{{title}}</view>

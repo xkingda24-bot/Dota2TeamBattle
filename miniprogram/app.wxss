@@ -300,3 +300,98 @@ page {
 .panel-btn + .panel-btn {
   margin-left: 20rpx;
 }
+
+/* OpenDota 段位校验结果：首页首次资料与我的资料共用 */
+.dota-result-card {
+  margin-top: 16rpx;
+  padding: 20rpx;
+  border: 1rpx solid rgba(224, 181, 111, .24);
+  border-radius: 12rpx;
+  background: rgba(10, 16, 25, .48);
+}
+.dota-result-title {
+  color: #e8c27c;
+  font-size: 26rpx;
+  font-weight: 600;
+}
+.dota-result-expired {
+  margin-top: 6rpx;
+  color: #d8b979;
+  font-size: 21rpx;
+}
+.dota-result-player {
+  display: flex;
+  align-items: center;
+  margin-top: 16rpx;
+}
+.dota-result-avatar {
+  flex: none;
+  width: 72rpx;
+  height: 72rpx;
+  border: 1rpx solid rgba(224, 181, 111, .28);
+  border-radius: 10rpx;
+  background: #1a2130;
+}
+.dota-result-avatar-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #8993a1;
+  font-size: 16rpx;
+}
+.dota-result-player-copy {
+  flex: 1;
+  min-width: 0;
+  margin-left: 16rpx;
+}
+.dota-result-nickname {
+  overflow: hidden;
+  color: #e8e4da;
+  font-size: 27rpx;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dota-result-account {
+  margin-top: 5rpx;
+  color: #8993a1;
+  font-size: 20rpx;
+}
+.dota-result-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16rpx 20rpx;
+  margin-top: 20rpx;
+}
+.dota-result-item {
+  min-width: 0;
+}
+.dota-result-label {
+  color: #8993a1;
+  font-size: 21rpx;
+}
+.dota-result-value {
+  margin-top: 5rpx;
+  color: #e8e4da;
+  font-size: 23rpx;
+  line-height: 1.45;
+  word-break: break-word;
+}
+.dota-result-heroes {
+  margin-top: 18rpx;
+}
+.dota-result-hero-names {
+  margin-top: 6rpx;
+  color: #d8c9aa;
+  font-size: 22rpx;
+  line-height: 1.55;
+  word-break: break-word;
+}
+.dota-result-times {
+  margin-top: 18rpx;
+  padding-top: 14rpx;
+  border-top: 1rpx solid rgba(224, 181, 111, .12);
+  color: #8993a1;
+  font-size: 20rpx;
+  line-height: 1.65;
+}
