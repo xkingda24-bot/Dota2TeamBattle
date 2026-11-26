@@ -1,4 +1,14 @@
 <!--components/nav-bar/index.wxml-->
 <view class="nav-wrap" style="padding-top: {{statusBarHeight}}px; height: {{navHeight}}px;">
+  <view
+    wx:if="{{showBack}}"
+    class="nav-back"
+    style="top: {{statusBarHeight}}px; height: {{navHeight}}px;"
+    bindtap="goBack"
+    hover-class="nav-back-pressed"
+    aria-label="返回"
+  >
+    <image class="nav-back-icon" src="{{backIcon}}" mode="aspectFit" />
+  </view>
   <view wx:if="{{title}}" class="nav-title">{{title}}</view>
 </view>
