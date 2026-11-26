@@ -4,7 +4,6 @@
   "usingComponents": {
     "nav-bar": "/components/nav-bar/index",
     "player-card": "/components/player-card/index",
-    "career-summary": "/components/career-summary/index",
-    "ban-editor": "/components/ban-editor/index"
+    "career-summary": "/components/career-summary/index"
   }
 }

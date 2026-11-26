@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "编辑资料",
+  "backgroundColor": "#131821",
+  "usingComponents": {
+    "nav-bar": "/components/nav-bar/index"
+  }
+}

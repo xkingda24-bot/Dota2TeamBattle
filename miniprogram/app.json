@@ -11,7 +11,9 @@
     "pages/season-points/season-points",
     "pages/player/player",
     "pages/history/history",
-    "pages/poster/poster"
+    "pages/poster/poster",
+    "pages/user-list/user-list",
+    "pages/profile-edit/profile-edit"
   ],
   "tabBar": {
     "custom": true,
@@ -28,6 +30,7 @@
   },
   "window": {
     "backgroundColor": "#131821",
+    "backgroundColorBottom": "#0d1017",
     "backgroundTextStyle": "light",
     "navigationBarBackgroundColor": "#131821",
     "navigationBarTitleText": "刀塔集结",

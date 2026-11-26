@@ -1,0 +1,77 @@
+<!--pages/profile-edit/profile-edit.wxml - 资料编辑（独立页面，原 staff 弹窗迁移）-->
+<nav-bar title="{{user ? '编辑资料' : '设置资料'}}" />
+<view class="container">
+  <view wx:if="{{pageLoading}}" class="card">
+    <view class="card-title">正在加载</view>
+    <view class="sub">正在读取个人资料，请稍候…</view>
+  </view>
+  <view wx:elif="{{pageError}}" class="card">
+    <view class="card-title">加载失败</view>
+    <view class="sub">{{pageError}}</view>
+    <view class="btn" bindtap="retryBootstrap">重试</view>
+  </view>
+  <view wx:else class="card">
+    <view class="card-title">{{user ? '编辑资料' : '设置资料'}}</view>
+    <view class="sub">报名/选人时其他群友看到的信息</view>
+    <view class="sub" style="margin-bottom:14rpx;">报名必填：昵称、天梯分、至少一个常玩位置；个人签名选填。</view>
+
+    <view class="field-label">昵称 <text class="req">*</text></view>
+    <input class="input" placeholder="请输入昵称（最多20字）" placeholder-class="ph" maxlength="20" value="{{pf.nickname}}" bindinput="onPfNick" />
+
+    <view class="field-label">Dota 2 ID <text class="optional">可选</text></view>
+    <view class="dota-id-row">
+      <input class="input dota-id-input" type="number" maxlength="12" placeholder="5-12 位数字 ID" placeholder-class="ph" value="{{pf.dota2Id}}" bindinput="onPfDotaId" />
+      <view class="btn-small dota-lookup-btn {{lookingUpDota || saving ? 'btn-disabled' : ''}}" bindtap="onLookupDota">{{lookingUpDota ? '校验中…' : '段位校验'}}</view>
+    </view>
+
+    <view wx:if="{{pf.dotaLookup}}" class="dota-result-card">
+      <view class="dota-result-title">校验结果</view>
+      <view wx:if="{{pf.dotaLookup.isExpired}}" class="dota-result-expired">已过期，请重新校验</view>
+      <view class="dota-result-player">
+        <image wx:if="{{pf.dotaLookup.avatarUrl}}" class="dota-result-avatar" src="{{pf.dotaLookup.avatarUrl}}" mode="aspectFill" aria-label="OpenDota 玩家头像" />
+        <view wx:else class="dota-result-avatar dota-result-avatar-empty">DOTA</view>
+        <view class="dota-result-player-copy">
+          <view class="dota-result-nickname">{{pf.dotaLookup.nickname}}</view>
+          <view class="dota-result-account">OpenDota · {{pf.dotaLookup.accountId}}</view>
+        </view>
+      </view>
+      <view class="dota-result-grid">
+        <view class="dota-result-item"><view class="dota-result-label">段位</view><view class="dota-result-value">{{pf.dotaLookup.rankDisplayText}}</view></view>
+        <view class="dota-result-item"><view class="dota-result-label">{{pf.dotaLookup.estimateLabel}}</view><view class="dota-result-value">{{pf.dotaLookup.estimatedMmrText}}</view></view>
+        <view class="dota-result-item"><view class="dota-result-label">最近战绩</view><view class="dota-result-value">{{pf.dotaLookup.recentRecordText}}</view></view>
+        <view class="dota-result-item"><view class="dota-result-label">KDA</view><view class="dota-result-value">{{pf.dotaLookup.recentKdaText}}</view></view>
+      </view>
+      <view class="dota-result-heroes"><view class="dota-result-label">常用英雄</view><view class="dota-result-hero-names">{{pf.dotaLookup.commonHeroesText}}</view></view>
+      <view wx:if="{{pf.dotaLookup.showPublicDataTip}}" class="dota-public-data-tip">请在dota2设置-社交-✅公开比赛数据</view>
+      <view class="dota-result-times">
+        <view>校验时间：{{pf.dotaLookup.verifiedAtText}}</view>
+        <view>有效期至：{{pf.dotaLookup.validUntilText}}（7 天）</view>
+      </view>
+    </view>
+
+    <view class="field-label">天梯分 <text class="req">*</text></view>
+    <view class="mmr-input-row">
+      <input class="input mmr-input" type="number" placeholder="必填，如 4500" placeholder-class="ph" value="{{pf.mmr}}" bindinput="onPfMmr" />
+      <view class="btn-small btn-plain mmr-estimate-btn {{pf.dota2EstimatedMmr === null || lookingUpDota || saving ? 'btn-disabled' : ''}}" bindtap="onUseEstimatedMmr">使用预估分</view>
+    </view>
+
+    <view class="field-label">常玩位置（必填，可多选）<text class="req">*</text></view>
+    <view class="role-btns">
+      <view class="role-btn {{pf.rolesActive[0] ? 'role-btn-active' : ''}}" data-role="1" bindtap="onToggleRole">1号位</view>
+      <view class="role-btn {{pf.rolesActive[1] ? 'role-btn-active' : ''}}" data-role="2" bindtap="onToggleRole">2号位</view>
+      <view class="role-btn {{pf.rolesActive[2] ? 'role-btn-active' : ''}}" data-role="3" bindtap="onToggleRole">3号位</view>
+      <view class="role-btn {{pf.rolesActive[3] ? 'role-btn-active' : ''}}" data-role="4" bindtap="onToggleRole">4号位</view>
+      <view class="role-btn {{pf.rolesActive[4] ? 'role-btn-active' : ''}}" data-role="5" bindtap="onToggleRole">5号位</view>
+    </view>
+    <view class="sub" style="margin-top:8rpx;">1号位核心 · 2号位中单 · 3号位劣单 · 4/5号位辅助</view>
+
+    <view class="field-label">个人签名</view>
+    <input class="input" placeholder="选填，最多25个字" placeholder-class="ph" maxlength="25" value="{{pf.signature}}" bindinput="onPfSig" />
+    <view class="char-count {{pf.signature.length > 25 ? 'over' : ''}}">{{pf.signature.length}}/25</view>
+
+    <view class="panel-btns">
+      <view class="panel-btn btn-plain" bindtap="goBack">取消</view>
+      <view class="panel-btn btn" bindtap="onSaveProfile">{{saving ? '保存中…' : '保存'}}</view>
+    </view>
+  </view>
+</view>

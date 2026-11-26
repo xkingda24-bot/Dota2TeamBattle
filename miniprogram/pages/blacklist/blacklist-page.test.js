@@ -11,10 +11,10 @@ const nav = fs.readFileSync(path.join(__dirname, '../../components/nav-bar/index
 assert(!nav.includes('goBlacklist'), '底部 tabBar 上线后不再保留顶部重复入口');
 assert(!nav.includes('goHome'));
 assert(!nav.includes('goStaff'));
-const staff = fs.readFileSync(path.join(__dirname, '../staff/staff.wxml'), 'utf8');
-assert(staff.includes('bindtap="onOpenBanEditor"'));
-assert(staff.includes("{{item.ban ? '调整禁赛' : '禁赛'}}"));
-assert(staff.includes('<ban-editor'));
+const userList = fs.readFileSync(path.join(__dirname, '../user-list/user-list.wxml'), 'utf8');
+assert(userList.includes('bindtap="onOpenBanEditor"'), '禁赛管理入口应随用户列表迁移到独立页面');
+assert(userList.includes("{{item.ban ? '调整禁赛' : '禁赛'}}"));
+assert(userList.includes('<ban-editor'));
 const registration = fs.readFileSync(path.join(__dirname, '../../../cloudfunctions/dota2/actions/registration.js'), 'utf8');
 assert(registration.includes('getActiveBlacklistRecord(db, openid)'));
 assert(registration.includes('banNotice(activeBan)'), '报名入口必须展示禁赛期限和原因');

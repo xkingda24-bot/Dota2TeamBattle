@@ -1,0 +1,126 @@
+<!--pages/user-list/user-list.wxml - 超管用户列表：分页管理、搜索与禁赛设置（独立页面）-->
+<nav-bar title="用户列表" />
+<view class="container">
+  <view wx:if="{{pageLoading}}" class="card">
+    <view class="card-title">正在加载</view>
+    <view class="sub">正在确认管理员身份，请稍候…</view>
+  </view>
+  <view wx:elif="{{pageError}}" class="card">
+    <view class="card-title">加载失败</view>
+    <view class="sub">{{pageError}}</view>
+    <view class="btn" bindtap="retryBootstrap">重试</view>
+  </view>
+  <view wx:elif="{{forbidden}}" class="card">
+    <view class="card-title">仅最高管理员可查看</view>
+    <view class="sub">当前账号没有用户列表查看权限。</view>
+  </view>
+  <block wx:else>
+    <!-- 管理员与创建权限名册 -->
+    <view class="card">
+      <view class="card-title">用户列表查看</view>
+      <view class="sub">共 {{userListTotal}} 位用户 · 仅最高管理员可查看</view>
+      <view class="admin-roster">
+        <view class="admin-roster-head">普通管理员 {{adminRoster.length}} / 20</view>
+        <view wx:if="{{adminRoster.length === 0 && adminOpenids.length === 0}}" class="admin-roster-empty">还没有普通管理员</view>
+        <view wx:elif="{{adminRoster.length === 0}}" class="admin-roster-empty">{{adminOpenids.length}} 位（云函数更新后显示昵称）</view>
+        <view wx:else class="admin-roster-chips">
+          <view wx:for="{{adminRoster}}" wx:key="openid" class="admin-roster-chip">
+            <text class="admin-roster-name">{{item.nickname}}</text>
+            <view
+              class="admin-roster-remove {{adminsSaving ? 'admin-roster-remove-disabled' : ''}}"
+              data-openid="{{item.openid}}"
+              catchtap="onRemoveRosterAdmin"
+            >×</view>
+          </view>
+        </view>
+      </view>
+      <view class="admin-roster create-permission-roster">
+        <view class="admin-roster-head">创建权限名册 · {{createPermissionRoster.length}} 人</view>
+        <view class="admin-roster-tip">已获授权的普通用户；管理员默认可创建，不重复列入。</view>
+        <view wx:if="{{createPermissionRoster.length === 0}}" class="admin-roster-empty">暂未授权普通用户，可在下方列表中开通</view>
+        <view wx:else class="admin-roster-chips">
+          <view wx:for="{{createPermissionRoster}}" wx:key="openid" class="admin-roster-chip">
+            <text class="admin-roster-name">{{item.nickname}}</text>
+            <view
+              class="admin-roster-remove {{createPermissionSaving ? 'admin-roster-remove-disabled' : ''}}"
+              data-openid="{{item.openid}}"
+              catchtap="onRemoveRosterCreatePermission"
+            >×</view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 搜索与排序 -->
+    <view class="card">
+      <view class="user-search-row">
+        <input
+          class="input user-search-input"
+          value="{{userListKeyword}}"
+          maxlength="30"
+          confirm-type="search"
+          placeholder="搜索用户名或 Dota ID"
+          placeholder-class="ph"
+          bindinput="onUserSearchInput"
+          bindconfirm="onUserSearchConfirm"
+        />
+        <view wx:if="{{userListKeyword}}" class="user-search-clear" bindtap="onClearUserSearch">清空</view>
+      </view>
+      <view class="sort-label">排序（点击切换升序 / 降序）</view>
+      <view class="user-sort-options">
+        <view class="user-sort-option {{userListSortBy === 'dota2Id' ? 'user-sort-active' : ''}}" data-sort="dota2Id" bindtap="onChangeUserSort">Dota ID{{userListSortBy === 'dota2Id' ? (userListOrder === 'asc' ? ' ↑' : ' ↓') : ''}}</view>
+        <view class="user-sort-option {{userListSortBy === 'mmr' ? 'user-sort-active' : ''}}" data-sort="mmr" bindtap="onChangeUserSort">天梯分{{userListSortBy === 'mmr' ? (userListOrder === 'asc' ? ' ↑' : ' ↓') : ''}}</view>
+        <view class="user-sort-option {{userListSortBy === 'nickname' ? 'user-sort-active' : ''}}" data-sort="nickname" bindtap="onChangeUserSort">用户名{{userListSortBy === 'nickname' ? (userListOrder === 'asc' ? ' ↑' : ' ↓') : ''}}</view>
+        <view class="user-sort-option {{userListSortBy === 'dota2RankTier' ? 'user-sort-active' : ''}}" data-sort="dota2RankTier" bindtap="onChangeUserSort">段位{{userListSortBy === 'dota2RankTier' ? (userListOrder === 'asc' ? ' ↑' : ' ↓') : ''}}</view>
+      </view>
+    </view>
+
+    <!-- 用户列表：页面整体滚动 -->
+    <view class="card">
+      <view wx:if="{{listLoading}}" class="empty">加载中...</view>
+      <view wx:elif="{{userListError}}" class="empty">
+        <view>{{userListError}}</view>
+        <view class="btn-small btn-plain" bindtap="onRetryUserList">重试</view>
+      </view>
+      <view wx:elif="{{userList.length === 0}}" class="empty">{{userListKeyword ? '没有找到匹配的用户' : '暂无用户记录'}}</view>
+      <view wx:else class="admin-user-list">
+        <view
+          class="admin-user-row"
+          wx:for="{{userList}}"
+          wx:key="openid"
+        >
+          <view class="admin-user-info">
+            <view class="admin-user-heading">
+              <text class="user-nick">{{item.nickname || '未设置昵称'}}</text>
+              <text wx:if="{{item.isSuper}}" class="tag tag-red">最高管理员</text>
+              <text wx:elif="{{item.isAdminUser}}" class="tag tag-blue">普通管理员</text>
+              <text wx:elif="{{item.canCreateTournament}}" class="tag tag-green">已开通创建</text>
+              <text wx:if="{{item.ban}}" class="tag tag-ban">禁赛中 · {{item.ban.durationText}}</text>
+            </view>
+            <view class="admin-user-meta">Dota ID：{{item.dotaIdText}} · {{item.mmrText}}</view>
+            <view class="admin-user-meta">段位：{{item.rankText}}</view>
+          </view>
+          <view wx:if="{{!item.isSuper}}" class="admin-user-actions">
+            <view wx:if="{{!item.isAdminUser}}" class="btn-small {{item.canCreateTournament ? 'btn-plain' : ''}} {{createPermissionSaving ? 'btn-disabled' : ''}}" data-openid="{{item.openid}}" bindtap="onToggleCreatePermission">{{createPermissionSaving === item.openid ? '保存中…' : (item.canCreateTournament ? '取消创建权限' : '开通创建权限')}}</view>
+            <view class="btn-small {{item.isAdminUser ? 'btn-plain' : ''}} {{adminsSaving ? 'btn-disabled' : ''}}" data-openid="{{item.openid}}" bindtap="onToggleAdmin">{{item.isAdminUser ? '取消管理员' : '设为管理员'}}</view>
+            <view class="btn-small btn-ban {{banSaving ? 'btn-disabled' : ''}}" data-openid="{{item.openid}}" bindtap="onOpenBanEditor">{{item.ban ? '调整禁赛' : '禁赛'}}</view>
+            <view wx:if="{{item.ban}}" class="btn-small btn-plain {{liftingOpenid === item.openid ? 'btn-disabled' : ''}}" data-openid="{{item.openid}}" bindtap="onLiftUserBan">{{liftingOpenid === item.openid ? '解除中…' : '解除禁赛'}}</view>
+          </view>
+        </view>
+      </view>
+      <view class="user-page-controls" wx:if="{{userListTotal > 0}}">
+        <view class="btn-small btn-plain {{userListPage <= 1 || listLoading ? 'btn-disabled' : ''}}" data-delta="-1" bindtap="onChangeUserPage">上一页</view>
+        <view class="user-page-text">第 {{userListPage}} / {{userListPageCount}} 页</view>
+        <view class="btn-small btn-plain {{userListPage >= userListPageCount || listLoading ? 'btn-disabled' : ''}}" data-delta="1" bindtap="onChangeUserPage">下一页</view>
+      </view>
+    </view>
+  </block>
+</view>
+
+<ban-editor
+  visible="{{banEditorVisible}}"
+  target="{{banTarget}}"
+  saving="{{banSaving}}"
+  bind:cancel="onCloseBanEditor"
+  bind:submit="onSubmitUserBan"
+/>

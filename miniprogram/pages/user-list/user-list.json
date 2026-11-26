@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "用户列表",
+  "backgroundColor": "#131821",
+  "usingComponents": {
+    "nav-bar": "/components/nav-bar/index",
+    "ban-editor": "/components/ban-editor/index"
+  }
+}
