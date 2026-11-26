@@ -1,6 +1,10 @@
 // pages/user-list/user-list.js - 超管用户列表（独立页面，原 staff 弹窗迁移）
 const api = require('../../utils/api');
 
+const SEARCH_ICON = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#8d96a3" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>'
+);
+
 Page({
   data: {
     pageLoading: true,
@@ -11,6 +15,7 @@ Page({
     // 普通管理员名册（带昵称），页面顶部直接展示，避免逐页找蓝色标签
     adminRoster: [],
     createPermissionRoster: [],
+    rosterExpanded: '',
     adminsSaving: false,
     createPermissionSaving: '',
     banEditorVisible: false,
@@ -18,6 +23,7 @@ Page({
     banSaving: false,
     liftingOpenid: '',
     userList: [],
+    searchIcon: SEARCH_ICON,
     listLoading: false,
     userListError: '',
     userListPage: 1,
@@ -62,6 +68,13 @@ Page({
 
   retryBootstrap() {
     this.bootstrap();
+  },
+
+  /* 统计概览：点击展开对应人员名单，两个名单互斥，再次点击收起 */
+  onToggleRoster(e) {
+    const key = String(e.currentTarget.dataset.roster || '');
+    if (key !== 'admin' && key !== 'create') return;
+    this.setData({ rosterExpanded: this.data.rosterExpanded === key ? '' : key });
   },
 
   /* ---------- 用户列表：加载、搜索、排序、分页 ---------- */
@@ -162,6 +175,31 @@ Page({
     this.loadUserList({ page: nextPage });
   },
 
+  /* ---------- 点击用户名片：底部动作面板汇总权限与禁赛操作 ---------- */
+
+  onUserRowTap(e) {
+    if (!this.data.isSuper) return;
+    const openid = String(e.currentTarget.dataset.openid || '');
+    const user = (this.data.userList || []).find((item) => item.openid === openid);
+    if (!user || user.isSuper) return;
+    const actions = [];
+    if (!user.isAdminUser) actions.push({ key: 'create', text: user.canCreateTournament ? '取消创建权限' : '开通创建权限' });
+    actions.push({ key: 'admin', text: user.isAdminUser ? '取消管理员' : '设为管理员' });
+    actions.push({ key: 'ban', text: user.ban ? '调整禁赛' : '禁赛' });
+    if (user.ban) actions.push({ key: 'lift', text: '解除禁赛' });
+    wx.showActionSheet({
+      itemList: actions.map((action) => action.text),
+      success: (res) => {
+        const action = actions[res.tapIndex];
+        if (!action) return;
+        if (action.key === 'create') this.updateCreatePermission(user, !user.canCreateTournament);
+        else if (action.key === 'admin') this.toggleAdmin(user);
+        else if (action.key === 'ban') this.openBanEditor(user);
+        else if (action.key === 'lift') this.liftUserBan(user);
+      },
+    });
+  },
+
   /* ---------- 超管：设置 / 取消普通管理员（全量提交，≤ 20 人） ---------- */
 
   // 全量提交普通管理员名单（≤ 20 人）：设置与取消都走这里，成功后刷新列表与名册
@@ -183,10 +221,9 @@ Page({
       });
   },
 
-  onToggleAdmin(e) {
-    if (!this.data.isSuper || this.data.adminsSaving) return;
-    const openid = String(e.currentTarget.dataset.openid || '');
-    if (!openid) return;
+  toggleAdmin(user) {
+    if (!this.data.isSuper || this.data.adminsSaving || !user) return;
+    const openid = user.openid;
     const admins = this.data.adminOpenids.slice();
     const i = admins.indexOf(openid);
     if (i >= 0) {
@@ -224,12 +261,6 @@ Page({
     });
   },
 
-  onToggleCreatePermission(e) {
-    const openid = String(e.currentTarget.dataset.openid || '');
-    const user = (this.data.userList || []).find((item) => item.openid === openid);
-    if (user) this.updateCreatePermission(user, !user.canCreateTournament);
-  },
-
   onRemoveRosterCreatePermission(e) {
     const openid = String(e.currentTarget.dataset.openid || '');
     const user = (this.data.createPermissionRoster || []).find((item) => item.openid === openid);
@@ -247,12 +278,9 @@ Page({
 
   /* ---------- 超管：设置、调整和解除禁赛 ---------- */
 
-  onOpenBanEditor(e) {
-    if (!this.data.isSuper || this.data.banSaving) return;
-    const openid = String(e.currentTarget.dataset.openid || '');
-    const target = (this.data.userList || []).find((item) => item.openid === openid);
-    if (!target || target.isSuper) return;
-    this.setData({ banEditorVisible: true, banTarget: target });
+  openBanEditor(user) {
+    if (!this.data.isSuper || this.data.banSaving || !user || user.isSuper) return;
+    this.setData({ banEditorVisible: true, banTarget: user });
   },
 
   onCloseBanEditor() {
@@ -275,11 +303,9 @@ Page({
       });
   },
 
-  onLiftUserBan(e) {
-    if (!this.data.isSuper || this.data.liftingOpenid || this.data.banSaving) return;
-    const openid = String(e.currentTarget.dataset.openid || '');
-    const target = (this.data.userList || []).find((item) => item.openid === openid);
-    if (!target || !target.ban) return;
+  liftUserBan(target) {
+    if (!this.data.isSuper || this.data.liftingOpenid || this.data.banSaving || !target || !target.ban) return;
+    const openid = target.openid;
     wx.showModal({
       title: '解除禁赛',
       content: '解除后 ' + target.nickname + ' 将立即恢复报名参赛资格。确定继续？',

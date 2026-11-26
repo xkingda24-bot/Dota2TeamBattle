@@ -26,6 +26,13 @@ const wxml = fs.readFileSync(path.join(__dirname, 'user-list.wxml'), 'utf8');
 assert(wxml.includes('<nav-bar title="用户列表"'), '独立页面应使用带返回键的 nav-bar');
 assert(!wxml.includes('class="mask"'), '用户列表不应再是弹窗');
 assert(wxml.includes('<ban-editor'), '禁赛编辑器应随列表迁移');
+assert(!wxml.includes('user-avatar'), '用户行不使用头像');
+assert(!wxml.includes('admin-user-actions'), '用户行不再展示行内操作按钮');
+assert(wxml.includes('bindtap="onUserRowTap"'), '点击用户名片应弹出操作');
+assert(wxml.includes('创建权限名册'), '统计项应命名为创建权限名册');
+assert(wxml.includes('bindtap="onToggleRoster"'), '统计项应支持点击展开名单');
+assert(wxml.includes('catchtap="onRemoveRosterAdmin"'), '展开的管理员名单应保留移除能力');
+assert(wxml.includes('catchtap="onRemoveRosterCreatePermission"'), '展开的创建权限名单应保留移除能力');
 
 const staffWxml = fs.readFileSync(path.join(__dirname, '../staff/staff.wxml'), 'utf8');
 const staffJs = fs.readFileSync(path.join(__dirname, '../staff/staff.js'), 'utf8');
@@ -132,26 +139,66 @@ const flush = () => new Promise((resolve) => setImmediate(resolve));
   reset();
   handlers.setAdmins = (params) => Promise.resolve({ admins: params.openids });
   page.data.adminOpenids = ['admin-openid'];
-  definition.onToggleAdmin.call(page, { currentTarget: { dataset: { openid: 'user-openid' } } });
+  definition.toggleAdmin.call(page, { openid: 'user-openid' });
   await flush();
   assert.deepStrictEqual(callsTo('setAdmins')[0].params.openids, ['admin-openid', 'user-openid']);
-  definition.onToggleAdmin.call(page, { currentTarget: { dataset: { openid: 'admin-openid' } } });
+  definition.toggleAdmin.call(page, { openid: 'admin-openid' });
   await flush();
   assert.deepStrictEqual(callsTo('setAdmins')[1].params.openids, ['user-openid']);
 
   // 7. 禁赛编辑器：普通用户可打开，超管用户不可打开
   page.data.banEditorVisible = false;
-  page.data.userList = [
-    { openid: 'super-openid', isSuper: true },
-    { openid: 'user-openid', isSuper: false },
-  ];
-  definition.onOpenBanEditor.call(page, { currentTarget: { dataset: { openid: 'super-openid' } } });
+  definition.openBanEditor.call(page, { openid: 'super-openid', isSuper: true });
   assert.strictEqual(page.data.banEditorVisible, false, '不能对最高管理员打开禁赛编辑器');
-  definition.onOpenBanEditor.call(page, { currentTarget: { dataset: { openid: 'user-openid' } } });
+  definition.openBanEditor.call(page, { openid: 'user-openid', isSuper: false });
   assert.strictEqual(page.data.banEditorVisible, true);
   assert.strictEqual(page.data.banTarget.openid, 'user-openid');
 
-  // 8. staff 入口：goUserList 仅超管可跳转（跳转目标已在上方源码断言中验证）
+  // 8. 点击用户名片：按状态生成动作面板选项并分发操作
+  const actionSheets = [];
+  global.wx.showActionSheet = (options) => { actionSheets.push(options); };
+  const rowUser = { openid: 'user-openid', isSuper: false, isAdminUser: false, canCreateTournament: false, ban: null };
+  page.data.userList = [rowUser, { openid: 'super-openid', isSuper: true }];
+  page.data.isSuper = true;
+
+  definition.onUserRowTap.call(page, { currentTarget: { dataset: { openid: 'super-openid' } } });
+  assert.strictEqual(actionSheets.length, 0, '最高管理员不弹出操作');
+
+  definition.onUserRowTap.call(page, { currentTarget: { dataset: { openid: 'user-openid' } } });
+  assert.strictEqual(actionSheets.length, 1);
+  assert.deepStrictEqual(actionSheets[0].itemList, ['开通创建权限', '设为管理员', '禁赛']);
+
+  // 选择「设为管理员」走全量提交
+  reset();
+  page.data.adminOpenids = [];
+  actionSheets[0].success({ tapIndex: 1 });
+  await flush();
+  assert.deepStrictEqual(callsTo('setAdmins')[0].params.openids, ['user-openid']);
+
+  // 选择「禁赛」打开禁赛编辑器
+  page.data.banEditorVisible = false;
+  actionSheets[0].success({ tapIndex: 2 });
+  assert.strictEqual(page.data.banEditorVisible, true);
+  assert.strictEqual(page.data.banTarget.openid, 'user-openid');
+
+  // 管理员 + 禁赛用户：不再显示创建权限项，保留调整与解除禁赛
+  const bannedAdmin = { openid: 'admin-openid', isSuper: false, isAdminUser: true, canCreateTournament: true, ban: { durationText: '一周' } };
+  page.data.userList = [bannedAdmin];
+  definition.onUserRowTap.call(page, { currentTarget: { dataset: { openid: 'admin-openid' } } });
+  assert.deepStrictEqual(actionSheets[1].itemList, ['取消管理员', '调整禁赛', '解除禁赛']);
+
+  // 9. 统计项展开名单：互斥展开、再次点击收起、非法值忽略
+  page.data.rosterExpanded = '';
+  definition.onToggleRoster.call(page, { currentTarget: { dataset: { roster: 'admin' } } });
+  assert.strictEqual(page.data.rosterExpanded, 'admin', '点击普通管理员应展开管理员名单');
+  definition.onToggleRoster.call(page, { currentTarget: { dataset: { roster: 'create' } } });
+  assert.strictEqual(page.data.rosterExpanded, 'create', '两个名单应互斥展开');
+  definition.onToggleRoster.call(page, { currentTarget: { dataset: { roster: 'create' } } });
+  assert.strictEqual(page.data.rosterExpanded, '', '再次点击同一项应收起');
+  definition.onToggleRoster.call(page, { currentTarget: { dataset: { roster: 'unknown' } } });
+  assert.strictEqual(page.data.rosterExpanded, '', '非法名单类型应忽略');
+
+  // 10. staff 入口：goUserList 仅超管可跳转（跳转目标已在上方源码断言中验证）
   assert(/goUserList\(\) \{\s*if \(!this\.data\.isSuper\) return;/.test(staffJs), 'staff goUserList 应拦截非超管');
 
   console.log('User list page permission, loading, search, sort, pagination and admin tests passed.');

@@ -12,8 +12,10 @@ assert(!nav.includes('goBlacklist'), '底部 tabBar 上线后不再保留顶部�
 assert(!nav.includes('goHome'));
 assert(!nav.includes('goStaff'));
 const userList = fs.readFileSync(path.join(__dirname, '../user-list/user-list.wxml'), 'utf8');
-assert(userList.includes('bindtap="onOpenBanEditor"'), '禁赛管理入口应随用户列表迁移到独立页面');
-assert(userList.includes("{{item.ban ? '调整禁赛' : '禁赛'}}"));
+const userListJs = fs.readFileSync(path.join(__dirname, '../user-list/user-list.js'), 'utf8');
+assert(userList.includes('bindtap="onUserRowTap"'), '点击用户名片应弹出权限与禁赛操作');
+assert(userListJs.includes('wx.showActionSheet'), '操作应以底部动作面板呈现');
+assert(userListJs.includes("user.ban ? '调整禁赛' : '禁赛'"), '禁赛入口文案应按当前禁赛状态切换');
 assert(userList.includes('<ban-editor'));
 const registration = fs.readFileSync(path.join(__dirname, '../../../cloudfunctions/dota2/actions/registration.js'), 'utf8');
 assert(registration.includes('getActiveBlacklistRecord(db, openid)'));
