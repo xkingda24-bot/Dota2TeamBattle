@@ -9,8 +9,9 @@
       hover-class="tab-item-pressed"
     >
       <view class="tab-indicator"></view>
+      <image class="tab-icon" src="{{selected === index ? item.iconActive : item.icon}}" mode="aspectFit" />
       <text class="tab-text">{{item.text}}</text>
     </view>
   </view>
-  <view class="tab-safe-area"></view>
+  <view class="tab-safe-area" style="height: {{safeAreaBottom}}px;"></view>
 </view>
