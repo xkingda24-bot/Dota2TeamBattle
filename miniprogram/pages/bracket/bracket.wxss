@@ -179,8 +179,8 @@
 .settlement-order-button[disabled] { opacity:.35; }
 .podium-list { margin-top: 18rpx; }
 .podium-item {
-  display: flex;
-  align-items: flex-start;
+  position: relative;
+  display: block;
   margin-top: 14rpx;
   padding: 16rpx;
   border-radius: 12rpx;
@@ -192,11 +192,13 @@
 .podium-rank-2 { border-color: rgba(192, 205, 218, 0.38); }
 .podium-rank-3 { border-color: rgba(192, 125, 91, 0.42); }
 .podium-medal {
-  flex-shrink: 0;
+  position: absolute;
+  left: 16rpx;
+  top: 16rpx;
+  z-index: 1;
   width: 58rpx;
   height: 58rpx;
   line-height: 58rpx;
-  margin-right: 14rpx;
   border-radius: 50%;
   text-align: center;
   color: #211a10;
@@ -206,8 +208,9 @@
 }
 .podium-rank-2 .podium-medal { color: #252b34; background: #c7d0da; }
 .podium-rank-3 .podium-medal { color: #321b14; background: #c78b68; }
-.podium-main { flex: 1; min-width: 0; }
+.podium-main { width: 100%; min-width: 0; }
 .podium-line, .standing-row { display: flex; align-items: center; min-width: 0; }
+.podium-line { box-sizing: border-box; min-height: 58rpx; padding-left: 72rpx; }
 .podium-rank, .standing-rank { flex-shrink: 0; color: #e8c27c; font-size: 24rpx; font-weight: 600; }
 .podium-team, .standing-team { min-width: 0; margin-left: 14rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #e8e4da; font-size: 28rpx; font-weight: 600; }
 .standing-logo { width:40rpx; height:40rpx; margin-left:12rpx; font-size:34rpx; }
