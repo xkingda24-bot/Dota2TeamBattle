@@ -4,6 +4,7 @@ const api = require('../../utils/api');
 const { formatDateTime } = require('../../utils/date-time');
 const { hasCurrentRankVerification, rankVerifiedAt, normalizeRankTier, dotaRankLabel, leaderboardRank, estimateMmrFromRankTier } = require('../../utils/dota-rank');
 const { buildDotaLookupView } = require('../../utils/dota-lookup-view');
+const { selectTabBar } = require('../../utils/tab-bar');
 
 const { formatRolesText } = require('../../utils/roles');
 
@@ -83,6 +84,7 @@ Page({
   },
 
   onShow() {
+    selectTabBar(this, 3);
     this.load();
   },
 

@@ -1,4 +1,4 @@
-/* components/nav-bar/index.wxss - Dota2 风格导航栏 */
+/* components/nav-bar/index.wxss - 页面标题栏，主导航位于底部 tabBar */
 .nav-wrap {
   background: #0d1017;
   border-bottom: 1rpx solid rgba(224, 181, 111, 0.15);
@@ -7,23 +7,10 @@
   position: relative;
   box-sizing: content-box;
 }
-.nav-left {
-  display: flex;
-  align-items: center;
-  flex: none;
-  padding: 8rpx 4rpx 8rpx 20rpx;
-}
-.nav-entry { padding: 8rpx 10rpx; }
-.nav-link {
-  font-size: 26rpx;
-  color: #b9c0cb;
-  letter-spacing: 1rpx;
-  white-space: nowrap;
-}
-.nav-link-active { color: #e8c27c; font-weight: 600; }
-.nav-divider { color: rgba(185, 192, 203, .25); font-size: 22rpx; }
 .nav-title {
-  flex: 1;
+  width: 100%;
+  padding: 0 150rpx;
+  box-sizing: border-box;
   text-align: center;
   font-size: 34rpx;
   font-weight: 700;
@@ -32,16 +19,4 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-.nav-right {
-  display: flex;
-  align-items: center;
-  padding: 8rpx 0 8rpx 8rpx;
-}
-.nav-staff-text {
-  font-size: 26rpx;
-  color: #b9c0cb;
-}
-.nav-hover {
-  opacity: 0.6;
 }

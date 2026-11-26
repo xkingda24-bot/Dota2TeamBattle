@@ -5,9 +5,12 @@ const api = require('../../utils/api');
 
 const app = JSON.parse(fs.readFileSync(path.join(__dirname, '../../app.json'), 'utf8'));
 assert(app.pages.includes('pages/blacklist/blacklist'));
+assert.strictEqual(app.tabBar.custom, true);
+assert.deepStrictEqual(app.tabBar.list.map((item) => item.text), ['主页', '禁赛名单', '历史赛事', '我的']);
 const nav = fs.readFileSync(path.join(__dirname, '../../components/nav-bar/index.wxml'), 'utf8');
-assert(nav.includes('bindtap="goBlacklist"'));
-assert(nav.includes('>禁赛名单</text>'));
+assert(!nav.includes('goBlacklist'), '底部 tabBar 上线后不再保留顶部重复入口');
+assert(!nav.includes('goHome'));
+assert(!nav.includes('goStaff'));
 const staff = fs.readFileSync(path.join(__dirname, '../staff/staff.wxml'), 'utf8');
 assert(staff.includes('bindtap="onOpenBanEditor"'));
 assert(staff.includes("{{item.ban ? '调整禁赛' : '禁赛'}}"));

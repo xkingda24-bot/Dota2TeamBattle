@@ -5,6 +5,7 @@ const { normalizeRankTier, estimateMmrFromRankTier } = require('../../utils/dota
 const { buildDotaLookupView } = require('../../utils/dota-lookup-view');
 const tournamentEntry = require('../../utils/tournament-entry');
 const { settleUntilDone } = require('../../utils/season-settle');
+const { selectTabBar } = require('../../utils/tab-bar');
 
 Page({
   data: {
@@ -77,6 +78,7 @@ Page({
   },
 
   onShow() {
+    selectTabBar(this, 0);
     // scene 1154 = 从朋友圈单页模式打开，只渲染这一页且登录态受限，取数失败要给出可理解的提示
     this._timelinePreview = wx.getLaunchOptionsSync().scene === 1154;
     const win = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync();
@@ -465,7 +467,7 @@ Page({
   },
 
   goHistoryPage() {
-    wx.navigateTo({ url: '/pages/history/history' });
+    wx.switchTab({ url: '/pages/history/history' });
   },
 
   /* 历史比赛条目与「今天的比赛」走同一个入口，点进去就是同一个比赛页面。 */

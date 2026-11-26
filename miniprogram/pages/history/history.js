@@ -9,6 +9,7 @@ const tournamentEntry = require('../../utils/tournament-entry');
 const { getTodayBoundary } = require('../../utils/date-time');
 const { itemId, mergeHistoryPage } = require('../../utils/history-merge');
 const { settleUntilDone } = require('../../utils/season-settle');
+const { selectTabBar } = require('../../utils/tab-bar');
 
 const PAGE_SIZE = 20;
 const SEARCH_DEBOUNCE = 450;
@@ -58,7 +59,8 @@ Page({
     secretChecking: false,
   },
 
-  onLoad() {
+  onShow() {
+    selectTabBar(this, 2);
     this.loadFirstPage();
   },
 

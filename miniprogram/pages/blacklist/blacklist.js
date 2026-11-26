@@ -1,3 +1,4 @@
+const { selectTabBar } = require('../../utils/tab-bar');
 const api = require('../../utils/api');
 const { decorateBan } = require('../../utils/blacklist-view');
 
@@ -15,6 +16,7 @@ Page({
   },
 
   onShow() {
+    selectTabBar(this, 1);
     this.load();
   },
 

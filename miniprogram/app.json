@@ -13,6 +13,19 @@
     "pages/history/history",
     "pages/poster/poster"
   ],
+  "tabBar": {
+    "custom": true,
+    "color": "#8d96a3",
+    "selectedColor": "#e8c27c",
+    "backgroundColor": "#0d1017",
+    "borderStyle": "black",
+    "list": [
+      { "pagePath": "pages/index/index", "text": "主页" },
+      { "pagePath": "pages/blacklist/blacklist", "text": "禁赛名单" },
+      { "pagePath": "pages/history/history", "text": "历史赛事" },
+      { "pagePath": "pages/staff/staff", "text": "我的" }
+    ]
+  },
   "window": {
     "backgroundColor": "#131821",
     "backgroundTextStyle": "light",

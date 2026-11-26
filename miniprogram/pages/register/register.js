@@ -362,7 +362,7 @@ Page({
             content: '报名需要昵称、天梯分和常玩位置。现在去「我的」完善资料吗？',
             confirmText: '去完善',
             success: (res) => {
-              if (res.confirm) wx.navigateTo({ url: '/pages/staff/staff' });
+              if (res.confirm) wx.switchTab({ url: '/pages/staff/staff' });
             },
           });
           return;
