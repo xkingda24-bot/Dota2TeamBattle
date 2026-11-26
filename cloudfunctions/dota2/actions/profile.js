@@ -159,6 +159,12 @@ module.exports = {
           };
           await db.collection('users').doc(me._id).update({ data: savedProfile });
         } catch (e) {
+          console.error('lookupDota autoSave failed:', {
+            accountId: String(event.accountId || ''),
+            errCode: e && (e.errCode || e.code),
+            errMsg: e && (e.errMsg || e.message),
+            stack: e && e.stack,
+          });
           return fail('段位校验成功，但自动保存失败，请重试');
         }
       }
