@@ -2,7 +2,9 @@ const assert = require('assert');
 const {
   RANK_VERIFICATION_TTL,
   dotaRankLabel,
+  dotaRankDisplayLabel,
   estimateMmrFromRankTier,
+  estimateImmortalMmrRange,
   toTimestamp,
   hasCurrentRankVerification,
   leaderboardRank,
@@ -16,6 +18,11 @@ assert.deepStrictEqual(
     '传奇1', '传奇5', '万古1', '万古5', '超凡1', '超凡5', '冠绝']
 );
 assert.strictEqual(dotaRankLabel(16), '未知段位');
+assert.strictEqual(dotaRankDisplayLabel({ dota2RankTier: 80, dota2LeaderboardRank: 1 }, true), '冠绝(1名)');
+assert.strictEqual(dotaRankDisplayLabel({ rankTier: 80, leaderboardRank: 2000 }, true), '冠绝(2000名)');
+assert.strictEqual(dotaRankDisplayLabel({ dota2RankTier: 80 }, true), '冠绝');
+assert.strictEqual(dotaRankDisplayLabel({ dota2RankTier: 64, dota2LeaderboardRank: 1 }, true), '万古4');
+assert.strictEqual(dotaRankDisplayLabel({ dota2RankTier: 80, dota2LeaderboardRank: 1 }, false), '冠绝');
 assert.strictEqual(estimateMmrFromRankTier(11), 1);
 assert.strictEqual(estimateMmrFromRankTier(15), 616);
 assert.strictEqual(estimateMmrFromRankTier(25), 1386);
@@ -24,6 +31,12 @@ assert.strictEqual(estimateMmrFromRankTier(75), 5420);
 assert.strictEqual(estimateMmrFromRankTier(80), 5620);
 assert.strictEqual(estimateMmrFromRankTier(16), null);
 assert.strictEqual(estimateMmrFromRankTier(null), null);
+assert.deepStrictEqual(estimateImmortalMmrRange(1), { min: 8500, max: 9500, estimate: 9000 });
+assert.deepStrictEqual(estimateImmortalMmrRange(500), { min: 7500, max: 8500, estimate: 8000 });
+assert.deepStrictEqual(estimateImmortalMmrRange(1000), { min: 6800, max: 7500, estimate: 7150 });
+assert.deepStrictEqual(estimateImmortalMmrRange(2000), { min: 6000, max: 6800, estimate: 6400 });
+assert.deepStrictEqual(estimateImmortalMmrRange(5000), { min: 5620, max: 6000, estimate: 5810 });
+assert.strictEqual(estimateImmortalMmrRange(null), null);
 assert.strictEqual(toTimestamp(String(now)), now);
 assert.strictEqual(toTimestamp(new Date(now).toISOString()), now);
 

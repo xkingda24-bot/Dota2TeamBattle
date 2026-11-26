@@ -78,6 +78,30 @@ function normalizeLeaderboardRank(source) {
   return Number.isInteger(rank) && rank >= 1 && rank <= 10000 ? rank : null;
 }
 
+function hasMissingPublicData(source) {
+  const player = source || {};
+  const snapshot = player.dota2LookupSnapshot || player.dota2Lookup;
+  const data = snapshot || ((player.recentStats || Array.isArray(player.commonHeroes)) ? player : null);
+  if (!data) return player.dota2PublicDataMissing === true;
+  const total = Number(data.recentStats && data.recentStats.total);
+  const commonHeroes = Array.isArray(data.commonHeroes) ? data.commonHeroes : [];
+  return (!Number.isFinite(total) || total <= 0) && commonHeroes.length === 0;
+}
+
+function hasSmurfWarning(source) {
+  const player = source || {};
+  const snapshot = player.dota2LookupSnapshot || player.dota2Lookup;
+  const recent = snapshot && snapshot.recentStats ? snapshot.recentStats : player.recentStats;
+  if (!recent) return player.dota2SmurfWarning === true;
+  const total = Number(recent.total);
+  const wins = Number(recent.wins);
+  const kda = Number(recent.kda);
+  if (!Number.isFinite(total) || total <= 0) return false;
+  const highWinRate = Number.isFinite(wins) && wins >= 0 && wins <= total && wins / total >= 0.8;
+  const highKda = Number.isFinite(kda) && kda >= 5;
+  return highWinRate || highKda;
+}
+
 function publicDotaCardFields(mmr, snapshot, currentProfile, now) {
   // Prefer the registration snapshot when its rank proof is current; otherwise
   // use the latest profile. Rank verification is intentionally independent of MMR.
@@ -97,6 +121,8 @@ function publicDotaCardFields(mmr, snapshot, currentProfile, now) {
     dota2RankLabel: verifiedSource ? dotaRankLabel(rankTier) : '',
     dota2LeaderboardRank: leaderboardRank,
     dota2RankVerifiedAt: verifiedAt,
+    dota2SmurfWarning: verifiedSource ? hasSmurfWarning(verifiedSource) : false,
+    dota2PublicDataMissing: verifiedSource ? hasMissingPublicData(verifiedSource) : false,
   };
 }
 
@@ -104,5 +130,7 @@ module.exports = {
   RANK_VERIFICATION_TTL,
   dotaRankLabel,
   isRankVerified,
+  hasSmurfWarning,
+  hasMissingPublicData,
   publicDotaCardFields,
 };

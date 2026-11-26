@@ -1,17 +1,17 @@
 /**
  * pages/history/history.js - 完整历史赛事
  *
- * 数据来自 listHistory 的 createdAt 游标分页：每次只取一页，滚动到底或点「加载更多」再取下一页，
+ * 数据来自 listHistory 的 createdAt 游标分页：每页固定 10 场，支持上一页、下一页，
  * 历史再多也不会被截断。支持按赛季筛选（赛季口径与赛季积分一致）和按赛事名搜索。
  */
 const api = require('../../utils/api');
 const tournamentEntry = require('../../utils/tournament-entry');
 const { getTodayBoundary } = require('../../utils/date-time');
-const { itemId, mergeHistoryPage } = require('../../utils/history-merge');
+const { itemId } = require('../../utils/history-merge');
 const { settleUntilDone } = require('../../utils/season-settle');
 const { selectTabBar } = require('../../utils/tab-bar');
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 10;
 const SEARCH_DEBOUNCE = 450;
 
 function phaseText(status) {
@@ -35,6 +35,16 @@ function decorate(item) {
   });
 }
 
+function buildPageItems(page, cursorStack, hasMore) {
+  const knownPages = Math.max(1, cursorStack.length);
+  const count = knownPages + (page === knownPages && hasMore ? 1 : 0);
+  const items = [];
+  for (let value = 1; value <= count; value += 1) {
+    items.push({ page: value, active: value === page });
+  }
+  return items;
+}
+
 Page({
   data: {
     items: [],
@@ -44,6 +54,10 @@ Page({
     hasMore: false,
     cursorCreatedAt: 0,
     cursorId: '',
+    cursorStack: [],
+    page: 1,
+    pageItems: [],
+    pageScrollTarget: 'page-number-1',
     keywordInput: '',
     keyword: '',
     seasonId: '',
@@ -68,10 +82,6 @@ Page({
     this.loadFirstPage().finally(() => wx.stopPullDownRefresh());
   },
 
-  onReachBottom() {
-    this.loadMore();
-  },
-
   onUnload() {
     if (this._searchTimer) clearTimeout(this._searchTimer);
   },
@@ -81,6 +91,8 @@ Page({
   loadFirstPage() {
     this._requestId = (this._requestId || 0) + 1;
     const requestId = this._requestId;
+    const firstCursor = { createdAt: 0, id: '' };
+    const cursorStack = [firstCursor];
     this.setData({
       loading: true,
       loadingMore: false,
@@ -89,38 +101,68 @@ Page({
       hasMore: false,
       cursorCreatedAt: 0,
       cursorId: '',
+      cursorStack,
+      page: 1,
+      pageItems: [],
+      pageScrollTarget: 'page-number-1',
     });
-    return this.fetchPage(requestId, true);
+    return this.fetchPage(requestId, firstCursor, { page: 1, cursorStack });
   },
 
-  loadMore() {
-    if (!this.data.hasMore || this.data.loading || this.data.loadingMore) return Promise.resolve();
+  loadNextPage() {
+    return this.loadPage(this.data.page + 1);
+  },
+
+  loadPreviousPage() {
+    return this.loadPage(this.data.page - 1);
+  },
+
+  goToPage(e) {
+    return this.loadPage(Number(e.currentTarget.dataset && e.currentTarget.dataset.page));
+  },
+
+  loadPage(targetPage) {
+    const target = Number(targetPage);
+    if (!Number.isInteger(target) || target < 1 || target === this.data.page ||
+      this.data.loading || this.data.loadingMore) return Promise.resolve();
+    let cursorStack = this.data.cursorStack;
+    let cursor = cursorStack[target - 1];
+    if (!cursor) {
+      if (target !== this.data.page + 1 || !this.data.hasMore) return Promise.resolve();
+      cursor = { createdAt: Number(this.data.cursorCreatedAt) || 0, id: String(this.data.cursorId || '') };
+      if (!cursor.createdAt || !cursor.id) return Promise.resolve();
+      cursorStack = cursorStack.concat([cursor]);
+    }
     this._requestId = (this._requestId || 0) + 1;
     const requestId = this._requestId;
+    const navigation = { page: target, cursorStack };
     this.setData({ loadingMore: true, error: '' });
-    return this.fetchPage(requestId, false);
+    return this.fetchPage(requestId, cursor, navigation);
   },
 
-  fetchPage(requestId, reset) {
+  fetchPage(requestId, cursor, navigation) {
     const todayStart = getTodayBoundary(new Date());
     return api
       .call('listHistory', {
         todayStart,
         limit: PAGE_SIZE,
-        cursorCreatedAt: reset ? 0 : this.data.cursorCreatedAt,
-        cursorId: reset ? '' : this.data.cursorId,
+        cursorCreatedAt: cursor.createdAt,
+        cursorId: cursor.id,
         seasonId: this.data.seasonId,
         keyword: this.data.keyword,
       })
       .then((d) => {
         if (requestId !== this._requestId) return;
-        const incoming = (d.older || []).map(decorate);
-        const merged = mergeHistoryPage(this.data.items, incoming, reset);
+        const hasMore = !!d.hasMore;
         this.setData({
-          items: merged,
-          hasMore: !!d.hasMore,
+          items: (d.older || []).map(decorate),
+          hasMore,
           cursorCreatedAt: (d.nextCursor && d.nextCursor.createdAt) || 0,
           cursorId: (d.nextCursor && d.nextCursor.id) || '',
+          cursorStack: navigation.cursorStack,
+          page: navigation.page,
+          pageItems: buildPageItems(navigation.page, navigation.cursorStack, hasMore),
+          pageScrollTarget: 'page-number-' + navigation.page,
           seasons: (d.seasons && d.seasons.length ? d.seasons : this.data.seasons),
           currentSeasonId: d.currentSeasonId || this.data.currentSeasonId,
           loading: false,
@@ -139,8 +181,11 @@ Page({
   },
 
   retry() {
-    if (this.data.items.length) return this.loadMore();
-    return this.loadFirstPage();
+    const cursor = this.data.cursorStack[this.data.page - 1] || { createdAt: 0, id: '' };
+    this._requestId = (this._requestId || 0) + 1;
+    const requestId = this._requestId;
+    this.setData({ loadingMore: !!this.data.items.length, loading: !this.data.items.length, error: '' });
+    return this.fetchPage(requestId, cursor, { page: this.data.page, cursorStack: this.data.cursorStack });
   },
 
   /* ---------- 搜索 ---------- */

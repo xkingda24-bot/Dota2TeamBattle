@@ -105,19 +105,19 @@
             <text wx:if="{{item.teamIconEmoji}}" class="captain-team-logo">{{item.teamIconEmoji}}</text>
             <text wx:if="{{item.teamName}}" class="team-tag">{{item.teamName}}</text>
           </view>
-          <player-card player="{{item}}" card-style="{{item.cardStyle}}" />
+          <player-card player="{{item}}" card-style="{{item.cardStyle}}" allow-smurf-warning="{{t.canManage}}" />
         </view>
       </view>
       <view wx:elif="{{activeTab === 'player' || (t.mode === 'auto' && activeTab === 'captain')}}">
         <view wx:if="{{playerList.length === 0}}" class="empty">还没有队员报名</view>
         <view class="reg-row" wx:for="{{playerList}}" wx:key="openid" data-role="player" data-openid="{{item.openid}}" data-nickname="{{item.nickname}}" bindtap="onMemberTap">
-          <player-card player="{{item}}" card-style="{{item.cardStyle}}" />
+          <player-card player="{{item}}" card-style="{{item.cardStyle}}" allow-smurf-warning="{{t.canManage}}" />
         </view>
       </view>
       <view wx:else>
         <view wx:if="{{waitlistList.length === 0}}" class="empty">还没有替补报名</view>
         <view class="reg-row" wx:for="{{waitlistList}}" wx:key="openid" data-role="waitlist" data-openid="{{item.openid}}" data-nickname="{{item.nickname}}" bindtap="onMemberTap">
-          <player-card player="{{item}}" card-style="{{item.cardStyle}}" />
+          <player-card player="{{item}}" card-style="{{item.cardStyle}}" allow-smurf-warning="{{t.canManage}}" />
         </view>
       </view>
     </view>

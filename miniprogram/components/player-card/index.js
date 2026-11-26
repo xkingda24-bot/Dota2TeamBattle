@@ -1,5 +1,8 @@
 const { DEFAULT_CARD_STYLE, normalizeCardStyle } = require('../../utils/card-style');
-const { dotaRankLabel, hasCurrentRankVerification } = require('../../utils/dota-rank');
+const { dotaRankDisplayLabel, hasCurrentRankVerification } = require('../../utils/dota-rank');
+const { shouldShowSmurfWarning } = require('../../utils/dota-smurf');
+const { currentViewerOpenid } = require('../../utils/viewer-identity');
+const { hasMissingPublicData } = require('../../utils/dota-public-data');
 const { ROLE_NUMS, VERSATILE_LABEL, normalizeRoles, isVersatileText } = require('../../utils/roles');
 const { getSeasonCardStats } = require('../../utils/season-points-cache');
 const { formatHonors } = require('../../utils/honors');
@@ -23,6 +26,13 @@ Component({
       },
     },
     // 名次荣誉文案（如「1 冠 2 亚 4 季」）：不传时组件自己算（来自 getCardPoints），传了以传入值为准
+    allowSmurfWarning: {
+      type: Boolean,
+      value: false,
+      observer() {
+        this.updateDotaCard(this.data.player);
+      },
+    },
     honorsText: {
       type: String,
       value: '',
@@ -31,7 +41,9 @@ Component({
 
   data: {
     normalizedStyle: DEFAULT_CARD_STYLE,
-    dotaCard: { rankVerified: false, displayText: '', dota2Id: '', rankLabel: '', mmr: null },
+    dotaCard: { rankVerified: false, publicDataMissing: false, displayText: '', dota2Id: '', rankLabel: '', mmr: null },
+    smurfWarning: false,
+    smurfWarningSlides: [0, 1, 2, 3],
     seasonPointsReady: false,
     seasonPoints: '0',
     seasonMatches: '0',
@@ -82,15 +94,22 @@ Component({
       const dota2Id = String(source.dota2Id || '').trim();
       const mmr = source.mmr === null || source.mmr === undefined || source.mmr === '' ? '' : String(source.mmr);
       const rankVerified = hasCurrentRankVerification(source);
-      const rankLabel = rankVerified ? dotaRankLabel(source.dota2RankTier) : '未校验段位';
+      const publicDataMissing = rankVerified && hasMissingPublicData(source);
+      const rankLabel = !rankVerified
+        ? '未校验段位'
+        : publicDataMissing
+          ? '未公开比赛数据'
+          : dotaRankDisplayLabel(source, true);
       const displayText = [
         rankVerified && /^\d{5,12}$/.test(dota2Id) ? dota2Id : '',
         rankLabel,
         mmr,
       ].filter(Boolean).join(' ');
       this.setData({
+        smurfWarning: this.data.allowSmurfWarning && shouldShowSmurfWarning(source, currentViewerOpenid(), rankVerified),
         dotaCard: {
           rankVerified,
+          publicDataMissing,
           displayText,
           dota2Id: rankVerified && /^\d{5,12}$/.test(dota2Id) ? dota2Id : '',
           rankLabel,

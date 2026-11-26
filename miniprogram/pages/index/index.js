@@ -1,4 +1,4 @@
-// pages/index/index.js - 主页（创建比赛 + 今天的比赛 + 历史入口）
+// pages/index/index.js - 主页（创建比赛 + 今天的比赛）
 const api = require('../../utils/api');
 const { getTodayBoundary } = require('../../utils/date-time');
 const { normalizeRankTier, estimateMmrFromRankTier } = require('../../utils/dota-rank');
@@ -19,7 +19,6 @@ Page({
     todayCreateRemaining: 0,
     todayCreateLimit: 20,
     today: [],
-    older: [],
     // 积分入口常驻主页；服务不可用时仍显示状态，避免功能被静默隐藏。
     seasonPointsVisible: true,
     seasonPointsEnabled: false,
@@ -28,13 +27,6 @@ Page({
     seasonPointsValue: '—',
     seasonPointsRankText: '正在读取赛季数据…',
     seasonPointsStatus: '积分服务连接中',
-    historyExpanded: false,
-    // 历史赛事改为懒加载：展开时才请求，收起状态首页不查历史
-    historyLoaded: false,
-    historyLoading: false,
-    historyError: '',
-    historyHasMore: false,
-    historyBusyId: '',
     // 暗号验证弹窗
     secretModal: false,
     secretTargetId: '',
@@ -150,12 +142,9 @@ Page({
           todayCreateRemaining: d.todayCreateRemaining == null ? 0 : Number(d.todayCreateRemaining),
           todayCreateLimit: Number(d.todayCreateLimit || d.dailyLimit) || 20,
           today,
-          // 首页不再预取历史；已展开时顺手刷新，收起时等下次展开再拉
-          historyLoaded: this.data.historyExpanded ? this.data.historyLoaded : false,
           loading: false,
           loadError: '',
         });
-        if (this.data.historyExpanded) this.loadHistory();
         // 登录后未设置昵称 → 自动弹窗
         if (!d.user && !this._nickPrompted) {
           this._nickPrompted = true;
@@ -424,57 +413,6 @@ Page({
     wx.navigateTo({ url: '/pages/season-points/season-points' });
   },
 
-  toggleHistory() {
-    const expanded = !this.data.historyExpanded;
-    this.setData({ historyExpanded: expanded });
-    if (expanded && !this.data.historyLoaded) this.loadHistory();
-  },
-
-  // 历史赛事懒加载：首页只取最近几场，完整历史进「历史赛事」页看
-  loadHistory() {
-    if (this.data.historyLoading) return Promise.resolve();
-    this.setData({ historyLoading: true, historyError: '' });
-    const todayStart = getTodayBoundary(new Date());
-    return api
-      .call('listHistory', { todayStart, limit: 5 })
-      .then((d) => {
-        const older = (d.older || []).map((item) =>
-          Object.assign({}, item, {
-            phaseText:
-              item.status === 'registration'
-                ? '报名中'
-                : item.status === 'draft'
-                ? '选人中'
-                : item.status === 'battle'
-                ? '对战中'
-                : '已结束',
-          })
-        );
-        this.setData({
-          older,
-          historyLoaded: true,
-          historyLoading: false,
-          historyError: '',
-          historyHasMore: !!d.hasMore,
-        });
-      })
-      .catch((err) => {
-        this.setData({
-          historyLoading: false,
-          historyError: err.message || '历史赛事加载失败，点此重试',
-        });
-      });
-  },
-
-  goHistoryPage() {
-    wx.switchTab({ url: '/pages/history/history' });
-  },
-
-  /* 历史比赛条目与「今天的比赛」走同一个入口，点进去就是同一个比赛页面。 */
-  goHistoryTournament(e) {
-    this.openTournament(this.data.older[Number(e.currentTarget.dataset.index)]);
-  },
-
   /* 统一入口：按比赛当前状态决定落到报名页、选人页还是比赛页。 */
   openTournament(item) {
     if (!item) return;
@@ -494,35 +432,6 @@ Page({
       secretTargetName: item.name,
       secretInput: '',
       secretChecking: false,
-    });
-  },
-
-  deleteFromHistory(e) {
-    if (this.data.historyBusyId) return;
-    const item = this.data.older[Number(e.currentTarget.dataset.index)];
-    if (!item || !item.canDelete) return;
-    const id = String(item.id || item._id || '');
-    if (!id) {
-      wx.showToast({ title: '赛事编号缺失，请刷新后重试', icon: 'none' });
-      return;
-    }
-    wx.showModal({
-      title: '删除确认',
-      content: '「' + item.name + '」及其比赛数据将被删除，确定继续？',
-      confirmText: '确认删除',
-      confirmColor: '#e5484d',
-      success: (res) => {
-        if (!res.confirm) return;
-        this.setData({ historyBusyId: id });
-        api.call('deleteTournament', { id })
-          .then(() => {
-            wx.showToast({ title: '已删除', icon: 'success' });
-            this.setData({ historyLoaded: false });
-            return this.loadHistory();
-          })
-          .catch((err) => wx.showToast({ title: err.message || '删除失败，请重试', icon: 'none' }))
-          .finally(() => this.setData({ historyBusyId: '' }));
-      },
     });
   },
 

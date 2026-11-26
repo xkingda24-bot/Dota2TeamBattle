@@ -137,36 +137,6 @@
     </view>
   </view>
 
-  <view wx:if="{{!loading && !loadError}}" class="history-section">
-    <view class="history-heading" bindtap="toggleHistory" aria-expanded="{{historyExpanded}}" hover-class="link-pressed">
-      <view class="history-heading-copy">
-        <view class="history-kicker">TOURNAMENT HISTORY</view>
-        <view class="history-title">历史赛事 <text wx:if="{{historyLoaded && older.length}}" class="history-count">最近 {{older.length}} 场</text></view>
-      </view>
-      <view class="history-chevron {{historyExpanded ? 'history-chevron-open' : ''}}">›</view>
-    </view>
-    <view wx:if="{{historyExpanded}}" class="history-body">
-      <view wx:if="{{historyLoading && !older.length}}" class="history-empty">正在加载历史赛事…</view>
-      <view wx:elif="{{historyError && !older.length}}" class="history-empty" bindtap="loadHistory">{{historyError}}（点此重试）</view>
-      <view wx:elif="{{older.length === 0}}" class="history-empty">暂无历史赛事</view>
-      <view wx:for="{{older}}" wx:for-item="item" wx:key="id" class="history-item" data-index="{{index}}" bindtap="goHistoryTournament">
-        <view class="history-item-main">
-          <view class="history-item-top">
-            <view class="history-item-title">{{item.name}}</view>
-            <view class="phase-tag {{item.status === 'registration' ? 'phase-registration' : item.status === 'draft' ? 'phase-draft' : item.status === 'battle' ? 'phase-battle' : 'phase-finished'}}">{{item.phaseText}}</view>
-          </view>
-          <view class="history-item-meta">{{item.time}}<text wx:if="{{item.N}}"> · {{item.N}} 支队伍</text><text wx:if="{{!item.settled}}" class="history-unsettled">积分未结算</text></view>
-          <view wx:if="{{item.champion}}" class="history-item-meta history-champion">冠军：{{item.champion.name}}</view>
-        </view>
-        <button wx:if="{{item.canDelete}}" class="history-action history-delete-action" data-index="{{index}}" catch:tap="deleteFromHistory" hover-class="btn-pressed">{{historyBusyId === item.id || historyBusyId === item._id ? '处理中…' : '删除'}}</button>
-      </view>
-      <view wx:if="{{historyError && older.length}}" class="history-footnote" bindtap="loadHistory">刷新失败 · 点此重试</view>
-      <view wx:if="{{historyHasMore}}" class="history-more" bindtap="goHistoryPage" hover-class="link-pressed">
-        <text>查看全部历史</text><text class="history-more-arrow">›</text>
-      </view>
-    </view>
-  </view>
-
 
   <view class="home-bottom-note">
     <view>GLHF <text>·</text> GOOD LUCK, HAVE FUN</view>
@@ -214,12 +184,13 @@
         </view>
       </view>
       <view class="dota-result-grid">
-        <view class="dota-result-item"><view class="dota-result-label">段位</view><view class="dota-result-value">{{pfDotaLookup.rankLabel}}</view></view>
-        <view class="dota-result-item"><view class="dota-result-label">预估分</view><view class="dota-result-value">{{pfDotaLookup.estimatedMmr}} 分</view></view>
+        <view class="dota-result-item"><view class="dota-result-label">段位</view><view class="dota-result-value">{{pfDotaLookup.rankDisplayText}}</view></view>
+        <view class="dota-result-item"><view class="dota-result-label">{{pfDotaLookup.estimateLabel}}</view><view class="dota-result-value">{{pfDotaLookup.estimatedMmrText}}</view></view>
         <view class="dota-result-item"><view class="dota-result-label">最近战绩</view><view class="dota-result-value">{{pfDotaLookup.recentRecordText}}</view></view>
         <view class="dota-result-item"><view class="dota-result-label">KDA</view><view class="dota-result-value">{{pfDotaLookup.recentKdaText}}</view></view>
       </view>
       <view class="dota-result-heroes"><view class="dota-result-label">常用英雄</view><view class="dota-result-hero-names">{{pfDotaLookup.commonHeroesText}}</view></view>
+      <view wx:if="{{pfDotaLookup.showPublicDataTip}}" class="dota-public-data-tip">请在dota2设置-社交-✅公开比赛数据</view>
       <view class="dota-result-times">
         <view>校验时间：{{pfDotaLookup.verifiedAtText}}</view>
         <view>有效期至：{{pfDotaLookup.validUntilText}}（7 天）</view>

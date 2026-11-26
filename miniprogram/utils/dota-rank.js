@@ -31,6 +31,25 @@ function estimateMmrFromRankTier(rankTier) {
   return Math.max(1, base + (stars - 1) * starMmr);
 }
 
+// 冠绝名次仅用于粗略展示，不是官方分数换算；后续可按赛季样本调整。
+function estimateImmortalMmrRange(rank) {
+  const position = Number(rank);
+  if (!Number.isInteger(position) || position < 1) return null;
+  if (position <= 100) return { min: 8500, max: 9500, estimate: 9000 };
+  if (position <= 500) return { min: 7500, max: 8500, estimate: 8000 };
+  if (position <= 1000) return { min: 6800, max: 7500, estimate: 7150 };
+  if (position <= 2000) return { min: 6000, max: 6800, estimate: 6400 };
+  return { min: 5620, max: 6000, estimate: 5810 };
+}
+
+function dotaRankDisplayLabel(player, verified) {
+  const source = player || {};
+  const rankTier = normalizeRankTier(source.dota2RankTier !== undefined ? source.dota2RankTier : source.rankTier);
+  const label = dotaRankLabel(rankTier);
+  const position = leaderboardRank(source, verified);
+  return rankTier === 80 && position ? label + '(' + position + '名)' : label;
+}
+
 function toTimestamp(value) {
   if (value === null || value === undefined || value === '') return 0;
   const numeric = Number(value);
@@ -68,7 +87,9 @@ module.exports = {
   RANK_VERIFICATION_TTL,
   normalizeRankTier,
   dotaRankLabel,
+  dotaRankDisplayLabel,
   estimateMmrFromRankTier,
+  estimateImmortalMmrRange,
   toTimestamp,
   rankVerifiedAt,
   hasCurrentRankVerification,

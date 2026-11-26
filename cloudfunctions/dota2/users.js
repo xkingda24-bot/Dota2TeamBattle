@@ -22,6 +22,7 @@ const REGISTRATION_PROFILE_FIELDS = {
   dota2RankVerifiedAt: true,
   dota2VerifiedAt: true,
   dota2LeaderboardRank: true,
+  dota2LookupSnapshot: true,
   updatedAt: true,
   createdAt: true,
 };

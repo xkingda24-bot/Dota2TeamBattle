@@ -81,9 +81,27 @@
 
   <!-- 分页 -->
   <view wx:if="{{error && items.length}}" class="state state-error" bindtap="retry">加载失败 · 点此重试</view>
-  <view wx:elif="{{loadingMore}}" class="state">正在加载更多…</view>
-  <view wx:elif="{{hasMore}}" class="more" bindtap="loadMore" hover-class="link-pressed">加载更多</view>
-  <view wx:elif="{{items.length}}" class="end">已经到底了 · 共 {{items.length}} 场</view>
+  <view wx:if="{{loadingMore}}" class="state">正在加载…</view>
+  <view wx:if="{{items.length && !loading}}" class="pagination">
+    <view class="page-btn {{page <= 1 || loadingMore ? 'page-btn-disabled' : ''}}" bindtap="loadPreviousPage">上一页</view>
+    <view class="page-center">
+      <scroll-view scroll-x enhanced show-scrollbar="{{false}}" scroll-with-animation scroll-into-view="{{pageScrollTarget}}" class="page-number-scroll">
+        <view class="page-numbers">
+          <view
+            wx:for="{{pageItems}}"
+            wx:for-item="pageItem"
+            wx:key="page"
+            id="page-number-{{pageItem.page}}"
+            class="page-number {{pageItem.active ? 'page-number-active' : ''}} {{loadingMore ? 'page-number-disabled' : ''}}"
+            data-page="{{pageItem.page}}"
+            bindtap="goToPage"
+          >{{pageItem.page}}</view>
+        </view>
+      </scroll-view>
+      <view class="page-size">第 {{page}} 页 · 每页 10 场</view>
+    </view>
+    <view class="page-btn {{!hasMore || loadingMore ? 'page-btn-disabled' : ''}}" bindtap="loadNextPage">下一页</view>
+  </view>
 </view>
 
 <!-- 报名暗号验证 -->

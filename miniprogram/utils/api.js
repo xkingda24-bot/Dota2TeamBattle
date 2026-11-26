@@ -1,6 +1,8 @@
 /**
  * 云函数调用封装（身份由微信 OpenID 确认，无需密码会话）
  */
+const { rememberViewerOpenid } = require('./viewer-identity');
+
 function call(action, data) {
   const payload = Object.assign({}, data || {}, { action });
   return wx.cloud
@@ -12,6 +14,7 @@ function call(action, data) {
         err.biz = true;
         throw err;
       }
+      rememberViewerOpenid(r.data);
       return r.data;
     })
     .catch((e) => {
@@ -39,6 +42,7 @@ function callFunction(name, action, data) {
         err.biz = true;
         throw err;
       }
+      rememberViewerOpenid(r.data);
       return r.data;
     })
     .catch((e) => {

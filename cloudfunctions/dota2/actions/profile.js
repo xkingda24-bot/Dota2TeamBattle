@@ -5,7 +5,7 @@
 const { cloud, db } = require('../db');
 const { ok, fail, getOpenId } = require('../utils');
 const { DOTA_ID_RE } = require('../constants');
-const { isRankVerified } = require('../card-profile');
+const { isRankVerified, hasSmurfWarning, hasMissingPublicData } = require('../card-profile');
 const { getDotaProfile } = require('../dota-profile');
 const { getUser, getCardStylesByOpenids, getUsersByOpenids } = require('../users');
 const { DEFAULT_CARD_STYLE, CARD_STYLE_OPTIONS, normalizeCardStyle } = require('../cards');
@@ -23,6 +23,7 @@ function buildDotaLookupSnapshot(profile, verifiedAt) {
     avatarUrl: String(profile.avatarUrl || ''),
     rankTier: Number(profile.rankTier) || 0,
     leaderboardRank: profile.leaderboardRank == null ? null : Number(profile.leaderboardRank),
+    mmrEstimate: profile.mmrEstimate == null ? null : Number(profile.mmrEstimate),
     verifiedAt: Number(verifiedAt) || Date.now(),
     recentStats: {
       total: Number(recent.total) || 0,
@@ -125,6 +126,8 @@ function publicPlayerProfile(user, openid) {
     dota2RankTier: source.dota2RankTier == null ? null : Number(source.dota2RankTier),
     dota2LeaderboardRank: source.dota2LeaderboardRank == null ? null : Number(source.dota2LeaderboardRank),
     dota2RankVerifiedAt: Number(source.dota2RankVerifiedAt || source.dota2VerifiedAt) || null,
+    dota2SmurfWarning: isRankVerified(source) && hasSmurfWarning(source),
+    dota2PublicDataMissing: isRankVerified(source) && hasMissingPublicData(source),
     createdAt: Number(source.createdAt) || null,
   };
 }

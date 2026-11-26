@@ -123,6 +123,10 @@ async function fetchDotaProfile(accountId) {
     Number(leaderboardValue) >= 1 && Number(leaderboardValue) <= 10000
     ? Number(leaderboardValue)
     : null;
+  const mmrEstimateValue = Number(payload.mmr_estimate && payload.mmr_estimate.estimate);
+  const mmrEstimate = Number.isFinite(mmrEstimateValue) && mmrEstimateValue >= 1 && mmrEstimateValue <= 20000
+    ? Math.round(mmrEstimateValue)
+    : null;
 
   // 补充数据失败不影响段位校验；三个接口并行，避免串行增加等待时间。
   const [recentMatches, playerHeroes, heroCatalog] = await Promise.all([
@@ -137,6 +141,7 @@ async function fetchDotaProfile(accountId) {
     rankTier,
     rankLabel,
     leaderboardRank,
+    mmrEstimate,
     recentStats: summarizeRecentMatches(recentMatches),
     commonHeroes: buildCommonHeroes(playerHeroes, heroCatalog),
   };

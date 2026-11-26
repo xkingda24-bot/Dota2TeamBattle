@@ -97,6 +97,11 @@
       <view class="effect-c"></view>
     </block>
   </view>
+  <view wx:if="{{smurfWarning}}" class="smurf-warning" aria-label="小号警告">
+    <view class="smurf-warning-track" aria-hidden="true">
+      <text wx:for="{{smurfWarningSlides}}" wx:key="*this" class="smurf-warning-text">⚠️小号警告⚠️</text>
+    </view>
+  </view>
   <view class="player-card-content">
     <view class="player-card-heading">
       <view class="player-card-name">{{player.nickname || '未设置昵称'}}</view>

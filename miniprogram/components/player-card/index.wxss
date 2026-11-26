@@ -19,6 +19,21 @@
   background: radial-gradient(circle, rgba(220, 181, 105, .22), rgba(220, 181, 105, 0) 68%);
   pointer-events: none;
 }
+.smurf-warning {
+  position: relative;
+  z-index: 3;
+  height: 36rpx;
+  margin: -4rpx 0 12rpx;
+  overflow: hidden;
+  border: 1rpx solid rgba(255, 112, 92, .72);
+  border-radius: 8rpx;
+  background: linear-gradient(90deg, rgba(112, 20, 20, .88), rgba(190, 48, 32, .88), rgba(112, 20, 20, .88));
+  color: #ffe3a3;
+  box-shadow: 0 0 14rpx rgba(255, 75, 52, .28);
+}
+.smurf-warning-track { display: flex; width: max-content; animation: smurf-warning-scroll 5s linear infinite; }
+.smurf-warning-text { flex: none; padding: 0 48rpx; color: #ffe3a3; font-size: 22rpx; font-weight: 800; line-height: 34rpx; white-space: nowrap; text-shadow: 0 0 8rpx rgba(255, 218, 128, .55); }
+@keyframes smurf-warning-scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 .player-card-content { position: relative; z-index: 2; display: flex; align-items: center; gap: 16rpx; }
 .player-card-heading { display: flex; align-items: center; gap: 12rpx; flex: 1; min-width: 0; }
 .player-card-role { padding: 4rpx 12rpx; border-radius: 16rpx; color: #201809; background: #e2ba70; font-size: 19rpx; flex: none; }

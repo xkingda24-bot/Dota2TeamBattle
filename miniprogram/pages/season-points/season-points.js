@@ -107,7 +107,7 @@ function buildSeasonView(data, fallbackSeasonId) {
       place: item.rank,
       isMine: !!item.isMine,
       honorsText: formatHonors(item.honors),
-      player: item.player || { openid: '', nickname: String(item.nickname || '玩家'), mmr: item.mmr },
+      player: Object.assign({}, item.player || { openid: '', nickname: String(item.nickname || '玩家'), mmr: item.mmr }, { isMine: !!item.isMine }),
     })),
     leaderboardPage: {
       page,

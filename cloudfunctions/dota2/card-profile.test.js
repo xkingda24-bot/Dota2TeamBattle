@@ -3,6 +3,8 @@ const {
   RANK_VERIFICATION_TTL,
   dotaRankLabel,
   isRankVerified,
+  hasSmurfWarning,
+  hasMissingPublicData,
   publicDotaCardFields,
 } = require('./card-profile');
 
@@ -86,6 +88,8 @@ assert.deepStrictEqual(
     dota2RankLabel: '万古2',
     dota2LeaderboardRank: 1234,
     dota2RankVerifiedAt: now - 1000,
+    dota2SmurfWarning: false,
+    dota2PublicDataMissing: false,
   },
   'rank card fields are independent of the supplied self-reported MMR'
 );
@@ -105,6 +109,8 @@ assert.deepStrictEqual(
     dota2RankLabel: '冠绝',
     dota2LeaderboardRank: null,
     dota2RankVerifiedAt: now - 1000,
+    dota2SmurfWarning: false,
+    dota2PublicDataMissing: false,
   },
   'legacy timestamp works and null leaderboard rank is retained as null'
 );
@@ -123,6 +129,8 @@ assert.deepStrictEqual(
     dota2RankLabel: '',
     dota2LeaderboardRank: null,
     dota2RankVerifiedAt: null,
+    dota2SmurfWarning: false,
+    dota2PublicDataMissing: false,
   }
 );
 
@@ -139,8 +147,36 @@ assert.deepStrictEqual(
     dota2RankLabel: '万古2',
     dota2LeaderboardRank: null,
     dota2RankVerifiedAt: now - 1000,
+    dota2SmurfWarning: false,
+    dota2PublicDataMissing: false,
   },
   'falls back to a current profile when the snapshot verification has expired'
 );
+
+assert.strictEqual(hasMissingPublicData(verifiedPlayer), false, '旧资料没有快照时不武断判定为未公开');
+assert.strictEqual(hasMissingPublicData({ dota2LookupSnapshot: { recentStats: { total: 0 }, commonHeroes: [] } }), true);
+assert.strictEqual(hasMissingPublicData({ dota2LookupSnapshot: { recentStats: { total: 20 }, commonHeroes: [] } }), false);
+assert.strictEqual(hasMissingPublicData({ dota2LookupSnapshot: { recentStats: { total: 0 }, commonHeroes: [{ heroId: 2 }] } }), false);
+assert.strictEqual(hasMissingPublicData({ dota2PublicDataMissing: true }), true);
+assert.strictEqual(hasSmurfWarning({ dota2LookupSnapshot: { recentStats: { total: 20, wins: 17, kda: 4 } } }), true);
+assert.strictEqual(hasSmurfWarning({ dota2LookupSnapshot: { recentStats: { total: 20, wins: 16, kda: 4 } } }), true, '80% 胜率应触发');
+assert.strictEqual(hasSmurfWarning({ dota2LookupSnapshot: { recentStats: { total: 20, wins: 15, kda: 4.99 } } }), false);
+assert.strictEqual(hasSmurfWarning({ recentStats: { total: 20, wins: 10, kda: 5 } }), true);
+assert.strictEqual(hasSmurfWarning({ recentStats: { total: 0, wins: 0, kda: 99 } }), false);
+assert.strictEqual(hasSmurfWarning({ dota2SmurfWarning: true }), true, '报名快照可只保留警告布尔值');
+const highWinRatePlayer = Object.assign({}, verifiedPlayer, {
+  dota2LookupSnapshot: { recentStats: { total: 20, wins: 17, kda: 4 } },
+});
+assert.strictEqual(publicDotaCardFields(1, highWinRatePlayer, null, now).dota2SmurfWarning, true);
+const missingPublicDataPlayer = Object.assign({}, verifiedPlayer, {
+  dota2LookupSnapshot: { recentStats: { total: 0 }, commonHeroes: [] },
+});
+assert.strictEqual(publicDotaCardFields(1, missingPublicDataPlayer, null, now).dota2PublicDataMissing, true);
+assert.strictEqual(publicDotaCardFields(1, Object.assign({}, missingPublicDataPlayer, {
+  dota2RankVerifiedAt: now - RANK_VERIFICATION_TTL,
+}), null, now).dota2PublicDataMissing, false, '过期校验不展示未公开状态');
+assert.strictEqual(publicDotaCardFields(1, Object.assign({}, highWinRatePlayer, {
+  dota2RankVerifiedAt: now - RANK_VERIFICATION_TTL,
+}), null, now).dota2SmurfWarning, false, '过期校验不展示小号警告');
 
 console.log('Verified Dota card profile tests passed.');

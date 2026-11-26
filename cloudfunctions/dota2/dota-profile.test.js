@@ -8,6 +8,7 @@ const payloads = {
   '/api/players/12345': {
     rank_tier: 43,
     leaderboard_rank: null,
+    mmr_estimate: { estimate: 2618.4 },
     profile: {
       personaname: '测试玩家',
       avatarfull: 'https://cdn.example/avatar-full.jpg',
@@ -62,6 +63,7 @@ https.get = (options, onResponse) => {
   assert.strictEqual(profile.nickname, '测试玩家');
   assert.strictEqual(profile.avatarUrl, 'https://cdn.example/avatar-full.jpg');
   assert.strictEqual(profile.rankTier, 43);
+  assert.strictEqual(profile.mmrEstimate, 2618);
   assert.deepStrictEqual(profile.recentStats, {
     total: 2,
     wins: 1,
